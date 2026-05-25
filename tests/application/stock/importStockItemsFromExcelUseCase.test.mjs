@@ -7,8 +7,9 @@ test("importação bloqueia duplicidade Centro + Material", async () => {
       read: () => ({ SheetNames: ["S1"], Sheets: { S1: {} } }),
       utils: {
         sheet_to_json: () => [
-          { Center: "9860", Material: "29092", Description: "A", EvaluatedStockTotal: "10" },
-          { Center: "9860", Material: "29092", Description: "B", EvaluatedStockTotal: "5" }
+          ["Material", "Descrição", "Centro", "Estoque avaliado total"],
+          ["29092", "A", "9860", "10"],
+          ["29092", "B", "9860", "5"]
         ]
       }
     }
@@ -18,5 +19,5 @@ test("importação bloqueia duplicidade Centro + Material", async () => {
   const file = new File(["dummy"], "stock.xlsx");
   const result = await importStockItemsFromExcelUseCase({ file });
   assert.equal(result.validRows, 1);
-  assert.match(result.errors[0].message, /Existe mais de uma linha para o mesmo Centro \+ Material: 9860-29092\./);
+  assert.match(result.errors[0].message, /Duplicidade encontrada para Centro \+ Material: 9860-29092\./);
 });

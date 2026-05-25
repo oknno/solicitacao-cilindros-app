@@ -7,53 +7,139 @@ export interface ImportStockItemsFromExcelOutput {
   errors: Array<{ row: number; message: string }>;
 }
 
-type RowRecord = Record<string, unknown>;
-const HEADER_ALIASES: Record<string, keyof StockMaterial> = { material: "materialCode", description: "description", "descrição": "description", center: "center", centro: "center", evaluatedstocktotal: "evaluatedStockTotal", "estoque avaliado total": "evaluatedStockTotal" };
-const REQUIRED_FIELDS: Array<keyof StockMaterial> = ["materialCode", "description", "center", "evaluatedStockTotal"];
+type HeaderField = "materialCode" | "description" | "center" | "evaluatedStockTotal";
+type RawRow = unknown[];
 
-const normalizeHeader = (v: unknown) => String(v ?? "").trim().toLowerCase();
-const toText = (v: unknown) => String(v ?? "").trim();
-function parseStockValue(value: unknown): number | null { if (value == null) return null; if (typeof value === "number" && Number.isFinite(value)) return value; const parsed = Number(String(value).trim().replace(",", ".")); return Number.isFinite(parsed) ? parsed : null; }
-async function loadXlsxModule(): Promise<{ read: (data: ArrayBuffer, opts: { type: string }) => unknown; utils: { sheet_to_json: (sheet: unknown, opts: { defval: string }) => RowRecord[] } }> { const moduleName = "xlsx"; return await import(/* @vite-ignore */ moduleName); }
+const REQUIRED_COLUMNS: Array<{ field: HeaderField; label: string }> = [
+  { field: "materialCode", label: "Material" },
+  { field: "description", label: "Descrição" },
+  { field: "center", label: "Centro" },
+  { field: "evaluatedStockTotal", label: "Estoque avaliado total" }
+];
+
+const HEADER_ALIASES: Record<string, HeaderField> = {
+  material: "materialCode",
+  description: "description",
+  descricao: "description",
+  center: "center",
+  centro: "center",
+  evaluatedstocktotal: "evaluatedStockTotal",
+  estoqueavaliadototal: "evaluatedStockTotal"
+};
+
+export function normalizeHeader(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s/g, "");
+}
+
+const toText = (value: unknown) => String(value ?? "").trim();
+
+function parseStockValue(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Number(toText(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+const isEmptyRow = (row: RawRow) => row.every((value) => toText(value) === "");
 
 export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFromExcelInput): Promise<ImportStockItemsFromExcelOutput> {
-  let rows: RowRecord[] = [];
   try {
-    const xlsx = await loadXlsxModule();
-    const workbook = xlsx.read(await input.file.arrayBuffer(), { type: "array" }) as { SheetNames?: string[]; Sheets?: Record<string, unknown> };
-    const sheetName = workbook.SheetNames?.[0];
-    if (!sheetName) return { totalRows: 0, validRows: 0, invalidRows: 0, items: [], errors: [{ row: 0, message: "Arquivo sem planilha." }] };
-    rows = xlsx.utils.sheet_to_json(workbook.Sheets?.[sheetName], { defval: "" });
-  } catch {
-    return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: "Não foi possível ler o Excel." }] };
+    const xlsxModuleName = "xlsx";
+    const xlsx = await import(/* @vite-ignore */ xlsxModuleName);
+    const buffer = await input.file.arrayBuffer();
+    const workbook = xlsx.read(buffer, { type: "array" });
+
+    if (!workbook.SheetNames?.length) {
+      return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: "O arquivo não possui abas." }] };
+    }
+
+    let rows: RawRow[] | null = null;
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets?.[sheetName];
+      if (!sheet) continue;
+      const currentRows = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false }) as RawRow[];
+      if (currentRows.length > 0) {
+        rows = currentRows;
+        break;
+      }
+    }
+
+    if (!rows || rows.length === 0) {
+      return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: "Nenhuma aba com dados foi encontrada no arquivo." }] };
+    }
+
+    const headerIndex = rows.findIndex((row) => !isEmptyRow(row));
+    if (headerIndex === -1) {
+      return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: "Nenhuma aba com dados foi encontrada no arquivo." }] };
+    }
+
+    const headerRow = rows[headerIndex];
+    const dataRows = rows.slice(headerIndex + 1);
+    const headerMap = new Map<number, HeaderField>();
+
+    headerRow.forEach((headerValue, index) => {
+      const field = HEADER_ALIASES[normalizeHeader(headerValue)];
+      if (field) headerMap.set(index, field);
+    });
+
+    const missingColumns = REQUIRED_COLUMNS.filter(({ field }) => !Array.from(headerMap.values()).includes(field));
+    if (missingColumns.length > 0) {
+      return {
+        totalRows: dataRows.length,
+        validRows: 0,
+        invalidRows: dataRows.length || 1,
+        items: [],
+        errors: missingColumns.map(({ label }) => ({ row: 0, message: `Coluna obrigatória não encontrada: ${label}.` }))
+      };
+    }
+
+    const items: StockMaterial[] = [];
+    const errors: Array<{ row: number; message: string }> = [];
+    const seenKeys = new Set<string>();
+
+    dataRows.forEach((row, dataIndex) => {
+      if (isEmptyRow(row)) return;
+      const line = headerIndex + dataIndex + 2;
+
+      const materialCode = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "materialCode")?.[0] ?? -1]);
+      const description = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "description")?.[0] ?? -1]);
+      const center = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "center")?.[0] ?? -1]);
+      const evaluatedStockTotal = parseStockValue(row[Array.from(headerMap.entries()).find(([, field]) => field === "evaluatedStockTotal")?.[0] ?? -1]);
+
+      if (!materialCode) errors.push({ row: line, message: "Material é obrigatório." });
+      if (!description) errors.push({ row: line, message: "Descrição é obrigatória." });
+      if (!center) errors.push({ row: line, message: "Centro é obrigatório." });
+      if (evaluatedStockTotal == null) errors.push({ row: line, message: "Estoque avaliado total é obrigatório." });
+
+      const itemKey = buildStockItemTitle(center, materialCode);
+      if (!errors.some((error) => error.row === line) && seenKeys.has(itemKey)) {
+        errors.push({ row: line, message: `Duplicidade encontrada para Centro + Material: ${itemKey}.` });
+        return;
+      }
+
+      if (!errors.some((error) => error.row === line)) {
+        seenKeys.add(itemKey);
+        items.push({
+          materialCode,
+          description,
+          center,
+          evaluatedStockTotal
+        });
+      }
+    });
+
+    return { totalRows: dataRows.length, validRows: items.length, invalidRows: new Set(errors.map((error) => error.row)).size, items, errors };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error("Erro ao ler Excel de estoque", error);
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: `Não foi possível ler o Excel: ${message}` }] };
   }
-
-  const headerMap = new Map<string, keyof StockMaterial>();
-  Object.keys(rows[0] ?? {}).forEach((header) => { const field = HEADER_ALIASES[normalizeHeader(header)]; if (field) headerMap.set(header, field); });
-  const missing = REQUIRED_FIELDS.filter((field) => !Array.from(headerMap.values()).includes(field));
-  if (missing.length) return { totalRows: rows.length, validRows: 0, invalidRows: rows.length, items: [], errors: [{ row: 0, message: `Colunas obrigatórias ausentes: ${missing.join(", ")}.` }] };
-
-  const items: StockMaterial[] = []; const errors: Array<{ row: number; message: string }> = [];
-  const seenKeys = new Set<string>();
-  rows.forEach((row, idx) => {
-    const normalized: Partial<StockMaterial> = {};
-    Object.entries(row).forEach(([header, raw]) => { const field = headerMap.get(header); if (!field) return; if (field === "evaluatedStockTotal") { (normalized as Record<string, unknown>)[field] = parseStockValue(raw); } else { (normalized as Record<string, unknown>)[field] = toText(raw); } });
-    const line = idx + 2;
-    if (!toText(normalized.materialCode) && !toText(normalized.description) && !toText(normalized.center) && normalized.evaluatedStockTotal == null) return;
-    if (!toText(normalized.materialCode)) errors.push({ row: line, message: "Material é obrigatório." });
-    if (!toText(normalized.description)) errors.push({ row: line, message: "Description é obrigatório." });
-    if (!toText(normalized.center)) errors.push({ row: line, message: "Center é obrigatório." });
-    if (normalized.evaluatedStockTotal == null) errors.push({ row: line, message: "EvaluatedStockTotal inválido." });
-    const itemKey = buildStockItemTitle(toText(normalized.center), toText(normalized.materialCode));
-    if (!errors.some((e) => e.row === line) && seenKeys.has(itemKey)) {
-      errors.push({ row: line, message: `Existe mais de uma linha para o mesmo Centro + Material: ${itemKey}.` });
-      return;
-    }
-    if (!errors.some((e) => e.row === line)) {
-      seenKeys.add(itemKey);
-      items.push(normalized as StockMaterial);
-    }
-  });
-
-  return { totalRows: rows.length, validRows: items.length, invalidRows: new Set(errors.map((e) => e.row)).size, items, errors };
 }
