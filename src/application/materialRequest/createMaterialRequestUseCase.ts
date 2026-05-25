@@ -17,6 +17,8 @@ export interface CreateMaterialRequestInput {
   requestedQuantity: number;
   requestReason: string;
   requesterJustification?: string;
+  materialDescription?: string;
+  isManualMaterial?: boolean;
 }
 
 export interface CreateMaterialRequestOutput {
@@ -52,8 +54,16 @@ export async function createMaterialRequestUseCase(
   }
 
   const requesterJustification = input.requesterJustification?.trim();
+  const isManualMaterial = Boolean(input.isManualMaterial);
+  const manualMaterialDescription = input.materialDescription?.trim();
 
-  const stockMaterial = await findStockMaterialByCenterAndCode({ center, materialCode });
+  if (isManualMaterial && !manualMaterialDescription) {
+    throw new Error("Informe a descrição do material.");
+  }
+
+  const stockMaterial = isManualMaterial
+    ? null
+    : await findStockMaterialByCenterAndCode({ center, materialCode });
   const stockAnalysis = analyzeStockForMaterialRequest({
     material: stockMaterial,
     requestedQuantity: input.requestedQuantity,
@@ -75,7 +85,9 @@ export async function createMaterialRequestUseCase(
     requesterName,
     requesterEmail: input.requesterEmail,
     materialCode,
-    materialDescription: stockMaterial?.description ?? "",
+    materialDescription: isManualMaterial
+      ? manualMaterialDescription ?? ""
+      : stockMaterial?.description ?? "",
     center,
     requestedQuantity: input.requestedQuantity,
     evaluatedStockTotalAtRequest: stockAnalysis.evaluatedStockTotal,

@@ -74,6 +74,24 @@ export async function findStockMaterialByCode(materialCode: string): Promise<Sto
   return mapSharePointStockMaterial(first, STOCK_MATERIAL_FIELDS);
 }
 
+
+
+export async function getStockCenters(): Promise<string[]> {
+  const url = `${buildListItemsUrl()}?$select=${STOCK_FIELDS.center}&$top=5000`;
+  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
+  return readItems(data)
+    .map((item) => String(item[STOCK_FIELDS.center] ?? "").trim())
+    .filter(Boolean);
+}
+
+export async function getStockMaterialsByCenter(center: string): Promise<StockMaterial[]> {
+  const normalizedCenter = normalizeQueryText(center);
+  if (!normalizedCenter) return [];
+  const filter = `${STOCK_FIELDS.center} eq '${normalizedCenter}'`;
+  const url = `${buildListItemsUrl()}?$select=${buildSelectClause()}&$filter=${escapeODataFilterLiterals(filter)}&$orderby=${STOCK_FIELDS.materialCode} asc&$top=5000`;
+  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
+  return readItems(data).map((item) => mapSharePointStockMaterial(item, STOCK_MATERIAL_FIELDS));
+}
 export async function findStockMaterialByCenterAndCode(input: { center: string; materialCode: string; }): Promise<StockMaterial | null> {
   const normalizedCenter = normalizeQueryText(input.center);
   const normalizedMaterialCode = normalizeQueryText(input.materialCode);
