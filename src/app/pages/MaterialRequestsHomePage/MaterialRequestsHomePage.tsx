@@ -8,7 +8,6 @@ import { MaterialRequestSummaryPanel } from "../../components/materialRequest/Ma
 import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { useToast } from "../../components/notifications/useToast";
-import { Card } from "../../components/ui/Card";
 import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
@@ -73,15 +72,7 @@ export function MaterialRequestsHomePage() {
     setApprovalModalState({ request: selectedRequest, initialDecision, approverRole });
   }
 
-  const indicators = {
-    total: items.length,
-    pendingLam: items.filter((i) => i.status === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
-    pendingCto: items.filter((i) => i.status === "PENDING_CTO_APPROVAL").length,
-    approved: items.filter((i) => i.status === "APPROVED").length,
-    exceptions: items.filter((i) => i.stockRecommendation === "PURCHASE_NOT_RECOMMENDED" || i.stockRecommendation === "MANUAL_REVIEW_REQUIRED").length,
-  };
-
-  return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto auto 1fr", gap: uiTokens.spacing.md }}>
+  return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
       title="Solicitação de Material Cilindros"
       isAdmin
@@ -116,8 +107,16 @@ export function MaterialRequestsHomePage() {
       onExportProject={() => undefined}
       availableUnits={[]}
     />
-    <div style={{ display: "grid", gap: uiTokens.spacing.sm, gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>{[["Total", indicators.total], ["Pendentes Gerente", indicators.pendingLam], ["Pendentes CTO", indicators.pendingCto], ["Aprovadas", indicators.approved], ["Exceções", indicators.exceptions]].map(([label, value]) => <Card key={String(label)}><div>{label}</div><div style={{ fontSize: 24, fontWeight: 700 }}>{value}</div></Card>)}</div>
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(360px,1fr)", gap: uiTokens.spacing.md, minHeight: 0 }}><Card style={{ minHeight: 0, overflow: "hidden" }}>{loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={items} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} />}</Card><Card style={{ overflow: "auto" }}><MaterialRequestSummaryPanel selected={selectedRequest} /></Card></div>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "minmax(0,2fr) minmax(340px,1fr)",
+      gap: uiTokens.spacing.md,
+      minHeight: 0,
+    }}
+    >
+      {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={items} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} />}
+      <MaterialRequestSummaryPanel selected={selectedRequest} />
+    </div>
 
     {formOpen && <MaterialRequestFormModal onClose={() => setFormOpen(false)} onCreated={() => { setFormOpen(false); void loadRequests(); }} />}
 
