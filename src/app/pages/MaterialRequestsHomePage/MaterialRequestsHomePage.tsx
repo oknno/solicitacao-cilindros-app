@@ -6,6 +6,7 @@ import { uiTokens } from "../../components/ui/tokens";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
+import type { CtoDecision } from "../../../domain/materialRequest";
 
 type AppView = "home" | "newRequest" | "ctoApproval";
 
@@ -18,7 +19,7 @@ const DEFAULT_FILTERS: ProjectsFilters = {
   sortDir: "asc"
 };
 
-export function MaterialRequestsHomePage({ onChangeView }: { onChangeView: (view: AppView) => void }) {
+export function MaterialRequestsHomePage({ onChangeView, onCtoDecisionRequest }: { onChangeView: (view: AppView) => void; onCtoDecisionRequest: (request: MaterialRequest, initialDecision: CtoDecision) => void }) {
   const [items, setItems] = useState<MaterialRequest[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,8 +88,8 @@ export function MaterialRequestsHomePage({ onChangeView }: { onChangeView: (view
       onDelete={() => undefined}
       onSendToApproval={() => undefined}
       onBackStatus={() => undefined}
-      onApprove={() => onChangeView("ctoApproval")}
-      onReject={() => onChangeView("ctoApproval")}
+      onApprove={() => selected && onCtoDecisionRequest(selected, "APPROVE")}
+      onReject={() => selected && onCtoDecisionRequest(selected, "REJECT")}
       showApprovalActions
       onExportTable={() => undefined}
       onExportProject={() => undefined}
