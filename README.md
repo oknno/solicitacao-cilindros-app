@@ -1,6 +1,6 @@
-# CAPEX App
+# Solicitação de Material Cilindros
 
-Aplicação React + TypeScript para gestão de projetos CAPEX com integração ao SharePoint.
+Aplicação React + TypeScript para Solicitação de Material Cilindros com integração ao SharePoint.
 
 ## Visão de camadas
 

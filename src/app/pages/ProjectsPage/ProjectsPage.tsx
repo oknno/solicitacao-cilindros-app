@@ -337,7 +337,7 @@ export function ProjectsPage(props: {
     return (
       <BootstrapLoader
         title="Acesso bloqueado"
-        subtitle="Você não possui permissão para acessar nenhuma unidade do CAPEX. Solicite acesso ao administrador."
+        subtitle="Você não possui permissão para acessar nenhuma unidade de Solicitação de Material Cilindros. Solicite acesso ao administrador."
       />
     );
   }
