@@ -159,6 +159,7 @@ export function CommandBar(props: {
   onExportTable: () => void;
   onExportProject: () => void;
   availableUnits?: string[];
+  title?: string;
 }) {
   const hasSelection = props.selectedId != null;
   const unitOptions = props.availableUnits ?? ALL_UNIT_OPTIONS;
@@ -167,7 +168,7 @@ export function CommandBar(props: {
     <div style={styles.commandBar}>
       <div style={styles.titleWrap}>
         <div style={styles.title}>
-          Termo de Abertura de Projeto{props.isAdmin ? " | ADMIN" : ""}
+          {props.title ?? "Termo de Abertura de Projeto"}{props.isAdmin ? " | ADMIN" : ""}
         </div>
       </div>
 
