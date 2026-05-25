@@ -9,7 +9,8 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
   const [result, setResult] = useState<ImportStockItemsFromExcelOutput | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const canConfirm = Boolean(file && result && result.errors.length === 0 && result.items.length > 0 && !loading);
+  const hasColumnError = Boolean(result?.errors.some((error) => error.row === 0 && error.message.includes("Coluna obrigatória não encontrada")));
+  const canConfirm = Boolean(file && result && result.items.length > 0 && result.invalidRows === 0 && !hasColumnError && !loading);
   const preview = useMemo(() => result?.items.slice(0, 10) ?? [], [result]);
 
   async function onPick(nextFile: File) {
@@ -30,7 +31,7 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
       {file && <div>Arquivo: <b>{file.name}</b></div>}
       {result && <div>Total: {result.totalRows} | Válidas: {result.validRows} | Inválidas: {result.invalidRows}</div>}
       {result?.errors.length ? <ul>{result.errors.map((error, index) => <li key={`${error.row}-${index}`}>Linha {error.row}: {error.message}</li>)}</ul> : null}
-      {preview.length > 0 && <table><thead><tr><th>Material</th><th>Description</th><th>Center</th><th>EvaluatedStockTotal</th></tr></thead><tbody>{preview.map((item, i) => <tr key={`${item.materialCode}-${i}`}><td>{item.materialCode}</td><td>{item.description}</td><td>{item.center}</td><td>{item.evaluatedStockTotal ?? ""}</td></tr>)}</tbody></table>}
+      {preview.length > 0 && <table><thead><tr><th>Material</th><th>Descrição</th><th>Centro</th><th>Estoque avaliado total</th></tr></thead><tbody>{preview.map((item, i) => <tr key={`${item.materialCode}-${i}`}><td>{item.materialCode}</td><td>{item.description}</td><td>{item.center}</td><td>{item.evaluatedStockTotal ?? ""}</td></tr>)}</tbody></table>}
     </div>
   </AppModal>;
 }
