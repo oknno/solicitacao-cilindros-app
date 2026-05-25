@@ -10,5 +10,10 @@ const recommendationMap: Record<StockRecommendation, { text: string; tone: "info
 
 export function StockRecommendationBadge({ value }: { value: StockRecommendation }) {
   const mapped = recommendationMap[value];
-  return <Badge text={mapped.text} tone={mapped.tone} />;
+
+  if (!mapped && import.meta.env.DEV) {
+    console.warn("[StockRecommendationBadge] Parecer desconhecido recebido:", value);
+  }
+
+  return <Badge text={mapped?.text ?? value ?? "-"} tone={mapped?.tone ?? "warning"} />;
 }
