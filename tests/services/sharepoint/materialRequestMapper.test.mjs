@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   mapMaterialRequestToSharePointPayload,
+  mapMaterialRequestToUpdatePayload,
   mapSharePointMaterialRequest
 } from "../../../src/services/sharepoint/mappers/materialRequestMapper.ts";
 
@@ -72,4 +73,45 @@ test("mapMaterialRequestToSharePointPayload converte números para texto e prese
   assert.equal("CtoApproverEmail" in payload, false);
   assert.equal("CtoJustification" in payload, false);
   assert.equal("CtoDecisionDate" in payload, false);
+});
+
+test("mapMaterialRequestToUpdatePayload envia apenas os campos presentes no patch", () => {
+  const payload = mapMaterialRequestToUpdatePayload({
+    status: "PENDING_CTO_APPROVAL",
+    laminationManagerName: "Nome Gerente"
+  });
+
+  assert.deepEqual(payload, {
+    RequestStatus: "PENDING_CTO_APPROVAL",
+    LaminationManagerName: "Nome Gerente"
+  });
+  assert.equal("Title" in payload, false);
+  assert.equal("Material" in payload, false);
+  assert.equal("MaterialDescription" in payload, false);
+  assert.equal("RequestedQuantity" in payload, false);
+  assert.equal("EvaluatedStockTotal" in payload, false);
+  assert.equal("StockRecommendation" in payload, false);
+  assert.equal("RequestReason" in payload, false);
+});
+
+test("mapMaterialRequestToUpdatePayload para decisão CTO não sobrescreve campos principais", () => {
+  const payload = mapMaterialRequestToUpdatePayload({
+    status: "APPROVED_BY_CTO",
+    ctoApproverName: "CTO",
+    ctoApproverEmail: "cto@empresa.com",
+    ctoJustification: "Aprovado",
+    ctoDecisionDate: "2026-05-25T12:00:00.000Z"
+  });
+
+  assert.deepEqual(payload, {
+    RequestStatus: "APPROVED_BY_CTO",
+    CTOApproverName: "CTO",
+    CTOApproverEmail: "cto@empresa.com",
+    CTOJustification: "Aprovado",
+    CTODecisionDate: "2026-05-25T12:00:00.000Z"
+  });
+  assert.equal("Title" in payload, false);
+  assert.equal("Material" in payload, false);
+  assert.equal("RequestedQuantity" in payload, false);
+  assert.equal("StockRecommendation" in payload, false);
 });
