@@ -98,3 +98,41 @@ export function mapMaterialRequestToSharePointPayload(request: MaterialRequest):
     [MATERIAL_REQUEST_FIELDS.ctoDecisionDate]: request.ctoDecisionDate ?? ""
   };
 }
+
+export function mapMaterialRequestToUpdatePayload(patch: Partial<MaterialRequest>): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+
+  const setIfDefined = (fieldName: string, value: unknown) => {
+    if (value !== undefined) payload[fieldName] = value;
+  };
+
+  setIfDefined(MATERIAL_REQUEST_FIELDS.title, patch.title);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterName, patch.requesterName);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterEmail, patch.requesterEmail);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.materialCode, patch.materialCode);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.materialDescription, patch.materialDescription);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.center, patch.center);
+  if (patch.requestedQuantity !== undefined) {
+    setIfDefined(MATERIAL_REQUEST_FIELDS.requestedQuantity, stringifyNumberForSharePoint(patch.requestedQuantity));
+  }
+  if (patch.evaluatedStockTotalAtRequest !== undefined) {
+    setIfDefined(
+      MATERIAL_REQUEST_FIELDS.evaluatedStockTotal,
+      stringifyNumberForSharePoint(patch.evaluatedStockTotalAtRequest)
+    );
+  }
+  setIfDefined(MATERIAL_REQUEST_FIELDS.stockRecommendation, patch.stockRecommendation);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.requestReason, patch.requestReason);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterJustification, patch.requesterJustification);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.requestStatus, patch.status);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerName, patch.laminationManagerName);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerEmail, patch.laminationManagerEmail);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerJustification, patch.laminationManagerJustification);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate, patch.laminationManagerDecisionDate);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoJustification, patch.ctoJustification);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoApproverName, patch.ctoApproverName);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoApproverEmail, patch.ctoApproverEmail);
+  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoDecisionDate, patch.ctoDecisionDate);
+
+  return payload;
+}

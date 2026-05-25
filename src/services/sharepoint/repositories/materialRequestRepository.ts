@@ -1,5 +1,9 @@
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
-import { mapMaterialRequestToSharePointPayload, mapSharePointMaterialRequest } from "../mappers/materialRequestMapper";
+import {
+  mapMaterialRequestToSharePointPayload,
+  mapMaterialRequestToUpdatePayload,
+  mapSharePointMaterialRequest
+} from "../mappers/materialRequestMapper";
 import { MATERIAL_REQUEST_FIELDS } from "../sharepointFields";
 import { SHAREPOINT_LISTS } from "../sharepointLists";
 import { spConfig } from "../spConfig";
@@ -54,7 +58,7 @@ export async function updateMaterialRequest(id: number, patch: Partial<MaterialR
   const digest = await getDigest();
   const itemUrl = `${buildListItemsUrl()}(${id})`;
 
-  const payload = mapMaterialRequestToSharePointPayload(patch as MaterialRequest);
+  const payload = mapMaterialRequestToUpdatePayload(patch);
   await spPatchJson(itemUrl, payload, digest);
 
   const updated = await spGetJson<SpRecord>(`${itemUrl}?$select=${buildSelectClause()}`);
