@@ -141,6 +141,7 @@ export function CommandBar(props: {
   onClear: () => void;
 
   onRefresh: () => void;
+  onUpdateStock?: () => void;
 
   onNew: () => void;
   canCreate: boolean;
@@ -174,6 +175,7 @@ export function CommandBar(props: {
 
       <div style={styles.actionsWrap}>
         <Button onClick={props.onRefresh}>Atualizar</Button>
+        {props.onUpdateStock ? <Button onClick={props.onUpdateStock}>Atualizar Estoque</Button> : null}
         <Button
           tone="primary"
           onClick={props.onNew}
