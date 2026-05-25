@@ -1,4 +1,5 @@
 import type { StockMaterial } from "../../../domain/materialRequest/stockTypes";
+import { buildStockItemTitle } from "../../../domain/materialRequest/buildStockItemTitle";
 import { spConfig } from "../spConfig";
 import { getDigest, spGetJson, spPostJson } from "../spHttp";
 import { escapeODataFilterLiterals } from "../odataFilter";
@@ -52,10 +53,36 @@ function normalizeQueryText(value: string): string {
 }
 
 export async function findStockMaterialByCode(materialCode: string): Promise<StockMaterial | null> {
+  // TODO(material-request): evitar uso sem Center, pois Material pode repetir em centros diferentes.
   const normalizedMaterialCode = normalizeQueryText(materialCode);
   if (!normalizedMaterialCode) return null;
 
   const filter = `${STOCK_FIELDS.materialCode} eq '${normalizedMaterialCode}'`;
+  const url =
+    `${buildListItemsUrl()}?$select=${buildSelectClause()}` +
+    `&$filter=${escapeODataFilterLiterals(filter)}` +
+    `&$orderby=Id desc` +
+    `&$top=1`;
+
+  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
+  const first = readItems(data)[0];
+  if (!first) return null;
+
+  return mapSharePointStockMaterial(first, STOCK_MATERIAL_FIELDS);
+}
+
+export async function findStockMaterialByCenterAndCode(input: {
+  center: string;
+  materialCode: string;
+}): Promise<StockMaterial | null> {
+  const normalizedCenter = normalizeQueryText(input.center);
+  const normalizedMaterialCode = normalizeQueryText(input.materialCode);
+  if (!normalizedCenter || !normalizedMaterialCode) return null;
+
+  const filter =
+    `${STOCK_FIELDS.center} eq '${normalizedCenter}' and ` +
+    `${STOCK_FIELDS.materialCode} eq '${normalizedMaterialCode}'`;
+
   const url =
     `${buildListItemsUrl()}?$select=${buildSelectClause()}` +
     `&$filter=${escapeODataFilterLiterals(filter)}` +
@@ -113,7 +140,7 @@ async function deleteStockItemById(id: number, digest: string): Promise<void> {
 
 function toPayload(item: StockMaterial): Record<string, string> {
   return {
-    [STOCK_FIELDS.title]: item.materialCode,
+    [STOCK_FIELDS.title]: buildStockItemTitle(item.center, item.materialCode),
     [STOCK_FIELDS.materialCode]: item.materialCode,
     [STOCK_FIELDS.description]: item.description,
     [STOCK_FIELDS.center]: item.center,

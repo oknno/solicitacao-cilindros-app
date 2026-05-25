@@ -7,11 +7,12 @@ import {
 } from "../../domain/materialRequest";
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
 import { createMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
-import { findStockMaterialByCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
+import { findStockMaterialByCenterAndCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
 
 export interface CreateMaterialRequestInput {
   requesterName: string;
   requesterEmail?: string;
+  center: string;
   materialCode: string;
   requestedQuantity: number;
   requestReason: string;
@@ -36,6 +37,10 @@ export async function createMaterialRequestUseCase(
   if (!materialCode) {
     throw new Error("Informe o código do material.");
   }
+  const center = input.center?.trim();
+  if (!center) {
+    throw new Error("Informe o centro da solicitação.");
+  }
 
   if (input.requestedQuantity <= 0) {
     throw new Error("Informe uma quantidade solicitada maior que zero.");
@@ -48,7 +53,7 @@ export async function createMaterialRequestUseCase(
 
   const requesterJustification = input.requesterJustification?.trim();
 
-  const stockMaterial = await findStockMaterialByCode(materialCode);
+  const stockMaterial = await findStockMaterialByCenterAndCode({ center, materialCode });
   const stockAnalysis = analyzeStockForMaterialRequest({
     material: stockMaterial,
     requestedQuantity: input.requestedQuantity,
@@ -71,7 +76,7 @@ export async function createMaterialRequestUseCase(
     requesterEmail: input.requesterEmail,
     materialCode,
     materialDescription: stockMaterial?.description ?? "",
-    center: stockMaterial?.center ?? "",
+    center,
     requestedQuantity: input.requestedQuantity,
     evaluatedStockTotalAtRequest: stockAnalysis.evaluatedStockTotal,
     stockRecommendation: stockAnalysis.recommendation,
