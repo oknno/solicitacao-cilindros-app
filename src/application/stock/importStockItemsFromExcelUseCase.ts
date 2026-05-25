@@ -1,5 +1,6 @@
 import type { StockMaterial } from "../../domain/materialRequest/stockTypes";
 import { buildStockItemTitle } from "../../domain/materialRequest/buildStockItemTitle";
+import * as XLSX from "xlsx";
 
 export interface ImportStockItemsFromExcelInput { file: File; }
 export interface ImportStockItemsFromExcelOutput {
@@ -50,10 +51,8 @@ const isEmptyRow = (row: RawRow) => row.every((value) => toText(value) === "");
 
 export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFromExcelInput): Promise<ImportStockItemsFromExcelOutput> {
   try {
-    const xlsxModuleName = "xlsx";
-    const xlsx = await import(/* @vite-ignore */ xlsxModuleName);
     const buffer = await input.file.arrayBuffer();
-    const workbook = xlsx.read(buffer, { type: "array" });
+    const workbook = XLSX.read(buffer, { type: "array" });
 
     if (!workbook.SheetNames?.length) {
       return { totalRows: 0, validRows: 0, invalidRows: 1, items: [], errors: [{ row: 0, message: "O arquivo não possui abas." }] };
@@ -63,7 +62,7 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets?.[sheetName];
       if (!sheet) continue;
-      const currentRows = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false }) as RawRow[];
+      const currentRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false }) as RawRow[];
       if (currentRows.length > 0) {
         rows = currentRows;
         break;
