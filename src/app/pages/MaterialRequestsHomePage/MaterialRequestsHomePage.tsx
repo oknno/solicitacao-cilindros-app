@@ -5,6 +5,7 @@ import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
 import { MaterialRequestFormModal } from "../../components/materialRequest/MaterialRequestFormModal";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
+import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { useToast } from "../../components/notifications/useToast";
 import { Card } from "../../components/ui/Card";
@@ -28,6 +29,7 @@ export function MaterialRequestsHomePage() {
   const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
+  const [stockImportOpen, setStockImportOpen] = useState(false);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
 
@@ -99,6 +101,7 @@ export function MaterialRequestsHomePage() {
       onClear={() => setFilters(DEFAULT_FILTERS)}
       onRefresh={() => void loadRequests()}
       onNew={() => setFormOpen(true)}
+      onUpdateStock={() => setStockImportOpen(true)}
       canCreate
       onView={() => undefined}
       onEdit={() => undefined}
@@ -119,5 +122,7 @@ export function MaterialRequestsHomePage() {
     {formOpen && <MaterialRequestFormModal onClose={() => setFormOpen(false)} onCreated={() => { setFormOpen(false); void loadRequests(); }} />}
 
     {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} initialDecision={approvalModalState.initialDecision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onDecided={() => { setApprovalModalState(null); void loadRequests(); }} />}
+
+    {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
   </div>;
 }
