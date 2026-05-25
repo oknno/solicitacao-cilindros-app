@@ -1,0 +1,8 @@
+import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import { AppModal } from "../common/AppModal";
+import { Field } from "../ui/Field";
+import { Card } from "../ui/Card";
+import { RequestStatusBadge } from "./RequestStatusBadge";
+import { StockRecommendationBadge } from "./StockRecommendationBadge";
+const M:any={PURCHASE_RECOMMENDED:"Compra recomendada.",PURCHASE_RECOMMENDED_PARTIAL_STOCK:"Compra recomendada com estoque parcial.",PURCHASE_NOT_RECOMMENDED:"Compra não recomendada.",MANUAL_REVIEW_REQUIRED:"Requer análise manual."};
+export function MaterialRequestViewModal({request,onClose}:{request:MaterialRequest;onClose:()=>void}){return <AppModal title={`Visualizar Solicitação #${request.id??""}`} subtitle="Modo visualização: campos bloqueados." onClose={onClose}><div style={{display:"grid",gap:12,padding:16}}><Card><Field label='Solicitação / Title' layout='inline'>{request.title??"-"}</Field><Field label='Solicitante' layout='inline'>{request.requesterName}</Field><Field label='Material' layout='inline'>{request.materialCode}</Field><Field label='Descrição' layout='inline'>{request.materialDescription}</Field><Field label='Centro' layout='inline'>{request.center}</Field><Field label='Quantidade solicitada' layout='inline'>{request.requestedQuantity}</Field><Field label='Estoque avaliado total' layout='inline'>{request.evaluatedStockTotalAtRequest??"-"}</Field><Field label='Status' layout='inline'><RequestStatusBadge value={request.status}/></Field></Card><Card><Field label='Parecer' layout='inline'><StockRecommendationBadge value={request.stockRecommendation}/></Field><Field label='Mensagem' layout='inline'>{M[request.stockRecommendation]}</Field></Card></div></AppModal>;}

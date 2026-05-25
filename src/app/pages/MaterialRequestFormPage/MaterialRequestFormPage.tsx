@@ -15,12 +15,13 @@ import { uiTokens } from "../../components/ui/tokens";
 interface MaterialRequestFormPageProps {
   onBack: () => void;
   onCreated: () => void;
+  inModal?: boolean;
 }
 
 const requesterNameFallback = "Usuário atual";
 const requesterEmailFallback = "";
 
-export function MaterialRequestFormPage({ onBack, onCreated }: MaterialRequestFormPageProps) {
+export function MaterialRequestFormPage({ onBack, onCreated, inModal }: MaterialRequestFormPageProps) {
   const { notify } = useToast();
   const [materialCode, setMaterialCode] = useState("");
   const [requestedQuantity, setRequestedQuantity] = useState("");
@@ -87,7 +88,7 @@ export function MaterialRequestFormPage({ onBack, onCreated }: MaterialRequestFo
         requesterJustification,
       });
 
-      notify("Solicitação criada e enviada para aprovação CTO.", "success");
+      notify("Solicitação criada e enviada para aprovação do Gerente da Laminação.", "success");
       onCreated();
     } catch (e) {
       console.error(e);
@@ -97,8 +98,8 @@ export function MaterialRequestFormPage({ onBack, onCreated }: MaterialRequestFo
     }
   }
 
-  return (
-    <div style={{ background: uiTokens.colors.appBackground, minHeight: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
+  const content = (
+    <div style={{ minHeight: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: uiTokens.spacing.md, flexWrap: "wrap" }}>
           <h2 style={{ margin: 0 }}>Nova Solicitação de Material</h2>
@@ -108,7 +109,7 @@ export function MaterialRequestFormPage({ onBack, onCreated }: MaterialRequestFo
               {loadingAnalysis ? "Analisando..." : "Analisar Estoque"}
             </Button>
             <Button tone="primary" onClick={() => void handleSubmit()} disabled={sending}>
-              {sending ? "Enviando..." : "Enviar para Aprovação CTO"}
+              {sending ? "Enviando..." : "Enviar para Aprovação"}
             </Button>
           </div>
         </div>
@@ -150,4 +151,8 @@ export function MaterialRequestFormPage({ onBack, onCreated }: MaterialRequestFo
       </div>
     </div>
   );
+
+  if (inModal) return content;
+
+  return <div style={{ background: uiTokens.colors.appBackground, minHeight: "100%" }}>{content}</div>;
 }

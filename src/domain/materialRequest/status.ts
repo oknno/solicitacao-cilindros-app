@@ -1,12 +1,12 @@
 export type MaterialRequestStatus =
   | "DRAFT"
+  | "PENDING_LAMINATION_MANAGER_APPROVAL"
   | "PENDING_CTO_APPROVAL"
-  | "APPROVED_BY_CTO"
-  | "REJECTED_BY_CTO"
+  | "APPROVED"
+  | "REJECTED"
   | "RETURNED_FOR_ADJUSTMENT"
   | "CANCELLED";
 
-export type CtoDecision =
-  | "APPROVE"
-  | "REJECT"
-  | "RETURN_FOR_ADJUSTMENT";
+export type MaterialRequestDecision = "APPROVE" | "REJECT" | "RETURN_FOR_ADJUSTMENT";
+export type ApproverRole = "LAMINATION_MANAGER" | "CTO";
+export type CtoDecision = MaterialRequestDecision;
