@@ -7,7 +7,6 @@ export type StockRecommendation =
 export interface StockMaterial {
   materialCode: string;
   description: string;
-  unitOfMeasure: string;
   center: string;
   evaluatedStockTotal: number | null;
 }
