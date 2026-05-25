@@ -6,10 +6,11 @@ import { StockRecommendationBadge } from "./StockRecommendationBadge";
 interface StockAnalysisCardProps {
   stockMaterial: StockMaterial | null;
   stockAnalysis: StockAnalysisResult;
+  requestedCenter?: string;
 }
 
 export function StockAnalysisCard(props: StockAnalysisCardProps) {
-  const { stockMaterial, stockAnalysis } = props;
+  const { stockMaterial, stockAnalysis, requestedCenter } = props;
 
   return (
     <Card>
@@ -25,7 +26,7 @@ export function StockAnalysisCard(props: StockAnalysisCardProps) {
           {stockMaterial?.description ?? "-"}
         </Field>
         <Field label="Centro" layout="inline">
-          {stockMaterial?.center ?? "-"}
+          {requestedCenter || stockMaterial?.center || "-"}
         </Field>
         <Field label="Estoque avaliado total" layout="inline">
           {stockAnalysis.evaluatedStockTotal ?? "-"}

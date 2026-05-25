@@ -1,4 +1,5 @@
 import type { StockMaterial } from "../../domain/materialRequest/stockTypes";
+import { buildStockItemTitle } from "../../domain/materialRequest/buildStockItemTitle";
 
 export interface ImportStockItemsFromExcelInput { file: File; }
 export interface ImportStockItemsFromExcelOutput {
@@ -33,6 +34,7 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
   if (missing.length) return { totalRows: rows.length, validRows: 0, invalidRows: rows.length, items: [], errors: [{ row: 0, message: `Colunas obrigatórias ausentes: ${missing.join(", ")}.` }] };
 
   const items: StockMaterial[] = []; const errors: Array<{ row: number; message: string }> = [];
+  const seenKeys = new Set<string>();
   rows.forEach((row, idx) => {
     const normalized: Partial<StockMaterial> = {};
     Object.entries(row).forEach(([header, raw]) => { const field = headerMap.get(header); if (!field) return; if (field === "evaluatedStockTotal") { (normalized as Record<string, unknown>)[field] = parseStockValue(raw); } else { (normalized as Record<string, unknown>)[field] = toText(raw); } });
@@ -42,7 +44,15 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
     if (!toText(normalized.description)) errors.push({ row: line, message: "Description é obrigatório." });
     if (!toText(normalized.center)) errors.push({ row: line, message: "Center é obrigatório." });
     if (normalized.evaluatedStockTotal == null) errors.push({ row: line, message: "EvaluatedStockTotal inválido." });
-    if (!errors.some((e) => e.row === line)) items.push(normalized as StockMaterial);
+    const itemKey = buildStockItemTitle(toText(normalized.center), toText(normalized.materialCode));
+    if (!errors.some((e) => e.row === line) && seenKeys.has(itemKey)) {
+      errors.push({ row: line, message: `Existe mais de uma linha para o mesmo Centro + Material: ${itemKey}.` });
+      return;
+    }
+    if (!errors.some((e) => e.row === line)) {
+      seenKeys.add(itemKey);
+      items.push(normalized as StockMaterial);
+    }
   });
 
   return { totalRows: rows.length, validRows: items.length, invalidRows: new Set(errors.map((e) => e.row)).size, items, errors };

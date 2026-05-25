@@ -23,6 +23,7 @@ const requesterEmailFallback = "";
 
 export function MaterialRequestFormPage({ onBack, onCreated, inModal }: MaterialRequestFormPageProps) {
   const { notify } = useToast();
+  const [center, setCenter] = useState("");
   const [materialCode, setMaterialCode] = useState("");
   const [requestedQuantity, setRequestedQuantity] = useState("");
   const [requestReason, setRequestReason] = useState("");
@@ -33,7 +34,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
   const [error, setError] = useState("");
 
   const parsedRequestedQuantity = useMemo(() => Number(requestedQuantity), [requestedQuantity]);
-  const canAnalyze = materialCode.trim().length > 0 && Number.isFinite(parsedRequestedQuantity) && parsedRequestedQuantity > 0;
+  const canAnalyze = center.trim().length > 0 && materialCode.trim().length > 0 && Number.isFinite(parsedRequestedQuantity) && parsedRequestedQuantity > 0;
   const justificationRequired = analysisResult?.stockAnalysis.requiresRequesterJustification ?? false;
 
   async function handleAnalyzeStock() {
@@ -41,6 +42,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
     setLoadingAnalysis(true);
     try {
       const result = await analyzeMaterialRequestStockUseCase({
+        center,
         materialCode,
         requestedQuantity: parsedRequestedQuantity,
       });
@@ -56,6 +58,11 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
 
   async function handleSubmit() {
     setError("");
+
+    if (!center.trim()) {
+      setError("Informe o centro da solicitação.");
+      return;
+    }
 
     if (!materialCode.trim()) {
       setError("Informe o código do material.");
@@ -82,6 +89,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
       await createMaterialRequestUseCase({
         requesterName: requesterNameFallback,
         requesterEmail: requesterEmailFallback,
+        center,
         materialCode,
         requestedQuantity: parsedRequestedQuantity,
         requestReason,
@@ -121,10 +129,13 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
           <div style={{ display: "grid", gap: 12 }}>
             <Field label="Solicitante" layout="inline">{requesterNameFallback}</Field>
             <Field label="E-mail do solicitante" layout="inline">{requesterEmailFallback || "-"}</Field>
+            <Field label="Centro">
+              <input value={center} onChange={(e) => setCenter(e.target.value)} style={{ width: "100%" }} />
+            </Field>
             <Field label="Material">
               <input value={materialCode} onChange={(e) => setMaterialCode(e.target.value)} style={{ width: "100%" }} />
             </Field>
-            <Field label="Quantidade Solicitada">
+            <Field label="Qtde. Solicitada">
               <input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={{ width: "100%" }} />
             </Field>
             <Field label="Motivo da Solicitação">
@@ -133,7 +144,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
           </div>
         </Card>
 
-        {analysisResult && <StockAnalysisCard stockMaterial={analysisResult.stockMaterial} stockAnalysis={analysisResult.stockAnalysis} />}
+        {analysisResult && <StockAnalysisCard stockMaterial={analysisResult.stockMaterial} stockAnalysis={analysisResult.stockAnalysis} requestedCenter={center.trim()} />}
 
         {justificationRequired && (
           <Card>
