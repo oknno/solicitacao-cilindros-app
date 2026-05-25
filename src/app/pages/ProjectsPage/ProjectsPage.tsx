@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+// TODO(material-request): legado do sistema de cadastro, manter até substituição funcional da tela principal.
+
 import { getProjectById } from "../../../services/sharepoint/projectsApi";
 import type { ProjectDraft, ProjectRow } from "../../../services/sharepoint/projectsApi";
 import { getMilestonesByProject } from "../../../services/sharepoint/milestonesApi";

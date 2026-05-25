@@ -1,3 +1,4 @@
+// TODO(material-request): contratos legados de projetos/cadastro; manter durante migração gradual para o novo domínio.
 export type ProjectInput = {
   Title: string;
   approvalYear?: number;
