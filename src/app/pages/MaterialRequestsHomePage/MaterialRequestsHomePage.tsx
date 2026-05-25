@@ -2,18 +2,28 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getMaterialRequestsUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { Card } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
 import { uiTokens } from "../../components/ui/tokens";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
+import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 type AppView = "home" | "newRequest" | "ctoApproval";
+
+const DEFAULT_FILTERS: ProjectsFilters = {
+  searchTitle: "",
+  status: "",
+  unit: "",
+  requesterName: "",
+  sortBy: "Title",
+  sortDir: "asc"
+};
 
 export function MaterialRequestsHomePage({ onChangeView }: { onChangeView: (view: AppView) => void }) {
   const [items, setItems] = useState<MaterialRequest[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
 
   const selected = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
 
@@ -44,14 +54,46 @@ export function MaterialRequestsHomePage({ onChangeView }: { onChangeView: (view
     manualReview: items.filter((item) => item.stockRecommendation === "MANUAL_REVIEW_REQUIRED").length
   };
 
+  const canApproveOrReject = selected?.status === "PENDING_CTO_APPROVAL";
+
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto auto 1fr", gap: uiTokens.spacing.md }}>
-    <div style={{ position: "sticky", top: 0, zIndex: 10, background: uiTokens.colors.surface, border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <strong>Solicitações de Material</strong>
-      <div style={{ display: "flex", gap: uiTokens.spacing.sm }}>
-        <Button tone="primary" onClick={() => onChangeView("newRequest")}>Nova Solicitação</Button>
-        <Button onClick={() => void load()}>Atualizar</Button>
-      </div>
-    </div>
+    <CommandBar
+      title="Solicitação de Material Cilindros"
+      isAdmin
+      selectedId={selectedId}
+      totalLoaded={items.length}
+      canEdit={false}
+      canDelete={false}
+      canSend={false}
+      canBack={false}
+      canApprove={canApproveOrReject}
+      canReject={canApproveOrReject}
+      editDisabledReason="Funcionalidade não disponível nesta etapa."
+      deleteDisabledReason="Funcionalidade não disponível nesta etapa."
+      sendDisabledReason="Funcionalidade não disponível nesta etapa."
+      backDisabledReason="Funcionalidade não disponível nesta etapa."
+      approveDisabledReason="Selecione uma solicitação pendente de aprovação CTO."
+      rejectDisabledReason="Selecione uma solicitação pendente de aprovação CTO."
+      filters={filters}
+      onChangeFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+      onApply={() => undefined}
+      onClear={() => setFilters(DEFAULT_FILTERS)}
+      onRefresh={() => void load()}
+      onNew={() => onChangeView("newRequest")}
+      canCreate
+      onView={() => undefined}
+      onEdit={() => undefined}
+      onDuplicate={() => undefined}
+      onDelete={() => undefined}
+      onSendToApproval={() => undefined}
+      onBackStatus={() => undefined}
+      onApprove={() => onChangeView("ctoApproval")}
+      onReject={() => onChangeView("ctoApproval")}
+      showApprovalActions
+      onExportTable={() => undefined}
+      onExportProject={() => undefined}
+      availableUnits={[]}
+    />
 
     <div style={{ display: "grid", gap: uiTokens.spacing.sm, gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
       {[["Total de solicitações", indicators.total],["Pendentes CTO", indicators.pendingCto],["Aprovadas CTO", indicators.approvedCto],["Compra não recomendada", indicators.purchaseNotRecommended],["Requer análise manual", indicators.manualReview]].map(([label, value]) => (
