@@ -26,6 +26,7 @@ export interface MaterialRequest {
   stockRecommendation: StockRecommendation;
 
   requesterJustification?: string;
+  laminationManagerJustification?: string;
   ctoJustification?: string;
 
   status: MaterialRequestStatus;
@@ -33,6 +34,10 @@ export interface MaterialRequest {
   createdAt?: string;
   updatedAt?: string;
   submittedAt?: string;
+
+  laminationManagerName?: string;
+  laminationManagerEmail?: string;
+  laminationManagerDecisionDate?: string;
 
   ctoApproverName?: string;
   ctoApproverEmail?: string;

@@ -4,3 +4,5 @@ export * from "./createMaterialRequestUseCase";
 export * from "./getMaterialRequestsUseCase";
 
 export * from "./decideMaterialRequestUseCase";
+
+export * from "./decideMaterialRequestApprovalUseCase";

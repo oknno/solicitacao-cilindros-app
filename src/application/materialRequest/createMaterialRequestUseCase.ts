@@ -77,7 +77,7 @@ export async function createMaterialRequestUseCase(
     stockRecommendation: stockAnalysis.recommendation,
     requestReason,
     requesterJustification,
-    status: "PENDING_CTO_APPROVAL",
+    status: "PENDING_LAMINATION_MANAGER_APPROVAL",
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -94,11 +94,11 @@ export async function createMaterialRequestUseCase(
     requestId: createdRequest.id,
     action: "CREATED",
     previousStatus: undefined,
-    newStatus: "PENDING_CTO_APPROVAL",
+    newStatus: "PENDING_LAMINATION_MANAGER_APPROVAL",
     performedByName: requesterName,
     performedByEmail: input.requesterEmail,
     performedAt: new Date().toISOString(),
-    comment: "Solicitação criada e enviada para aprovação CTO.",
+    comment: "Solicitação criada e enviada para aprovação do Gerente da Laminação.",
   });
 
   return {
