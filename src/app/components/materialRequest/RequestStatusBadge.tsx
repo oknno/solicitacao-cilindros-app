@@ -12,5 +12,11 @@ const statusMap: Record<MaterialRequestStatus, { text: string; tone: "neutral" |
 };
 
 export function RequestStatusBadge({ value }: { value: MaterialRequestStatus }) {
-  return <Badge text={statusMap[value].text} tone={statusMap[value].tone} />;
+  const mapped = statusMap[value];
+
+  if (!mapped && import.meta.env.DEV) {
+    console.warn("[RequestStatusBadge] Status desconhecido recebido:", value);
+  }
+
+  return <Badge text={mapped?.text ?? value ?? "-"} tone={mapped?.tone ?? "neutral"} />;
 }

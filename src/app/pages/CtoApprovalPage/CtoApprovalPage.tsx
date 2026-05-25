@@ -41,14 +41,20 @@ const DECISION_SUCCESS_MESSAGES: Record<CtoDecision, string> = {
 
 export function CtoApprovalPage({ request, initialDecision, onBack, onDecided }: CtoApprovalPageProps) {
   const { notify } = useToast();
-  const [decision, setDecision] = useState<CtoDecision | "">(initialDecision ?? "");
+  const safeInitialDecision = initialDecision && DECISION_LABELS[initialDecision] ? initialDecision : "APPROVE";
+  const [decision, setDecision] = useState<CtoDecision | "">(safeInitialDecision);
   const [ctoApproverName, setCtoApproverName] = useState(ctoApproverNameFallback);
   const [ctoApproverEmail, setCtoApproverEmail] = useState(ctoApproverEmailFallback);
   const [ctoJustification, setCtoJustification] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
-  const stockRecommendationMessage = RECOMMENDATION_MESSAGES[request.stockRecommendation];
+  const stockRecommendationMessage = RECOMMENDATION_MESSAGES[request.stockRecommendation]
+    ?? `Parecer não mapeado: ${request.stockRecommendation ?? "-"}.`;
+
+  if (!RECOMMENDATION_MESSAGES[request.stockRecommendation] && import.meta.env.DEV) {
+    console.warn("[CtoApprovalPage] Parecer sem mensagem mapeada:", request.stockRecommendation);
+  }
 
   async function handleConfirmDecision() {
     setError("");
