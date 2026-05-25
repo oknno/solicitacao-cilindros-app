@@ -6,3 +6,6 @@ export * from "./getMaterialRequestsUseCase";
 export * from "./decideMaterialRequestUseCase";
 
 export * from "./decideMaterialRequestApprovalUseCase";
+
+export * from "./getStockCentersUseCase";
+export * from "./getStockMaterialsByCenterUseCase";

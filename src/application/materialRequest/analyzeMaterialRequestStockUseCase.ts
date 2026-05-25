@@ -9,6 +9,7 @@ export interface AnalyzeMaterialRequestStockInput {
   center: string;
   materialCode: string;
   requestedQuantity: number;
+  isManualMaterial?: boolean;
 }
 
 export interface AnalyzeMaterialRequestStockOutput {
@@ -34,7 +35,9 @@ export async function analyzeMaterialRequestStockUseCase(
     throw new Error("Informe uma quantidade solicitada maior que zero.");
   }
 
-  const stockMaterial = await findStockMaterialByCenterAndCode({ center, materialCode });
+  const stockMaterial = input.isManualMaterial
+    ? null
+    : await findStockMaterialByCenterAndCode({ center, materialCode });
   const stockAnalysis = analyzeStockForMaterialRequest({
     material: stockMaterial,
     requestedQuantity: input.requestedQuantity,

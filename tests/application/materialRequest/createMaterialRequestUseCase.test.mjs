@@ -17,3 +17,15 @@ test("createMaterialRequestUseCase preserva center e consulta por center+materia
   assert.deepEqual(findInput, { center: "9860", materialCode: "M" });
   assert.equal(out.request.center, "9860");
 });
+
+test("createMaterialRequestUseCase com material manual gera MANUAL_REVIEW_REQUIRED", async () => {
+  mock.module("../../../src/services/sharepoint/repositories/stockMaterialRepository.ts", { namedExports: { findStockMaterialByCenterAndCode: async () => { throw new Error("não deve consultar"); } } });
+  mock.module("../../../src/services/sharepoint/repositories/materialRequestRepository.ts", { namedExports: { createMaterialRequest: async (req) => ({ ...req, id: 2 }) } });
+  mock.module("../../../src/services/sharepoint/repositories/materialRequestHistoryRepository.ts", { namedExports: { createMaterialRequestHistoryEntry: async () => ({}) } });
+
+  const { createMaterialRequestUseCase } = await import("../../../src/application/materialRequest/createMaterialRequestUseCase.ts");
+  const out = await createMaterialRequestUseCase({ requesterName: "A", center: "9860", materialCode: "MANUAL-1", materialDescription: "Desc manual", requestedQuantity: 3, requestReason: "Urgência", requesterJustification: "Just", isManualMaterial: true });
+  assert.equal(out.stockAnalysis.recommendation, "MANUAL_REVIEW_REQUIRED");
+  assert.equal(out.request.materialDescription, "Desc manual");
+  assert.equal(out.request.evaluatedStockTotalAtRequest, null);
+});
