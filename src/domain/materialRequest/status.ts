@@ -1,6 +1,5 @@
 export type MaterialRequestStatus =
   | "DRAFT"
-  | "SUBMITTED"
   | "PENDING_CTO_APPROVAL"
   | "APPROVED_BY_CTO"
   | "REJECTED_BY_CTO"

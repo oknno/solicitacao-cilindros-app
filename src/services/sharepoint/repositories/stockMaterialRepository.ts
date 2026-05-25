@@ -3,6 +3,8 @@ import { spConfig } from "../spConfig";
 import { spGetJson } from "../spHttp";
 import { escapeODataFilterLiterals } from "../odataFilter";
 import { mapSharePointStockMaterial, type StockMaterialSharePointFields } from "../mappers/stockMaterialMapper";
+import { SHAREPOINT_LISTS } from "../sharepointLists";
+import { STOCK_FIELDS } from "../sharepointFields";
 
 type ODataListResponse<T> = {
   value?: T[];
@@ -13,14 +15,13 @@ type SpRecord = Record<string, unknown>;
 
 const STOCK_SEARCH_LIMIT = 20;
 
-const STOCK_LIST_NAME = "EstoqueMateriais";
+const STOCK_LIST_NAME = SHAREPOINT_LISTS.stockItems;
 
-const STOCK_FIELDS: StockMaterialSharePointFields = {
-  materialCode: "Material",
-  description: "Descricao",
-  unitOfMeasure: "UMB",
-  center: "Centro",
-  evaluatedStockTotal: "EstoqueAvaliadoTotal"
+const STOCK_MATERIAL_FIELDS: StockMaterialSharePointFields = {
+  materialCode: STOCK_FIELDS.materialCode,
+  description: STOCK_FIELDS.description,
+  center: STOCK_FIELDS.center,
+  evaluatedStockTotal: STOCK_FIELDS.evaluatedStockTotal
 };
 
 function readItems(data: ODataListResponse<SpRecord>): SpRecord[] {
@@ -34,7 +35,14 @@ function buildListItemsUrl(): string {
 }
 
 function buildSelectClause(): string {
-  return Object.values(STOCK_FIELDS).join(",");
+  return [
+    STOCK_FIELDS.title,
+    STOCK_FIELDS.materialCode,
+    STOCK_FIELDS.description,
+    STOCK_FIELDS.center,
+    STOCK_FIELDS.evaluatedStockTotal,
+    STOCK_FIELDS.importDate
+  ].join(",");
 }
 
 function normalizeQueryText(value: string): string {
@@ -56,7 +64,7 @@ export async function findStockMaterialByCode(materialCode: string): Promise<Sto
   const first = readItems(data)[0];
   if (!first) return null;
 
-  return mapSharePointStockMaterial(first, STOCK_FIELDS);
+  return mapSharePointStockMaterial(first, STOCK_MATERIAL_FIELDS);
 }
 
 export async function searchStockMaterials(query: string): Promise<StockMaterial[]> {
@@ -74,7 +82,7 @@ export async function searchStockMaterials(query: string): Promise<StockMaterial
     `&$top=${STOCK_SEARCH_LIMIT}`;
 
   const data = await spGetJson<ODataListResponse<SpRecord>>(url);
-  return readItems(data).map((item) => mapSharePointStockMaterial(item, STOCK_FIELDS));
+  return readItems(data).map((item) => mapSharePointStockMaterial(item, STOCK_MATERIAL_FIELDS));
 }
 
 export const stockMaterialRepositoryConfig = {

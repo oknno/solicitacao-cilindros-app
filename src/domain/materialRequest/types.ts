@@ -8,19 +8,19 @@ export interface MaterialRequest {
   requesterName: string;
   requesterEmail?: string;
 
-  unit: string;
+  unit?: string;
   area?: string;
 
   materialCode: string;
   materialDescription: string;
-  unitOfMeasure: string;
+  unitOfMeasure?: string;
   center: string;
 
   requestedQuantity: number;
   needDate?: string;
 
   requestReason: string;
-  urgency: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  urgency?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
   evaluatedStockTotalAtRequest: number | null;
   stockRecommendation: StockRecommendation;

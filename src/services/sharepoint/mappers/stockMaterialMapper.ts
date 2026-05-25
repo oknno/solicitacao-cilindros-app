@@ -26,6 +26,7 @@ function readNullableNumber(source: SpRecord, fieldName: string): number | null 
   const value = readFieldValue(source, fieldName);
 
   if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
 
   if (typeof value === "string") {
     const normalized = value.trim().replace(",", ".");
@@ -41,7 +42,6 @@ function readNullableNumber(source: SpRecord, fieldName: string): number | null 
 export type StockMaterialSharePointFields = {
   materialCode: string;
   description: string;
-  unitOfMeasure: string;
   center: string;
   evaluatedStockTotal: string;
 };
@@ -55,7 +55,6 @@ export function mapSharePointStockMaterial(
   return {
     materialCode: readString(source, fields.materialCode),
     description: readString(source, fields.description),
-    unitOfMeasure: readString(source, fields.unitOfMeasure),
     center: readString(source, fields.center),
     evaluatedStockTotal: readNullableNumber(source, fields.evaluatedStockTotal)
   };

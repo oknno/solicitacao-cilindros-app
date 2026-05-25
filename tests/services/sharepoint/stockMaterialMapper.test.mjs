@@ -5,20 +5,18 @@ import { mapSharePointStockMaterial } from "../../../src/services/sharepoint/map
 
 const fields = {
   materialCode: "Material",
-  description: "Descricao",
-  unitOfMeasure: "UMB",
-  center: "Centro",
-  evaluatedStockTotal: "EstoqueAvaliadoTotal"
+  description: "Description",
+  center: "Center",
+  evaluatedStockTotal: "EvaluatedStockTotal"
 };
 
-test("mapSharePointStockMaterial converte estoque numérico", () => {
+test("mapSharePointStockMaterial converte estoque numérico textual inteiro", () => {
   const mapped = mapSharePointStockMaterial(
     {
       Material: "MAT-001",
-      Descricao: "Material A",
-      UMB: "KG",
-      Centro: "C100",
-      EstoqueAvaliadoTotal: 15.5
+      Description: "Material A",
+      Center: "C100",
+      EvaluatedStockTotal: "25"
     },
     fields
   );
@@ -26,35 +24,60 @@ test("mapSharePointStockMaterial converte estoque numérico", () => {
   assert.deepEqual(mapped, {
     materialCode: "MAT-001",
     description: "Material A",
-    unitOfMeasure: "KG",
     center: "C100",
-    evaluatedStockTotal: 15.5
+    evaluatedStockTotal: 25
   });
 });
 
-test("mapSharePointStockMaterial converte estoque textual", () => {
+test("mapSharePointStockMaterial converte estoque textual com vírgula", () => {
   const mapped = mapSharePointStockMaterial(
     {
       Material: "MAT-002",
-      Descricao: "Material B",
-      UMB: "UN",
-      Centro: "C200",
-      EstoqueAvaliadoTotal: "20"
+      Description: "Material B",
+      Center: "C200",
+      EvaluatedStockTotal: "25,5"
     },
     fields
   );
 
-  assert.equal(mapped.evaluatedStockTotal, 20);
+  assert.equal(mapped.evaluatedStockTotal, 25.5);
+});
+
+test("mapSharePointStockMaterial converte estoque textual com ponto", () => {
+  const mapped = mapSharePointStockMaterial(
+    {
+      Material: "MAT-003",
+      Description: "Material C",
+      Center: "C300",
+      EvaluatedStockTotal: "25.5"
+    },
+    fields
+  );
+
+  assert.equal(mapped.evaluatedStockTotal, 25.5);
 });
 
 test("mapSharePointStockMaterial retorna null para estoque vazio", () => {
   const mapped = mapSharePointStockMaterial(
     {
-      Material: "MAT-003",
-      Descricao: "Material C",
-      UMB: "CX",
-      Centro: "C300",
-      EstoqueAvaliadoTotal: "  "
+      Material: "MAT-004",
+      Description: "Material D",
+      Center: "C400",
+      EvaluatedStockTotal: "  "
+    },
+    fields
+  );
+
+  assert.equal(mapped.evaluatedStockTotal, null);
+});
+
+test("mapSharePointStockMaterial retorna null para estoque inválido", () => {
+  const mapped = mapSharePointStockMaterial(
+    {
+      Material: "MAT-005",
+      Description: "Material E",
+      Center: "C500",
+      EvaluatedStockTotal: "abc"
     },
     fields
   );
