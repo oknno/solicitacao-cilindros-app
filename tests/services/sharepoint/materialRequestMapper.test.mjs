@@ -53,11 +53,23 @@ test("mapMaterialRequestToSharePointPayload converte números para texto e prese
     evaluatedStockTotalAtRequest: 30.75,
     stockRecommendation: "REQUEST_JUSTIFICATION_REQUIRED",
     requestReason: "Projeto",
-    status: "APPROVED_BY_CTO"
+    status: "APPROVED_BY_CTO",
+    ctoApproverName: "Diretor CTO",
+    ctoApproverEmail: "cto@empresa.com",
+    ctoJustification: "Aprovado por exceção",
+    ctoDecisionDate: "2026-05-25T12:00:00.000Z"
   });
 
   assert.equal(payload.RequestedQuantity, "12");
   assert.equal(payload.EvaluatedStockTotal, "30.75");
   assert.equal(payload.RequestStatus, "APPROVED_BY_CTO");
   assert.equal(payload.StockRecommendation, "REQUEST_JUSTIFICATION_REQUIRED");
+  assert.equal(payload.CTOApproverName, "Diretor CTO");
+  assert.equal(payload.CTOApproverEmail, "cto@empresa.com");
+  assert.equal(payload.CTOJustification, "Aprovado por exceção");
+  assert.equal(payload.CTODecisionDate, "2026-05-25T12:00:00.000Z");
+  assert.equal("CtoApproverName" in payload, false);
+  assert.equal("CtoApproverEmail" in payload, false);
+  assert.equal("CtoJustification" in payload, false);
+  assert.equal("CtoDecisionDate" in payload, false);
 });

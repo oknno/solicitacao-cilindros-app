@@ -9,25 +9,30 @@ export const STOCK_FIELDS = {
 
 export const MATERIAL_REQUEST_FIELDS = {
   title: "Title",
+
   requesterName: "RequesterName",
   requesterEmail: "RequesterEmail",
+
   materialCode: "Material",
   materialDescription: "MaterialDescription",
   center: "Center",
+
   requestedQuantity: "RequestedQuantity",
   evaluatedStockTotal: "EvaluatedStockTotal",
   stockRecommendation: "StockRecommendation",
   requestReason: "RequestReason",
   requesterJustification: "RequesterJustification",
   requestStatus: "RequestStatus",
+
   laminationManagerName: "LaminationManagerName",
   laminationManagerEmail: "LaminationManagerEmail",
   laminationManagerJustification: "LaminationManagerJustification",
   laminationManagerDecisionDate: "LaminationManagerDecisionDate",
-  ctoJustification: "CtoJustification",
-  ctoApproverName: "CtoApproverName",
-  ctoApproverEmail: "CtoApproverEmail",
-  ctoDecisionDate: "CtoDecisionDate",
+
+  ctoApproverName: "CTOApproverName",
+  ctoApproverEmail: "CTOApproverEmail",
+  ctoJustification: "CTOJustification",
+  ctoDecisionDate: "CTODecisionDate",
 } as const;
 
 export const MATERIAL_REQUEST_HISTORY_FIELDS = {
