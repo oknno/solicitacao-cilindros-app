@@ -7,30 +7,26 @@ import { Button } from "./app/components/ui/Button";
 import { uiTokens } from "./app/components/ui/tokens";
 import { MaterialRequestsHomePage } from "./app/pages/MaterialRequestsHomePage";
 import { MaterialRequestFormPage } from "./app/pages/MaterialRequestFormPage";
+import { CtoApprovalPage } from "./app/pages/CtoApprovalPage";
+import type { CtoDecision, MaterialRequest } from "./domain/materialRequest";
 
 type AppView = "home" | "newRequest" | "ctoApproval";
-
-function PlaceholderView(props: { title: string; onBack: () => void }) {
-  return (
-    <div style={{ background: uiTokens.colors.appBackground, minHeight: "100%", padding: uiTokens.spacing.md }}>
-      <Card>
-        <h2 style={{ marginTop: 0 }}>{props.title}</h2>
-        <p>Fluxo será implementado em etapa futura.</p>
-        <Button onClick={props.onBack}>Voltar para Home</Button>
-      </Card>
-    </div>
-  );
-}
 
 export default function App() {
   const [view, setView] = useState<AppView>("home");
   const [homeKey, setHomeKey] = useState(0);
+  const [selectedRequestForCto, setSelectedRequestForCto] = useState<MaterialRequest | null>(null);
+  const [initialCtoDecision, setInitialCtoDecision] = useState<CtoDecision | undefined>(undefined);
 
   return (
     <ToastProvider>
       <div className="capex-app">
         <main className="capex-container">
-          {view === "home" && <MaterialRequestsHomePage key={homeKey} onChangeView={setView} />}
+          {view === "home" && <MaterialRequestsHomePage key={homeKey} onChangeView={setView} onCtoDecisionRequest={(request, decision) => {
+            setSelectedRequestForCto(request);
+            setInitialCtoDecision(decision);
+            setView("ctoApproval");
+          }} />}
           {view === "newRequest" && (
             <MaterialRequestFormPage
               onBack={() => setView("home")}
@@ -40,7 +36,16 @@ export default function App() {
               }}
             />
           )}
-          {view === "ctoApproval" && <PlaceholderView title="Aprovação CTO" onBack={() => setView("home")} />}
+          {view === "ctoApproval" && selectedRequestForCto && <CtoApprovalPage
+            request={selectedRequestForCto}
+            initialDecision={initialCtoDecision}
+            onBack={() => setView("home")}
+            onDecided={() => {
+              setHomeKey((current) => current + 1);
+              setView("home");
+            }}
+          />}
+          {view === "ctoApproval" && !selectedRequestForCto && <div style={{ background: uiTokens.colors.appBackground, minHeight: "100%", padding: uiTokens.spacing.md }}><Card><h2 style={{ marginTop: 0 }}>Aprovação CTO</h2><p>Nenhuma solicitação foi selecionada.</p><Button onClick={() => setView("home")}>Voltar para Home</Button></Card></div>}
         </main>
       </div>
     </ToastProvider>
