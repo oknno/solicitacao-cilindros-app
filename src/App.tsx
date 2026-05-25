@@ -19,7 +19,7 @@ type BootstrapData = {
 };
 
 const DEFAULT_MIN_BOOT_DURATION_MS_NON_PROD = 3000;
-const LOADING_TITLES = ["Carregando projetos", "Carregando atividades", "Carregando KPIs"];
+const LOADING_TITLES = ["Carregando solicitações", "Carregando atividades", "Carregando KPIs"];
 const LOADING_TITLE_INTERVAL_MS = 1000;
 
 const INITIAL_FILTERS = {
@@ -123,7 +123,7 @@ export default function App() {
         const loadErrorMessage =
           error instanceof UnitFilterLimitError
             ? error.userMessage
-            : "Não foi possível carregar os projetos iniciais. Tente novamente em instantes.";
+            : "Não foi possível carregar as solicitações iniciais. Tente novamente em instantes.";
         if (!(error instanceof UnitFilterLimitError)) {
           console.error(error);
         }
