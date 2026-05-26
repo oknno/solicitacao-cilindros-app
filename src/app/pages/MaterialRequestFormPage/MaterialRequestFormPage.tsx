@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   analyzeMaterialRequestStockUseCase,
   createMaterialRequestUseCase,
-  updateMaterialRequestDraftUseCase,
+  getCurrentMaterialRequestUserUseCase,
   getStockCentersUseCase,
   getStockMaterialsByCenterUseCase,
   type AnalyzeMaterialRequestStockOutput,
+  updateMaterialRequestDraftUseCase,
 } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
-import { StockAnalysisCard } from "../../components/materialRequest/StockAnalysisCard";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
@@ -17,12 +17,36 @@ import { uiTokens } from "../../components/ui/tokens";
 import { wizardLayoutStyles } from "../ProjectsPage/components/wizard/wizardLayoutStyles";
 
 const MANUAL_NOT_FOUND_OPTION = "__NOT_FOUND__";
-interface MaterialRequestFormPageProps { onBack: () => void; onCreated: () => void; inModal?: boolean; mode?: "create"|"edit"; initialRequest?: MaterialRequest; }
-const requesterNameFallback = "Usuário atual";
-const requesterEmailFallback = "";
+const MAX_REASON_LENGTH = 1000;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".xlsx", ".xls"];
+
+interface MaterialRequestFormPageProps {
+  onBack: () => void;
+  onCreated: () => void;
+  inModal?: boolean;
+  mode?: "create" | "edit";
+  initialRequest?: MaterialRequest;
+}
+
+function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, isManualMaterial: boolean, requestedQuantity: number): string {
+  if (isManualMaterial) return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
+  if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) return "Informe a quantidade solicitada para concluir a análise de estoque.";
+  if (!result) return "Informe os dados do material para concluir a análise de estoque.";
+
+  const { evaluatedStockTotal, recommendation } = result.stockAnalysis;
+  if (recommendation === "PURCHASE_RECOMMENDED") return "Não há estoque avaliado para este material. Compra recomendada.";
+  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "Estoque disponível menor que a quantidade solicitada. Compra recomendada com estoque parcial.";
+  if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "Há estoque suficiente para a quantidade solicitada. A compra não é recomendada sem justificativa.";
+  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
+  if (evaluatedStockTotal === 0) return "Não há estoque avaliado para este material. Compra recomendada.";
+  return "Análise de estoque concluída.";
+}
 
 export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "create", initialRequest }: MaterialRequestFormPageProps) {
   const { notify } = useToast();
+  const [requesterName, setRequesterName] = useState("Usuário atual");
+  const [requesterEmail, setRequesterEmail] = useState("");
   const [center, setCenter] = useState("");
   const [materialSelection, setMaterialSelection] = useState("");
   const [manualMaterialCode, setManualMaterialCode] = useState("");
@@ -33,15 +57,28 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const [analysisResult, setAnalysisResult] = useState<AnalyzeMaterialRequestStockOutput | null>(null);
   const [stockMaterials, setStockMaterials] = useState<Array<{ materialCode: string; description: string; evaluatedStockTotal: number | null }>>([]);
   const [centers, setCenters] = useState<string[]>([]);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingCenters, setLoadingCenters] = useState(false);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [forceShowJustification, setForceShowJustification] = useState(false);
 
   const parsedRequestedQuantity = useMemo(() => Number(requestedQuantity), [requestedQuantity]);
   const isManualMaterial = materialSelection === MANUAL_NOT_FOUND_OPTION;
   const selectedStockMaterial = stockMaterials.find((item) => item.materialCode === materialSelection) ?? null;
+
+  const effectiveMaterialCode = isManualMaterial ? manualMaterialCode.trim() : materialSelection.trim();
+  const justificationRequired = forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED" || analysisResult?.stockAnalysis.recommendation === "MANUAL_REVIEW_REQUIRED" || isManualMaterial;
+
+  useEffect(() => {
+    void getCurrentMaterialRequestUserUseCase().then((user) => {
+      setRequesterName(user.name);
+      setRequesterEmail(user.email);
+    });
+  }, []);
 
   useEffect(() => {
     if (!initialRequest) return;
@@ -77,49 +114,128 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   useEffect(() => {
     if (!isManualMaterial && selectedStockMaterial) {
       setMaterialDescription(selectedStockMaterial.description);
+      setAnalysisResult((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          stockAnalysis: {
+            ...previous.stockAnalysis,
+            evaluatedStockTotal: selectedStockMaterial.evaluatedStockTotal,
+          },
+        };
+      });
     }
     if (isManualMaterial) {
       setMaterialDescription("");
       setAnalysisResult({ stockMaterial: null, stockAnalysis: { materialFound: false, evaluatedStockTotal: null, requestedQuantity: Number.isFinite(parsedRequestedQuantity) ? parsedRequestedQuantity : 0, recommendation: "MANUAL_REVIEW_REQUIRED", requiresRequesterJustification: true, message: "Material não encontrado na base de estoque. A solicitação requer análise manual." } });
-    } else {
-      setAnalysisResult(null);
     }
   }, [isManualMaterial, selectedStockMaterial, parsedRequestedQuantity]);
 
-  const canAnalyze = center.trim() && Number.isFinite(parsedRequestedQuantity) && parsedRequestedQuantity > 0
-    && (isManualMaterial ? manualMaterialCode.trim() && materialDescription.trim() : materialSelection.trim() && materialSelection !== MANUAL_NOT_FOUND_OPTION);
-  const justificationRequired = analysisResult?.stockAnalysis.requiresRequesterJustification ?? isManualMaterial;
+  useEffect(() => {
+    const canRunAutomaticAnalysis = center.trim() && effectiveMaterialCode && Number.isFinite(parsedRequestedQuantity) && parsedRequestedQuantity > 0;
+    if (!canRunAutomaticAnalysis || isManualMaterial) {
+      if (!isManualMaterial) setAnalysisResult(null);
+      return;
+    }
 
-  async function handleAnalyzeStock() {
-    if (isManualMaterial) return;
-    setError(""); setLoadingAnalysis(true);
-    try { setAnalysisResult(await analyzeMaterialRequestStockUseCase({ center, materialCode: materialSelection, requestedQuantity: parsedRequestedQuantity })); }
-    catch (e) { setAnalysisResult(null); setError(e instanceof Error ? e.message : "Não foi possível analisar o estoque."); }
-    finally { setLoadingAnalysis(false); }
+    let cancelled = false;
+    setLoadingAnalysis(true);
+    setError("");
+    void analyzeMaterialRequestStockUseCase({ center, materialCode: effectiveMaterialCode, requestedQuantity: parsedRequestedQuantity })
+      .then((result) => {
+        if (cancelled) return;
+        setAnalysisResult(result);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setAnalysisResult(null);
+        setError(e instanceof Error ? e.message : "Não foi possível analisar o estoque.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingAnalysis(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [center, effectiveMaterialCode, isManualMaterial, parsedRequestedQuantity]);
+
+  function handleAttachmentChange(file: File | null) {
+    setAttachmentError("");
+    if (!file) {
+      setAttachment(null);
+      return;
+    }
+
+    const lowerName = file.name.toLowerCase();
+    const validExtension = ALLOWED_ATTACHMENT_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
+    if (!validExtension) {
+      setAttachment(null);
+      setAttachmentError("Formato inválido. Anexe um arquivo PDF ou Excel.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setAttachment(null);
+      setAttachmentError("O arquivo deve ter no máximo 10 MB.");
+      return;
+    }
+
+    setAttachment(file);
   }
 
   async function handleSubmit() {
     setError("");
+    setForceShowJustification(false);
+    if (!requesterName.trim()) return setError("Não foi possível identificar o solicitante.");
     if (!center.trim()) return setError("Informe o centro da solicitação.");
-    const effectiveCode = isManualMaterial ? manualMaterialCode : materialSelection;
-    if (!effectiveCode.trim()) return setError("Informe o código do material.");
+    if (!effectiveMaterialCode) return setError("Informe o código do material.");
     if (isManualMaterial && !materialDescription.trim()) return setError("Informe a descrição do material.");
     if (!Number.isFinite(parsedRequestedQuantity) || parsedRequestedQuantity <= 0) return setError("Informe uma quantidade solicitada maior que zero.");
     if (!requestReason.trim()) return setError("Informe o motivo da solicitação.");
-    if (justificationRequired && !requesterJustification.trim()) return setError("Informe a justificativa para prosseguir com esta solicitação.");
+    if (requestReason.trim().length > MAX_REASON_LENGTH) return setError("O motivo deve ter no máximo 1000 caracteres.");
+    if (attachmentError) return setError(attachmentError);
+
+    let finalAnalysis = analysisResult;
+    if (!isManualMaterial) {
+      setLoadingAnalysis(true);
+      try {
+        finalAnalysis = await analyzeMaterialRequestStockUseCase({ center, materialCode: effectiveMaterialCode, requestedQuantity: parsedRequestedQuantity });
+        setAnalysisResult(finalAnalysis);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Não foi possível analisar o estoque.");
+        setLoadingAnalysis(false);
+        return;
+      }
+      setLoadingAnalysis(false);
+    }
+
+    const requiresJustification = isManualMaterial || finalAnalysis?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED" || finalAnalysis?.stockAnalysis.recommendation === "MANUAL_REVIEW_REQUIRED";
+    if (requiresJustification && !requesterJustification.trim()) {
+      setForceShowJustification(true);
+      setError("Informe a justificativa para salvar esta solicitação.");
+      return;
+    }
+
     setSending(true);
     try {
       if (mode === "edit" && initialRequest?.id) {
-        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial, performedByName: requesterNameFallback, performedByEmail: requesterEmailFallback });
+        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail });
         notify("Solicitação atualizada com sucesso.", "success");
       } else {
-        await createMaterialRequestUseCase({ requesterName: requesterNameFallback, requesterEmail: requesterEmailFallback, center, materialCode: effectiveCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial });
+        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial, attachment: attachment ?? undefined });
         notify("Solicitação salva como rascunho.", "success");
       }
       onCreated();
-    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível criar a solicitação."); }
-    finally { setSending(false); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível criar a solicitação.");
+    } finally {
+      setSending(false);
+    }
   }
+
+  const analysisMessage = buildAnalysisMessage(analysisResult, isManualMaterial, parsedRequestedQuantity);
 
   const content = <div style={{ minHeight: "100%", display: "grid", gridTemplateRows: "1fr auto" }}>
     <div style={{ ...wizardLayoutStyles.body, padding: uiTokens.spacing.lg }}>
@@ -128,27 +244,38 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
           <h3 style={{ margin: 0, fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Dados da solicitação</h3>
           <div style={wizardLayoutStyles.journeyStack}>
             <div style={wizardLayoutStyles.journeyPairGrid}>
-              <Field label="Solicitante">{requesterNameFallback}</Field>
-              <Field label="E-mail do solicitante">{requesterEmailFallback || "-"}</Field>
+              <Field label="Solicitante"><input value={requesterName} readOnly style={wizardLayoutStyles.input} /></Field>
+              <Field label="E-mail do solicitante"><input value={requesterEmail || "-"} readOnly style={wizardLayoutStyles.input} /></Field>
             </div>
             <div style={wizardLayoutStyles.journeyPairGrid}>
               <Field label="Centro"><select value={center} onChange={(e) => setCenter(e.target.value)} style={wizardLayoutStyles.input}><option value="">{loadingCenters ? "Carregando centros..." : "Selecione"}</option>{centers.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
               <Field label="Material"><select value={materialSelection} onChange={(e) => setMaterialSelection(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={m.materialCode} value={m.materialCode}>{`${m.materialCode} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select></Field>
             </div>
-            {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
-            {!isManualMaterial && <Field label="Descrição"><input value={materialDescription} readOnly style={wizardLayoutStyles.input} /></Field>}
-            {isManualMaterial && <StateMessage state="empty" message="Material não encontrado na base de estoque. A solicitação seguirá para análise manual." />}
+
             <div style={wizardLayoutStyles.journeyPairGrid}>
+              <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={wizardLayoutStyles.input} /></Field>
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
-              <Field label="Estoque Avaliado"><input value={analysisResult?.stockAnalysis.evaluatedStockTotal ?? ""} readOnly placeholder="Realize a análise de estoque" style={wizardLayoutStyles.input} /></Field>
             </div>
-            <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value)} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
+            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{analysisMessage}</p>
+
+            {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição do Material"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
+
+            {!isManualMaterial && !!materialDescription && <StateMessage state="empty" message={`Descrição do material: ${materialDescription}`} />}
+
+            <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
+            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Descreva o motivo da solicitação de material.</p>
+            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
+
+            {justificationRequired && <Field label="Justificativa do Solicitante"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value)} rows={5} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
+
+            <Field label="Anexo de apoio">
+              <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={wizardLayoutStyles.input} />
+            </Field>
+            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Anexe PDF ou Excel, se necessário.</p>
+            {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Arquivo selecionado: {attachment.name} <button type="button" onClick={() => setAttachment(null)} style={{ marginLeft: uiTokens.spacing.xs }}>Remover</button></p>}
+            {attachmentError && <StateMessage state="error" message={attachmentError} />}
           </div>
         </div>
-
-        {analysisResult && <StockAnalysisCard stockMaterial={analysisResult.stockMaterial} stockAnalysis={analysisResult.stockAnalysis} requestedCenter={center.trim()} requestedMaterialCode={isManualMaterial ? manualMaterialCode.trim() : materialSelection.trim()} requestedDescription={materialDescription.trim()} isManualMaterial={isManualMaterial} />}
-
-        {justificationRequired && <div style={wizardLayoutStyles.card}><h3 style={{ margin: 0, fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Justificativa</h3><Field label="Justificativa do Solicitante"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value)} rows={5} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
 
         {error && <StateMessage state="error" message={error} />}
       </div>
@@ -157,7 +284,6 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
     <div style={wizardLayoutStyles.footer}>
       <Button onClick={onBack} disabled={sending || loadingAnalysis}>Cancelar</Button>
       <div style={{ display: "flex", gap: uiTokens.spacing.sm }}>
-        <Button onClick={() => void handleAnalyzeStock()} disabled={!canAnalyze || loadingAnalysis || isManualMaterial || sending}>{loadingAnalysis ? "Analisando..." : "Analisar Estoque"}</Button>
         <Button tone="primary" onClick={() => void handleSubmit()} disabled={sending || loadingAnalysis}>{sending ? "Salvando..." : mode === "edit" ? "Salvar Alterações" : "Salvar Rascunho"}</Button>
       </div>
     </div>

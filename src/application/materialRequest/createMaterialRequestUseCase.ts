@@ -6,7 +6,10 @@ import {
   type StockMaterial,
 } from "../../domain/materialRequest";
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
-import { createMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
+import {
+  addAttachmentToMaterialRequest,
+  createMaterialRequest,
+} from "../../services/sharepoint/repositories/materialRequestRepository";
 import { findStockMaterialByCenterAndCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
 
 export interface CreateMaterialRequestInput {
@@ -19,6 +22,7 @@ export interface CreateMaterialRequestInput {
   requesterJustification?: string;
   materialDescription?: string;
   isManualMaterial?: boolean;
+  attachment?: File;
 }
 
 export interface CreateMaterialRequestOutput {
@@ -117,6 +121,10 @@ export async function createMaterialRequestUseCase(
     performedAt: new Date().toISOString(),
     comment: "Solicitação criada como rascunho.",
   });
+
+  if (input.attachment) {
+    await addAttachmentToMaterialRequest(createdRequest.id, input.attachment);
+  }
 
   return {
     request: createdRequest,
