@@ -15,7 +15,10 @@ import { MaterialRequestViewModal } from "../../components/materialRequest/Mater
 import { applyMaterialRequestFilters, hasActiveMaterialRequestFilters, type MaterialRequestFilters } from "../../components/materialRequest/materialRequestFilters";
 import { useToast } from "../../components/notifications/useToast";
 import { uiTokens } from "../../components/ui/tokens";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
+import { projectsPageStyles as sharedPageStyles } from "../ProjectsPage/components/ProjectsPage.styles";
 import {
   getMaterialRequestCommandPermissions,
   type MaterialRequestUserProfile,
@@ -157,8 +160,16 @@ export function MaterialRequestsHomePage() {
       minHeight: 0,
     }}
     >
-      {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} totalLoaded={items.length} hasActiveFilters={hasActiveFilters} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />}
-      <MaterialRequestSummaryPanel selected={selectedRequest} />
+      <Card style={sharedPageStyles.listCard}>
+        {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />}
+        <div style={sharedPageStyles.footerRow}>
+          <div style={sharedPageStyles.helperText}>Itens carregados: <b>{filteredItems.length}</b></div>
+          <Button disabled>{loading ? "Carregando..." : "Fim"}</Button>
+        </div>
+      </Card>
+      <Card style={{ overflow: "hidden", minHeight: 0, padding: uiTokens.spacing.md }}>
+        <MaterialRequestSummaryPanel selected={selectedRequest} />
+      </Card>
     </div>
 
     {formMode && <MaterialRequestFormModal mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
