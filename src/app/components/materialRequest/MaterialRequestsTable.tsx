@@ -6,6 +6,9 @@ export function MaterialRequestsTable(props: {
   items: MaterialRequest[];
   selectedId: number | null;
   onSelect: (item: MaterialRequest) => void;
+  totalLoaded?: number;
+  hasActiveFilters?: boolean;
+  emptyMessage?: string;
 }) {
   return (
     <div style={{ background: uiTokens.colors.surface, border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, minHeight: 0, display: "grid", gridTemplateRows: "1fr auto", overflow: "hidden" }}>
@@ -46,11 +49,21 @@ export function MaterialRequestsTable(props: {
                 </tr>
               );
             })}
+            {props.items.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>
+                  {props.emptyMessage ?? "Nenhuma solicitação encontrada."}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
       <div style={{ borderTop: `1px solid ${uiTokens.colors.border}`, padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", color: uiTokens.colors.textMuted }}>
-        <div>Itens carregados: <b>{props.items.length}</b></div>
+        <div>
+          Itens carregados: <b>{props.items.length}</b>
+          {props.hasActiveFilters ? <> de <b>{props.totalLoaded ?? props.items.length}</b></> : null}
+        </div>
       </div>
     </div>
   );
