@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase } from "../../../application/materialRequest";
+import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMaterialRequestForApprovalUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
 import { MaterialRequestFormModal } from "../../components/materialRequest/MaterialRequestFormModal";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
-import { SubmitMaterialRequestModal } from "../../components/materialRequest/SubmitMaterialRequestModal";
 import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { MaterialRequestFilterModal } from "../../components/materialRequest/MaterialRequestFilterModal";
@@ -50,7 +49,6 @@ export function MaterialRequestsHomePage() {
   const [returnStatusRequest, setReturnStatusRequest] = useState<MaterialRequest | null>(null);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
-  const [submitModalRequest, setSubmitModalRequest] = useState<MaterialRequest | null>(null);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
   const profile = (import.meta.env.VITE_MATERIAL_REQUEST_PROFILE as MaterialRequestUserProfile | undefined) ?? "ADMIN";
@@ -122,6 +120,38 @@ export function MaterialRequestsHomePage() {
     setConfirmState(config);
   }
 
+  async function onSendToApproval() {
+    if (!selectedRequest) {
+      notify("Selecione uma solicitação.", "info");
+      return;
+    }
+
+    if (!commandPermissions.canSubmit) {
+      notify("A solicitação não pode ser enviada para aprovação neste status.", "info");
+      return;
+    }
+
+    requestConfirm({
+      title: "Enviar solicitação para aprovação",
+      message: `Enviar a solicitação #${selectedRequest.id} para aprovação?`,
+      confirmingText: "Enviando...",
+      onConfirm: async () => {
+        try {
+          await submitMaterialRequestForApprovalUseCase({
+            requestId: selectedRequest.id ?? 0,
+            performedByName: "Usuário atual",
+            performedByEmail: "",
+          });
+          await loadRequests();
+          notify("Solicitação enviada para aprovação do Gerente da Laminação.", "success");
+        } catch (error) {
+          console.error(error);
+          notify("Não foi possível enviar a solicitação para aprovação.", "error");
+        }
+      }
+    });
+  }
+
   async function onDelete() {
     if (!selectedRequest) {
       notify("Selecione uma solicitação.", "info");
@@ -180,7 +210,7 @@ export function MaterialRequestsHomePage() {
       onEdit={() => { if (selectedRequest) setFormMode("edit"); }}
       onDuplicate={() => undefined}
       onDelete={() => { void onDelete(); }}
-      onSendToApproval={() => { if (selectedRequest) setSubmitModalRequest(selectedRequest); }}
+      onSendToApproval={() => { void onSendToApproval(); }}
       onBackStatus={() => { if (selectedRequest) setReturnStatusRequest(selectedRequest); }}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
@@ -227,7 +257,6 @@ export function MaterialRequestsHomePage() {
 
     {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
-    {submitModalRequest && <SubmitMaterialRequestModal request={submitModalRequest} onClose={() => setSubmitModalRequest(null)} onSubmitted={() => { setSubmitModalRequest(null); void loadRequests(); }} />}
 
     {viewRequest && <MaterialRequestViewModal request={viewRequest} onClose={() => setViewRequest(null)} />}
 

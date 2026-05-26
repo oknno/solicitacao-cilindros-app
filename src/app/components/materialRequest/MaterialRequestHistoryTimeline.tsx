@@ -13,6 +13,7 @@ interface MaterialRequestHistoryTimelineProps {
 const ACTION_LABELS: Partial<Record<MaterialRequestHistoryEntry["action"], string>> = {
   CREATED: "Criada",
   UPDATED: "Atualizada",
+  SUBMITTED: "Enviada para aprovação",
   CANCELLED: "Cancelada",
   APPROVED_BY_LAMINATION_MANAGER: "Aprovada pelo Gerente da Laminação",
   REJECTED_BY_LAMINATION_MANAGER: "Reprovada pelo Gerente da Laminação",
