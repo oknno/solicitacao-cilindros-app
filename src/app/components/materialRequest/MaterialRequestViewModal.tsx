@@ -129,21 +129,35 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
         </SummarySection>
 
         <CollapsibleSection title="Aprovação Gerente Laminação">
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-            <SummaryField label={materialRequestFieldLabel("laminationManagerName")} value={formatEmpty(request.laminationManagerName)} />
-            <SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} />
-            <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 10,
+              width: "100%",
+            }}
+          >
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("laminationManagerName")} value={formatEmpty(request.laminationManagerName)} /></div>
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} /></div>
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} /></div>
           </div>
-          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.laminationManagerJustification)}</div>} span={2} />
+          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.laminationManagerJustification)}</div>} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Aprovação CTO">
-          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-            <SummaryField label={materialRequestFieldLabel("ctoApproverName")} value={formatEmpty(request.ctoApproverName)} />
-            <SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} />
-            <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 10,
+              width: "100%",
+            }}
+          >
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("ctoApproverName")} value={formatEmpty(request.ctoApproverName)} /></div>
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} /></div>
+            <div style={{ minWidth: 0 }}><SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} /></div>
           </div>
-          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.ctoJustification)}</div>} span={2} />
+          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.ctoJustification)}</div>} />
         </CollapsibleSection>
 
         {hasHistory && (
