@@ -2,6 +2,7 @@ import type { MaterialRequestStatus } from "./status";
 
 export type MaterialRequestHistoryAction =
   | "CREATED"
+  | "SUBMITTED"
   | "APPROVED_BY_LAMINATION_MANAGER"
   | "REJECTED_BY_LAMINATION_MANAGER"
   | "RETURNED_BY_LAMINATION_MANAGER"
