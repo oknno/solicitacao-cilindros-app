@@ -108,14 +108,14 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal }: Material
     setSending(true);
     try {
       await createMaterialRequestUseCase({ requesterName: requesterNameFallback, requesterEmail: requesterEmailFallback, center, materialCode: effectiveCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial });
-      notify("Solicitação criada e enviada para aprovação do Gerente da Laminação.", "success");
+      notify("Solicitação salva como rascunho.", "success");
       onCreated();
     } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível criar a solicitação."); }
     finally { setSending(false); }
   }
 
   const content = <div style={{ minHeight: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
-    <Card><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: uiTokens.spacing.md, flexWrap: "wrap" }}><h2 style={{ margin: 0 }}>Nova Solicitação de Material</h2><div style={{ display: "flex", gap: uiTokens.spacing.sm, flexWrap: "wrap" }}><Button onClick={onBack}>Voltar</Button><Button onClick={() => void handleAnalyzeStock()} disabled={!canAnalyze || loadingAnalysis || isManualMaterial}>{loadingAnalysis ? "Analisando..." : "Analisar Estoque"}</Button><Button tone="primary" onClick={() => void handleSubmit()} disabled={sending}>{sending ? "Enviando..." : "Enviar para Aprovação"}</Button></div></div></Card>
+    <Card><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: uiTokens.spacing.md, flexWrap: "wrap" }}><h2 style={{ margin: 0 }}>Nova Solicitação de Material</h2><div style={{ display: "flex", gap: uiTokens.spacing.sm, flexWrap: "wrap" }}><Button onClick={onBack}>Voltar</Button><Button onClick={() => void handleAnalyzeStock()} disabled={!canAnalyze || loadingAnalysis || isManualMaterial}>{loadingAnalysis ? "Analisando..." : "Analisar Estoque"}</Button><Button tone="primary" onClick={() => void handleSubmit()} disabled={sending}>{sending ? "Salvando..." : "Salvar Rascunho"}</Button></div></div></Card>
     <div style={{ display: "grid", gap: uiTokens.spacing.md, alignContent: "start" }}>
       <Card><h3 style={{ margin: "0 0 12px" }}>Dados da Solicitação</h3><div style={{ display: "grid", gap: 12 }}>
         <Field label="Solicitante" layout="inline">{requesterNameFallback}</Field><Field label="E-mail do solicitante" layout="inline">{requesterEmailFallback || "-"}</Field>

@@ -80,7 +80,7 @@ export function MaterialRequestsHomePage() {
 
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
-      title="Solicitação de Material Cilindros"
+      title="Solicitação de Material Cilindros e Discos"
       isAdmin={profile === "ADMIN"}
       selectedId={selectedId}
       totalLoaded={items.length}

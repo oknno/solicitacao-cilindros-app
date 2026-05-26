@@ -94,7 +94,7 @@ export async function createMaterialRequestUseCase(
     stockRecommendation: stockAnalysis.recommendation,
     requestReason,
     requesterJustification,
-    status: "PENDING_LAMINATION_MANAGER_APPROVAL",
+    status: "DRAFT",
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -111,11 +111,11 @@ export async function createMaterialRequestUseCase(
     requestId: createdRequest.id,
     action: "CREATED",
     previousStatus: undefined,
-    newStatus: "PENDING_LAMINATION_MANAGER_APPROVAL",
+    newStatus: "DRAFT",
     performedByName: requesterName,
     performedByEmail: input.requesterEmail,
     performedAt: new Date().toISOString(),
-    comment: "Solicitação criada e enviada para aprovação do Gerente da Laminação.",
+    comment: "Solicitação criada como rascunho.",
   });
 
   return {
