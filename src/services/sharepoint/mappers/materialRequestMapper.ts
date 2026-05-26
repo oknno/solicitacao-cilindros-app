@@ -70,7 +70,9 @@ export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
     ctoJustification: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.ctoJustification)),
     ctoApproverName: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.ctoApproverName)),
     ctoApproverEmail: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.ctoApproverEmail)),
-    ctoDecisionDate: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.ctoDecisionDate))
+    ctoDecisionDate: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.ctoDecisionDate)),
+    createdAt: optionalString(getStringField(source, "Created")),
+    updatedAt: optionalString(getStringField(source, "Modified"))
   };
 }
 

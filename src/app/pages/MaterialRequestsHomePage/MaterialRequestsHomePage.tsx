@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getMaterialRequestsUseCase } from "../../../application/materialRequest";
+import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
@@ -69,6 +69,17 @@ export function MaterialRequestsHomePage() {
     void loadRequests();
   }, [loadRequests]);
 
+
+  const handleExportRequests = useCallback(() => {
+    if (!filteredItems.length) {
+      notify("Não há solicitações para exportar.", "info");
+      return;
+    }
+
+    exportMaterialRequestsUseCase(filteredItems);
+    notify(`Exportação gerada com ${filteredItems.length} solicitações.`, "success");
+  }, [filteredItems, notify]);
+
   function getApproverRoleFromStatus(request: MaterialRequest): ApproverRole | null {
     if (request.status === "PENDING_LAMINATION_MANAGER_APPROVAL") return "LAMINATION_MANAGER";
     if (request.status === "PENDING_CTO_APPROVAL") return "CTO";
@@ -129,7 +140,7 @@ export function MaterialRequestsHomePage() {
       showRejectButton={commandPermissions.canShowReject}
       showFilterButton={commandPermissions.canShowFilter}
       showExportButton={commandPermissions.canShowExport}
-      onExportTable={() => undefined}
+      onExportTable={handleExportRequests}
       onExportProject={() => undefined}
       availableUnits={[]}
     />

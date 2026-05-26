@@ -13,3 +13,5 @@ export * from "./getStockMaterialsByCenterUseCase";
 export * from "./getMaterialRequestHistoryUseCase";
 
 export * from "./submitMaterialRequestForApprovalUseCase";
+
+export * from "./exportMaterialRequestsUseCase";
