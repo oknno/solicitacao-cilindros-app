@@ -82,7 +82,6 @@ export function MaterialRequestsHomePage() {
   }, [items.length]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadRequests();
   }, [loadRequests]);
 
@@ -202,6 +201,7 @@ export function MaterialRequestsHomePage() {
       onChangeFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))}
       onApply={() => setFilterModalOpen(true)}
       onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
+      filterButtonMode="triggerOnly"
       onRefresh={() => void loadRequests()}
       onNew={() => setFormMode("create")}
       onUpdateStock={() => setStockImportOpen(true)}

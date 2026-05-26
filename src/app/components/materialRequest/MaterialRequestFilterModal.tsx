@@ -52,7 +52,7 @@ export function MaterialRequestFilterModal(props: {
           <input
             value={props.value.material ?? ""}
             onChange={(e) => props.onChange({ material: e.target.value })}
-            placeholder="Ex: MAT-123"
+            placeholder="Ex: AT-123"
             style={fieldControlStyles.input}
           />
         </FilterField>
