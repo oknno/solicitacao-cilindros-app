@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { Field } from "../ui/Field";
 import { RequestStatusBadge } from "./RequestStatusBadge";
-import { StockRecommendationBadge } from "./StockRecommendationBadge";
 import { uiTokens } from "../ui/tokens";
 
 function Row({ label, value }: { label: string; value?: ReactNode }) {
@@ -38,19 +37,27 @@ export function MaterialRequestSummaryPanel({ selected }: { selected: MaterialRe
       <div style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 800, color: uiTokens.colors.textStrong }}>Resumo</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <div style={{ fontWeight: 800, color: uiTokens.colors.textStrong, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selected.title || selected.materialCode || "-"}</div>
+          <div style={{ fontWeight: 800, color: uiTokens.colors.textStrong, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {selected.id != null ? `Solicitação #${selected.id}` : (selected.title || selected.materialCode || "-")}
+          </div>
           <RequestStatusBadge value={selected.status} />
         </div>
       </div>
 
       <div style={{ borderTop: `1px solid ${uiTokens.colors.borderMuted}`, paddingTop: 12, display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+        <Field label="ID" layout="stack">{selected.id ?? "-"}</Field>
         <Field label="Material" layout="stack">{selected.materialCode || "-"}</Field>
         <Field label="Centro" layout="stack">{selected.center || "-"}</Field>
         <Field label="Qtde. Solicitada" layout="stack">{selected.requestedQuantity ?? "-"}</Field>
         <Field label="Estoque Avaliado" layout="stack">{selected.evaluatedStockTotalAtRequest ?? "-"}</Field>
-        <Field label="Parecer" layout="stack"><StockRecommendationBadge value={selected.stockRecommendation} /></Field>
+        <Field label="Parecer" layout="stack">{selected.stockRecommendation || "-"}</Field>
         <Field label="Solicitante" layout="stack">{selected.requesterName || "-"}</Field>
       </div>
+
+      <Section title="Dados da solicitação">
+        <Row label="Descrição do material" value={selected.materialDescription} />
+        <Row label="Título" value={selected.title} />
+      </Section>
 
       <Section title="Solicitação">
         <Row label="Motivo da solicitação" value={selected.requestReason} />
