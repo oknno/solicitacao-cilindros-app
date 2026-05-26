@@ -132,7 +132,7 @@ export function PepSummaryList(props: PepSummaryListProps) {
   if (!pepSummaryItems.length) {
     return (
       <div style={pepSummaryListStyles.emptyState}>
-        <div aria-hidden="true" style={pepSummaryListStyles.emptyIcon}>📁</div>
+        <div aria-hidden="true" style={pepSummaryListStyles.emptyIcon}>PEP</div>
         <p style={pepSummaryListStyles.emptyTitle}>Nenhum PEP cadastrado</p>
         <p style={pepSummaryListStyles.emptyDescription}>Adicione PEPs nas etapas anteriores para visualizar o resumo.</p>
       </div>
