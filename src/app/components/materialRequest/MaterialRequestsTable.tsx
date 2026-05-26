@@ -3,7 +3,7 @@ import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { uiTokens } from "../ui/tokens";
 
-const tableColumns = "72px minmax(100px, 0.9fr) minmax(120px, 1fr) minmax(220px, 1.9fr) minmax(105px, 0.9fr) minmax(168px, 1.1fr) minmax(160px, 1.2fr)";
+const tableColumns = "56px minmax(78px, 0.7fr) minmax(104px, 0.95fr) minmax(170px, 1.75fr) minmax(86px, 0.7fr) minmax(120px, 0.95fr) minmax(150px, 1.15fr)";
 
 export function MaterialRequestsTable(props: {
   items: MaterialRequest[];
@@ -27,7 +27,7 @@ export function MaterialRequestsTable(props: {
                 <Cell title={item.materialCode ?? "-"}>{item.materialCode ?? "-"}</Cell>
                 <Cell title={item.materialDescription ?? "-"}>{item.materialDescription ?? "-"}</Cell>
                 <Cell>{item.requestedQuantity ?? "-"}</Cell>
-                <Cell><RequestStatusBadge value={item.status} /></Cell>
+                <Cell noWrap><RequestStatusBadge value={item.status} /></Cell>
                 <Cell title={item.requesterName ?? "-"}>{item.requesterName ?? "-"}</Cell>
               </div>
             );
@@ -39,6 +39,20 @@ export function MaterialRequestsTable(props: {
   );
 }
 
-function Cell({ children, title }: { children: ReactNode; title?: string }) {
-  return <div title={title} style={{ padding: "10px 10px", fontSize: 13, color: uiTokens.colors.textStrong, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{children}</div>;
+function Cell({ children, title, noWrap = true }: { children: ReactNode; title?: string; noWrap?: boolean }) {
+  return (
+    <div
+      title={title}
+      style={{
+        padding: "10px 10px",
+        fontSize: 13,
+        color: uiTokens.colors.textStrong,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: noWrap ? "nowrap" : "normal",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
