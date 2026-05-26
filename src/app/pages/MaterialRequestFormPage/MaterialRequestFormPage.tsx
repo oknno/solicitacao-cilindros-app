@@ -84,7 +84,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const selectedStockMaterial = stockMaterials.find((item) => item.materialCode === materialSelection) ?? null;
 
   const effectiveMaterialCode = isManualMaterial ? manualMaterialCode.trim() : materialSelection.trim();
-  const justificationRequired = forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED" || analysisResult?.stockAnalysis.recommendation === "MANUAL_REVIEW_REQUIRED" || isManualMaterial;
+  const justificationRequired = forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED";
 
   useEffect(() => {
     void getCurrentMaterialRequestUserUseCase().then((user) => {
@@ -140,7 +140,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
     }
     if (isManualMaterial) {
       setMaterialDescription("");
-      setAnalysisResult({ stockMaterial: null, stockAnalysis: { materialFound: false, evaluatedStockTotal: null, requestedQuantity: Number.isFinite(parsedRequestedQuantity) ? parsedRequestedQuantity : 0, recommendation: "MANUAL_REVIEW_REQUIRED", requiresRequesterJustification: true, message: "Material não encontrado na base de estoque. A solicitação requer análise manual." } });
+      setAnalysisResult({ stockMaterial: null, stockAnalysis: { materialFound: false, evaluatedStockTotal: null, requestedQuantity: Number.isFinite(parsedRequestedQuantity) ? parsedRequestedQuantity : 0, recommendation: "MANUAL_REVIEW_REQUIRED", requiresRequesterJustification: false, message: "Material não encontrado na base de estoque. A solicitação requer análise manual." } });
     }
   }, [isManualMaterial, selectedStockMaterial, parsedRequestedQuantity]);
 
@@ -224,7 +224,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
       setLoadingAnalysis(false);
     }
 
-    const requiresJustification = isManualMaterial || finalAnalysis?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED" || finalAnalysis?.stockAnalysis.recommendation === "MANUAL_REVIEW_REQUIRED";
+    const requiresJustification = finalAnalysis?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED";
     if (requiresJustification && !requesterJustification.trim()) {
       setForceShowJustification(true);
       setError("Informe a justificativa para salvar esta solicitação.");

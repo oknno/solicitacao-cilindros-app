@@ -36,9 +36,9 @@ export function analyzeStockForMaterialRequest(
       recommendation: "MANUAL_REVIEW_REQUIRED",
       evaluatedStockTotal: null,
       requestedQuantity: input.requestedQuantity,
-      requiresRequesterJustification: true,
+      requiresRequesterJustification: false,
       message:
-        "Material não encontrado na base de estoque. A solicitação requer análise manual e justificativa.",
+        "Material não encontrado na base de estoque. A solicitação requer análise manual.",
     });
   }
 
@@ -50,9 +50,9 @@ export function analyzeStockForMaterialRequest(
       recommendation: "MANUAL_REVIEW_REQUIRED",
       evaluatedStockTotal: null,
       requestedQuantity: input.requestedQuantity,
-      requiresRequesterJustification: true,
+      requiresRequesterJustification: false,
       message:
-        "Estoque avaliado total indisponível ou inválido. A solicitação requer análise manual e justificativa.",
+        "Estoque avaliado total indisponível ou inválido. A solicitação requer análise manual.",
     });
   }
 
