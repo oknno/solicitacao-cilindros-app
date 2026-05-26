@@ -155,7 +155,6 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
               cursor: isImporting ? "not-allowed" : "pointer"
             }}
           >
-            <div style={{ fontSize: 28 }}>📤</div>
             <div style={{ fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>
               Arraste aqui o arquivo Excel
             </div>
