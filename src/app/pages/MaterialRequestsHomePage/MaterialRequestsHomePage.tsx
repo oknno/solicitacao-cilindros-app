@@ -26,6 +26,7 @@ import { deleteMaterialRequestUseCase } from "../../../application/materialReque
 
 const DEFAULT_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const DEFAULT_MATERIAL_FILTERS: MaterialRequestFilters = { center: "", material: "", requester: "", status: "", sort: undefined };
+const MATERIAL_FILTER_BUTTON_ID = "material-requests-filter-button";
 
 type ApprovalModalState = {
   request: MaterialRequest;
@@ -202,6 +203,7 @@ export function MaterialRequestsHomePage() {
       onApply={() => setFilterModalOpen(true)}
       onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
       filterButtonMode="triggerOnly"
+      filterButtonId={MATERIAL_FILTER_BUTTON_ID}
       onRefresh={() => void loadRequests()}
       onNew={() => setFormMode("create")}
       onUpdateStock={() => setStockImportOpen(true)}
@@ -292,6 +294,7 @@ export function MaterialRequestsHomePage() {
     {filterModalOpen && <MaterialRequestFilterModal
       value={materialFilters}
       centers={centerOptions}
+      anchorId={MATERIAL_FILTER_BUTTON_ID}
       onChange={(patch) => setMaterialFilters((current) => ({ ...current, ...patch }))}
       onApply={() => setFilterModalOpen(false)}
       onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}

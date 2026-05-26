@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
 import type { MaterialRequestFilters } from "./materialRequestFilters";
 import { Button } from "../ui/Button";
@@ -23,8 +23,6 @@ const styles = {
   } satisfies React.CSSProperties,
   popover: {
     position: "absolute",
-    right: uiTokens.spacing.md,
-    top: 84,
     width: 420,
     maxWidth: "calc(100vw - 32px)",
     background: uiTokens.colors.surface,
@@ -57,12 +55,37 @@ const styles = {
 export function MaterialRequestFilterModal(props: {
   value: MaterialRequestFilters;
   centers: string[];
+  anchorId?: string;
   onChange: (patch: Partial<MaterialRequestFilters>) => void;
   onApply: () => void;
   onClear: () => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<{ top: number; right: number }>({
+    top: 84,
+    right: uiTokens.spacing.md,
+  });
+
+  useEffect(() => {
+    function updatePosition() {
+      const anchor = props.anchorId ? document.getElementById(props.anchorId) : null;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setPosition({
+        top: Math.round(rect.bottom + 8),
+        right: Math.max(uiTokens.spacing.md, Math.round(window.innerWidth - rect.right)),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [props.anchorId]);
 
   useEffect(() => {
     function onDocMouseDown(event: MouseEvent) {
@@ -76,7 +99,12 @@ export function MaterialRequestFilterModal(props: {
 
   return (
     <div style={styles.overlay}>
-      <div ref={panelRef} role="dialog" aria-label="Filtro de solicitações" style={styles.popover}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-label="Filtro de solicitações"
+        style={{ ...styles.popover, top: position.top, right: position.right }}
+      >
         <div style={styles.content}>
           <div style={styles.fieldGroup}>
             <label style={styles.fieldLabel}>Centro</label>
