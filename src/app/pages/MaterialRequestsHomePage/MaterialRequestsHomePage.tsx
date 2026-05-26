@@ -29,7 +29,7 @@ const DEFAULT_MATERIAL_FILTERS: MaterialRequestFilters = { center: "", material:
 
 type ApprovalModalState = {
   request: MaterialRequest;
-  initialDecision: "APPROVE" | "REJECT";
+  decision: "APPROVE" | "REJECT";
   approverRole: ApproverRole;
 };
 
@@ -113,7 +113,7 @@ export function MaterialRequestsHomePage() {
       return;
     }
 
-    setApprovalModalState({ request: selectedRequest, initialDecision, approverRole });
+    setApprovalModalState({ request: selectedRequest, decision: initialDecision, approverRole });
   }
 
   function requestConfirm(config: { title: string; message: string; onConfirm: () => Promise<void> | void; tone?: "danger" | "neutral"; confirmingText?: string; confirmText?: string }) {
@@ -253,7 +253,7 @@ export function MaterialRequestsHomePage() {
 
     {formMode && <MaterialRequestFormModal mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
 
-    {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} initialDecision={approvalModalState.initialDecision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onDecided={() => { setApprovalModalState(null); void loadRequests(); }} />}
+    {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} decision={approvalModalState.decision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onCompleted={() => { setApprovalModalState(null); void loadRequests(); }} />}
 
     {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
