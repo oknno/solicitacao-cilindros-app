@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
-import { RequestStatusBadge } from "./RequestStatusBadge";
+import { formatMaterialRequestStatusLabel } from "./materialRequestSummaryFormatters";
 import { uiTokens } from "../ui/tokens";
 
 const tableColumns = "56px minmax(78px, 0.7fr) minmax(104px, 0.95fr) minmax(170px, 1.75fr) minmax(86px, 0.7fr) minmax(120px, 0.95fr) minmax(150px, 1.15fr)";
@@ -27,7 +27,7 @@ export function MaterialRequestsTable(props: {
                 <Cell title={item.materialCode ?? "-"}>{item.materialCode ?? "-"}</Cell>
                 <Cell title={item.materialDescription ?? "-"}>{item.materialDescription ?? "-"}</Cell>
                 <Cell>{item.requestedQuantity ?? "-"}</Cell>
-                <Cell noWrap><RequestStatusBadge value={item.status} /></Cell>
+                <Cell noWrap title={formatMaterialRequestStatusLabel(item.status)}>{formatMaterialRequestStatusLabel(item.status)}</Cell>
                 <Cell title={item.requesterName ?? "-"}>{item.requesterName ?? "-"}</Cell>
               </div>
             );
