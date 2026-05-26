@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { decideMaterialRequestApprovalUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest, MaterialRequestDecision } from "../../../domain/materialRequest";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
@@ -9,6 +9,10 @@ import { Field } from "../ui/Field";
 import { AppModal } from "../common/AppModal";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
+import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
+import { formatDateTime, formatEmpty, formatMaterialRequestStatusLabel, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
+import { RequestStatusBadge } from "./RequestStatusBadge";
+import { StockRecommendationBadge } from "./StockRecommendationBadge";
 
 type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT" | "RETURN_FOR_ADJUSTMENT">;
 
@@ -33,22 +37,28 @@ const DECISION_COPY: Record<Decision, { title: string; confirm: string; confirmi
   },
 };
 
-const STATUS_LABELS: Record<MaterialRequest["status"], string> = {
-  DRAFT: "Rascunho",
-  PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente",
-  PENDING_CTO_APPROVAL: "Pendente CTO",
-  APPROVED: "Aprovada",
-  REJECTED: "Reprovada",
-  RETURNED_FOR_ADJUSTMENT: "Devolvida",
-  CANCELLED: "Cancelada",
-};
+function ReviewSection(props: { title: string; children: ReactNode }) {
+  const childCount = Array.isArray(props.children) ? props.children.length : 1;
+  return (
+    <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: 16, padding: 20, display: "grid", gap: 14, background: uiTokens.colors.surface }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>{props.title}</h3>
+        <span style={{ fontSize: 11, fontWeight: 700, color: uiTokens.colors.textMuted, border: `1px solid ${uiTokens.colors.border}`, borderRadius: 999, padding: "4px 10px", background: uiTokens.colors.surface }}>
+          {childCount} campo{childCount > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>{props.children}</div>
+    </section>
+  );
+}
 
-const RECOMMENDATION_LABELS: Record<MaterialRequest["stockRecommendation"], string> = {
-  PURCHASE_RECOMMENDED: "Compra recomendada",
-  PURCHASE_RECOMMENDED_PARTIAL_STOCK: "Compra recomendada com estoque parcial",
-  PURCHASE_NOT_RECOMMENDED: "Compra não recomendada",
-  MANUAL_REVIEW_REQUIRED: "Requer análise manual",
-};
+function SummaryField(props: { label: string; value: ReactNode; span?: 1 | 2 }) {
+  return (
+    <Card style={{ padding: "12px 14px", gridColumn: `span ${props.span ?? 1}` }}>
+      <Field label={props.label}>{props.value}</Field>
+    </Card>
+  );
+}
 
 export function MaterialRequestApprovalModal(props: {
   request: MaterialRequest;
@@ -91,43 +101,48 @@ export function MaterialRequestApprovalModal(props: {
   }
 
   return (
-    <AppModal title={copy.title} subtitle="Revise o resumo e informe a justificativa para concluir a decisão." onClose={props.onClose}>
-      <div style={{ display: "grid", gap: uiTokens.spacing.md }}>
-        <Card>
-          <div style={{ display: "grid", gap: 8 }}>
-            <Field label="Solicitação">#{props.request.id ?? "-"}</Field>
-            <Field label="Centro">{props.request.center || "-"}</Field>
-            <Field label="Material">{props.request.materialCode || "-"}</Field>
-            <Field label="Descrição">{props.request.materialDescription || "-"}</Field>
-            <Field label="Qtde. Solicitada">{props.request.requestedQuantity ?? "-"}</Field>
-            <Field label="Estoque Avaliado">{props.request.evaluatedStockTotalAtRequest ?? "-"}</Field>
-            <Field label="Parecer">{RECOMMENDATION_LABELS[props.request.stockRecommendation] ?? "-"}</Field>
-            <Field label="Solicitante">{props.request.requesterName || "-"}</Field>
-            <Field label="Status atual">{STATUS_LABELS[props.request.status] ?? "-"}</Field>
-          </div>
-        </Card>
+    <AppModal
+      title={copy.title}
+      subtitle="Revise o resumo e informe a justificativa para concluir a decisão."
+      onClose={props.onClose}
+      actions={(
+        <>
+          <Button onClick={props.onClose} disabled={sending}>Cancelar</Button>
+          <Button tone="primary" onClick={() => void handleConfirm()} disabled={sending}>{sending ? copy.confirming : copy.confirm}</Button>
+        </>
+      )}
+    >
+      <div style={{ padding: 14, display: "grid", gap: 16 }}>
+        <ReviewSection title="Dados da Solicitação">
+          <SummaryField label={materialRequestFieldLabel("id")} value={formatEmpty(props.request.id)} />
+          <SummaryField label={materialRequestFieldLabel("center")} value={formatEmpty(props.request.center)} />
+          <SummaryField label={materialRequestFieldLabel("materialCode")} value={formatEmpty(props.request.materialCode)} />
+          <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(props.request.materialDescription)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requestedQuantity")} value={formatNumber(props.request.requestedQuantity)} />
+          <SummaryField label={materialRequestFieldLabel("evaluatedStockTotalAtRequest")} value={formatNumber(props.request.evaluatedStockTotalAtRequest)} />
+          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={<StockRecommendationBadge value={props.request.stockRecommendation} />} />
+          <SummaryField label={materialRequestFieldLabel("requesterName")} value={formatEmpty(props.request.requesterName)} />
+          <SummaryField label="Status atual" value={<RequestStatusBadge value={props.request.status} />} span={2} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ display: "grid", gap: 12 }}>
-            <Field label="Nome do aprovador">
-              <input value={approverName} onChange={(e) => setApproverName(e.target.value)} style={{ width: "100%" }} />
-            </Field>
-            <Field label="Justificativa">
-              <textarea
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                rows={5}
-                placeholder={copy.placeholder}
-                style={{ width: "100%", resize: "vertical" }}
-              />
-            </Field>
-            {error && <StateMessage state="error" message={error} />}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: uiTokens.spacing.sm }}>
-              <Button onClick={props.onClose} disabled={sending}>Cancelar</Button>
-              <Button tone="primary" onClick={() => void handleConfirm()} disabled={sending}>{sending ? copy.confirming : copy.confirm}</Button>
-            </div>
-          </div>
-        </Card>
+        <ReviewSection title="Informações Complementares">
+          <SummaryField label={materialRequestFieldLabel("requestReason")} value={formatEmpty(props.request.requestReason)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={formatEmpty(props.request.requesterJustification)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("createdAt")} value={formatDateTime(props.request.createdAt)} />
+          <SummaryField label="Parecer (texto)" value={formatStockRecommendationLabel(props.request.stockRecommendation)} />
+          <SummaryField label="Status (texto)" value={formatMaterialRequestStatusLabel(props.request.status)} span={2} />
+        </ReviewSection>
+
+        <ReviewSection title="Decisão">
+          <SummaryField label="Nome do aprovador" value={<input value={approverName} onChange={(e) => setApproverName(e.target.value)} style={{ width: "100%" }} />} />
+          <SummaryField label="Decisão" value={copy.confirm} />
+          <SummaryField
+            label="Justificativa"
+            span={2}
+            value={<textarea value={justification} onChange={(e) => setJustification(e.target.value)} rows={5} placeholder={copy.placeholder} style={{ width: "100%", resize: "vertical" }} />}
+          />
+          {error ? <div style={{ gridColumn: "span 2" }}><StateMessage state="error" message={error} /></div> : null}
+        </ReviewSection>
       </div>
     </AppModal>
   );
