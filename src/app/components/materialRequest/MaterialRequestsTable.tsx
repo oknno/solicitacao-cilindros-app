@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { uiTokens } from "../ui/tokens";
+
+const tableColumns = "72px minmax(100px, 0.9fr) minmax(120px, 1fr) minmax(220px, 1.9fr) minmax(105px, 0.9fr) minmax(168px, 1.1fr) minmax(160px, 1.2fr)";
 
 export function MaterialRequestsTable(props: {
   items: MaterialRequest[];
@@ -14,72 +17,48 @@ export function MaterialRequestsTable(props: {
   loadMoreLabel?: string;
 }) {
   return (
-    <div style={{ background: "#f3f3f5", borderRadius: 12, padding: 12, minHeight: 0, display: "grid", gridTemplateRows: "1fr auto", gap: 12 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #d9d9dd", borderRadius: 10, minHeight: 0, overflow: "hidden" }}>
-        <div style={{ overflowY: "auto", overflowX: "hidden", minHeight: 300, maxHeight: "100%" }}>
-          <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 0, fontSize: uiTokens.typography.sm, fontFamily: "Inter, 'Segoe UI', Arial, sans-serif", color: "#2f3440" }}>
-            <colgroup>
-              <col style={{ width: "72px" }} />
-              <col style={{ width: "100px" }} />
-              <col style={{ width: "120px" }} />
-              <col />
-              <col style={{ width: "105px" }} />
-              <col style={{ width: "150px" }} />
-              <col style={{ width: "160px" }} />
-            </colgroup>
-            <thead>
-              <tr>
-                {[
-                  "ID", "Centro", "Material", "Descrição", "Solicitado", "Status", "Solicitante",
-                ].map((h) => <th key={h} style={{ textAlign: "left", padding: "12px 16px", fontWeight: 700, color: "#1f3556", background: "#e5e6ea", borderBottom: "1px solid #d9d9dd", verticalAlign: "middle" }}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {props.items.map((item) => {
-                const active = item.id != null && item.id === props.selectedId;
-                return (
-                  <tr
-                    key={item.id ?? `${item.title}-${item.materialCode}`}
-                    onClick={() => props.onSelect(item)}
-                    style={{ cursor: "pointer", background: active ? uiTokens.colors.surfaceMuted : "#ffffff" }}
-                  >
-                    <td style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.id ?? "-"}</td>
-                    <td style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.center ?? "-"}</td>
-                    <td style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.materialCode ?? "-"}</td>
-                    <td title={item.materialDescription ?? "-"} style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.materialDescription ?? "-"}</td>
-                    <td style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.requestedQuantity ?? "-"}</td>
-                    <td style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", verticalAlign: "middle" }}><RequestStatusBadge value={item.status} /></td>
-                    <td title={item.requesterName ?? "-"} style={{ padding: "12px 16px", borderBottom: "1px solid #ececef", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", verticalAlign: "middle" }}>{item.requesterName ?? "-"}</td>
-                  </tr>
-                );
-              })}
-              {props.items.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>
-                    {props.emptyMessage ?? "Nenhuma solicitação encontrada."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+    <div style={{ minHeight: 0, display: "grid", gridTemplateRows: "1fr auto", gap: 10 }}>
+      <div style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ overflowY: "auto", overflowX: "hidden", minHeight: 0, maxHeight: 520 }}>
+          <div style={{ display: "grid", gridTemplateColumns: tableColumns, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
+            {["ID", "Centro", "Material", "Descrição", "Solicitado", "Status", "Solicitante"].map((h) => <div key={h} style={{ padding: "10px 10px", fontSize: 12, fontWeight: 700, color: uiTokens.colors.text }}>{h}</div>)}
+          </div>
+          <div>
+            {props.items.map((item) => {
+              const active = item.id != null && item.id === props.selectedId;
+              return (
+                <div key={item.id ?? `${item.title}-${item.materialCode}`} onClick={() => props.onSelect(item)} style={{ display: "grid", gridTemplateColumns: tableColumns, cursor: "pointer", borderBottom: `1px solid ${uiTokens.colors.borderMuted}`, background: active ? uiTokens.colors.accentSoft : uiTokens.colors.surface }}>
+                  <Cell>{item.id ?? "-"}</Cell>
+                  <Cell title={item.center ?? "-"}>{item.center ?? "-"}</Cell>
+                  <Cell title={item.materialCode ?? "-"}>{item.materialCode ?? "-"}</Cell>
+                  <Cell title={item.materialDescription ?? "-"}>{item.materialDescription ?? "-"}</Cell>
+                  <Cell>{item.requestedQuantity ?? "-"}</Cell>
+                  <Cell><RequestStatusBadge value={item.status} /></Cell>
+                  <Cell title={item.requesterName ?? "-"}>{item.requesterName ?? "-"}</Cell>
+                </div>
+              );
+            })}
+            {props.items.length === 0 && <div style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>{props.emptyMessage ?? "Nenhuma solicitação encontrada."}</div>}
+          </div>
         </div>
       </div>
-      <div style={{ padding: "0 2px", display: "flex", justifyContent: "space-between", alignItems: "center", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 0 }}>
         <div>
-          Itens carregados: <b>{props.items.length}</b>
+          <span style={{ fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>Itens carregados: <b>{props.items.length}</b>
           {props.hasActiveFilters ? <> de <b>{props.totalLoaded ?? props.items.length}</b></> : null}
+          </span>
         </div>
         <button
           type="button"
           onClick={props.onLoadMore}
           disabled={props.loadMoreDisabled ?? !props.onLoadMore}
           style={{
-            height: 36,
-            padding: "0 18px",
-            borderRadius: 10,
-            border: "1px solid #cfd2d8",
-            background: "#f3f4f6",
-            color: "#2f3440",
+            height: 34,
+            padding: "0 14px",
+            borderRadius: 8,
+            border: `1px solid ${uiTokens.colors.border}`,
+            background: uiTokens.colors.surface,
+            color: uiTokens.colors.text,
             fontWeight: 600,
             cursor: (props.loadMoreDisabled ?? !props.onLoadMore) ? "not-allowed" : "pointer",
             opacity: (props.loadMoreDisabled ?? !props.onLoadMore) ? 0.75 : 1,
@@ -91,4 +70,8 @@ export function MaterialRequestsTable(props: {
       </div>
     </div>
   );
+}
+
+function Cell({ children, title }: { children: ReactNode; title?: string }) {
+  return <div title={title} style={{ padding: "10px 10px", fontSize: 13, color: uiTokens.colors.textStrong, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{children}</div>;
 }
