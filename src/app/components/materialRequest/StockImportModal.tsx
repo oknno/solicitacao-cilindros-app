@@ -41,7 +41,8 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
 
   const hasColumnError = Boolean(result?.errors.some((error) => error.row === 0 && error.message.includes("Coluna obrigatória não encontrada")));
   const canConfirm = Boolean(file && result && result.items.length > 0 && result.invalidRows === 0 && !hasColumnError && !loading);
-  const previewErrors = useMemo(() => result?.errors.slice(0, 4) ?? [], [result]);
+  const previewErrors = useMemo(() => result?.errors.slice(0, 8) ?? [], [result]);
+  const previewItems = useMemo(() => result?.items ?? [], [result]);
   const isImporting = loading && Boolean(importProgress);
 
   async function onPick(nextFile: File) {
@@ -90,6 +91,16 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
     if (!isImporting) fileInputRef.current?.click();
   }
 
+
+  function onReplaceFile() {
+    if (isImporting) return;
+    setFile(null);
+    setResult(null);
+    setLocalError(null);
+    setImportProgress(null);
+    setDropActive(false);
+  }
+
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (isImporting) return;
@@ -126,49 +137,51 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
         />
 
         <Card>
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={openPicker}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
+          {!file && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={openPicker}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openPicker();
+                }
+              }}
+              onDragOver={(event) => {
                 event.preventDefault();
-                openPicker();
-              }
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              if (!isImporting) setDropActive(true);
-            }}
-            onDragLeave={() => setDropActive(false)}
-            onDrop={onDrop}
-            style={{
-              border: `2px dashed ${dropActive ? uiTokens.colors.accent : uiTokens.colors.borderStrong}`,
-              borderRadius: uiTokens.radius.lg,
-              background: dropActive ? uiTokens.colors.accentSoft : uiTokens.colors.surfaceMuted,
-              minHeight: 200,
-              padding: uiTokens.spacing.xl,
-              display: "grid",
-              alignContent: "center",
-              justifyItems: "center",
-              gap: uiTokens.spacing.sm,
-              cursor: isImporting ? "not-allowed" : "pointer"
-            }}
-          >
-            <div style={{ fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>
-              Arraste aqui o arquivo Excel
+                if (!isImporting) setDropActive(true);
+              }}
+              onDragLeave={() => setDropActive(false)}
+              onDrop={onDrop}
+              style={{
+                border: `2px dashed ${dropActive ? uiTokens.colors.accent : uiTokens.colors.borderStrong}`,
+                borderRadius: uiTokens.radius.lg,
+                background: dropActive ? uiTokens.colors.accentSoft : uiTokens.colors.surfaceMuted,
+                minHeight: 200,
+                padding: uiTokens.spacing.xl,
+                display: "grid",
+                alignContent: "center",
+                justifyItems: "center",
+                gap: uiTokens.spacing.sm,
+                cursor: isImporting ? "not-allowed" : "pointer"
+              }}
+            >
+              <div style={{ fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>
+                Arraste aqui o arquivo Excel
+              </div>
+              <div style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar</div>
             </div>
-            <div style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar</div>
-          </div>
+          )}
 
           {file && (
-            <div style={{ marginTop: uiTokens.spacing.md, display: "grid", gap: uiTokens.spacing.sm }}>
+            <div style={{ display: "grid", gap: uiTokens.spacing.sm }}>
               <div style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>
                 Arquivo selecionado: <b>{file.name}</b> ({formatFileSize(file.size)})
               </div>
               <button
                 type="button"
-                onClick={openPicker}
+                onClick={onReplaceFile}
                 disabled={isImporting}
                 style={{
                   appearance: "none",
@@ -198,6 +211,67 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
           </Card>
         )}
 
+
+        {result && (
+          <Card>
+            <div style={{ display: "grid", gap: uiTokens.spacing.sm }}>
+              <div style={{ fontWeight: uiTokens.typography.mediumWeight, color: uiTokens.colors.textStrong }}>Preview dos itens válidos</div>
+              <div
+                style={{
+                  border: `1px solid ${uiTokens.colors.border}`,
+                  borderRadius: uiTokens.radius.md,
+                  overflow: "hidden",
+                  background: uiTokens.colors.surface
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.1fr 2fr 0.8fr 1fr",
+                    gap: uiTokens.spacing.sm,
+                    padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
+                    background: uiTokens.colors.surfaceMuted,
+                    borderBottom: `1px solid ${uiTokens.colors.border}`,
+                    fontSize: uiTokens.typography.xs,
+                    fontWeight: uiTokens.typography.mediumWeight,
+                    color: uiTokens.colors.textMuted
+                  }}
+                >
+                  <span>Material</span>
+                  <span>Descrição</span>
+                  <span>Centro</span>
+                  <span>Estoque Avaliado</span>
+                </div>
+                <div style={{ maxHeight: 250, overflowY: "auto" }}>
+                  {previewItems.length > 0 ? previewItems.map((item, index) => (
+                    <div
+                      key={`${item.center}-${item.materialCode}-${index}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.1fr 2fr 0.8fr 1fr",
+                        gap: uiTokens.spacing.sm,
+                        padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
+                        fontSize: uiTokens.typography.sm,
+                        color: uiTokens.colors.text,
+                        borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none"
+                      }}
+                    >
+                      <span>{item.materialCode}</span>
+                      <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} title={item.description}>{item.description}</span>
+                      <span>{item.center}</span>
+                      <span>{item.evaluatedStockTotal}</span>
+                    </div>
+                  )) : (
+                    <div style={{ padding: uiTokens.spacing.md, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>
+                      Nenhum item válido para exibir.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {isImporting && <StateMessage state="loading" message={`${STAGE_LABELS[importProgress?.stage ?? "VALIDATING"]}${importProgress && importProgress.total > 0 ? `: ${importProgress.processed}/${importProgress.total}` : ""}`} />}
         {!isImporting && localError && <StateMessage state="error" message={localError} />}
         {!isImporting && result && result.validRows > 0 && result.invalidRows === 0 && !hasColumnError && !localError && (
@@ -206,7 +280,7 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
         {!isImporting && result && result.errors.length > 0 && (
           <Card style={{ background: uiTokens.stateTones.warning.bg, border: `1px solid ${uiTokens.stateTones.warning.bd}` }}>
             <div style={{ display: "grid", gap: uiTokens.spacing.xs, color: uiTokens.stateTones.warning.fg }}>
-              <b>Foram encontrados erros no arquivo:</b>
+              <b>Linhas com erro</b>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {previewErrors.map((error, index) => <li key={`${error.row}-${index}`}>Linha {error.row}: {error.message}</li>)}
               </ul>
