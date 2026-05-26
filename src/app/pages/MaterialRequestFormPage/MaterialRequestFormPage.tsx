@@ -30,15 +30,15 @@ interface MaterialRequestFormPageProps {
 
 
 function resolveAnalysisTone(result: AnalyzeMaterialRequestStockOutput | null, isManualMaterial: boolean, requestedQuantity: number): keyof typeof uiTokens.stateTones {
-  if (isManualMaterial) return "danger";
+  if (isManualMaterial) return "warning";
   if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0 || !result) return "neutral";
 
   const { recommendation, evaluatedStockTotal } = result.stockAnalysis;
-  if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "success";
+  if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "danger";
   if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "warning";
-  if (recommendation === "PURCHASE_RECOMMENDED") return "danger";
-  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "danger";
-  if (evaluatedStockTotal === 0) return "danger";
+  if (recommendation === "PURCHASE_RECOMMENDED") return "success";
+  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "warning";
+  if (evaluatedStockTotal === 0) return "success";
   return "neutral";
 }
 
@@ -257,7 +257,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
       <div style={{ ...wizardLayoutStyles.sectionStack, padding: 0 }}>
         <div style={wizardLayoutStyles.card}>
           <h3 style={{ margin: 0, fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Dados da solicitação</h3>
-          <div style={wizardLayoutStyles.journeyStack}>
+          <div style={{ ...wizardLayoutStyles.journeyStack, gap: uiTokens.spacing.md }}>
             <div style={wizardLayoutStyles.journeyPairGrid}>
               <Field label="Solicitante"><input value={requesterName} readOnly style={wizardLayoutStyles.input} /></Field>
               <Field label="E-mail do solicitante"><input value={requesterEmail || "-"} readOnly style={wizardLayoutStyles.input} /></Field>
@@ -268,21 +268,21 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
             </div>
 
             <div style={wizardLayoutStyles.journeyPairGrid}>
-              <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={wizardLayoutStyles.input} /></Field>
+              <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
             </div>
-            <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.xl}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.45 }}>{analysisMessage}</div>
+            <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{analysisMessage}</div>
 
-            {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição do Material"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
+            {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição do Material"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={2} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
 
-            <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
+            <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
             <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
 
-            {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={5} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
+            {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
             {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
 
             <Field label="Anexo de apoio">
-              <label style={{ display: "grid", gap: uiTokens.spacing.sm, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.lg}px ${uiTokens.spacing.xl}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
+              <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
                 <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
                 <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
                 <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
