@@ -10,6 +10,10 @@ import { MaterialRequestsTable } from "../../components/materialRequest/Material
 import { useToast } from "../../components/notifications/useToast";
 import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
+import {
+  getMaterialRequestCommandPermissions,
+  type MaterialRequestUserProfile,
+} from "../../../domain/permissions";
 
 const DEFAULT_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 
@@ -31,6 +35,12 @@ export function MaterialRequestsHomePage() {
   const [stockImportOpen, setStockImportOpen] = useState(false);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
+  const profile = (import.meta.env.VITE_MATERIAL_REQUEST_PROFILE as MaterialRequestUserProfile | undefined) ?? "ADMIN";
+  const commandPermissions = useMemo(() => getMaterialRequestCommandPermissions({
+    profile,
+    hasSelection: Boolean(selectedRequest),
+    selectedStatus: selectedRequest?.status,
+  }), [profile, selectedRequest]);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -48,10 +58,6 @@ export function MaterialRequestsHomePage() {
   useEffect(() => {
     void loadRequests();
   }, [loadRequests]);
-
-  const canDecide =
-    selectedRequest?.status === "PENDING_LAMINATION_MANAGER_APPROVAL"
-    || selectedRequest?.status === "PENDING_CTO_APPROVAL";
 
   function getApproverRoleFromStatus(request: MaterialRequest): ApproverRole | null {
     if (request.status === "PENDING_LAMINATION_MANAGER_APPROVAL") return "LAMINATION_MANAGER";
@@ -75,15 +81,15 @@ export function MaterialRequestsHomePage() {
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
       title="Solicitação de Material Cilindros"
-      isAdmin
+      isAdmin={profile === "ADMIN"}
       selectedId={selectedId}
       totalLoaded={items.length}
-      canEdit={false}
-      canDelete={false}
-      canSend={false}
-      canBack={false}
-      canApprove={Boolean(canDecide)}
-      canReject={Boolean(canDecide)}
+      canEdit={commandPermissions.canEdit}
+      canDelete={commandPermissions.canDelete}
+      canSend={commandPermissions.canSubmit}
+      canBack={commandPermissions.canReturnStatus}
+      canApprove={commandPermissions.canApprove}
+      canReject={commandPermissions.canReject}
       approveDisabledReason="Selecione uma solicitação pendente de aprovação."
       rejectDisabledReason="Selecione uma solicitação pendente de aprovação."
       filters={filters}
@@ -93,7 +99,7 @@ export function MaterialRequestsHomePage() {
       onRefresh={() => void loadRequests()}
       onNew={() => setFormOpen(true)}
       onUpdateStock={() => setStockImportOpen(true)}
-      canCreate
+      canCreate={commandPermissions.canNew}
       onView={() => undefined}
       onEdit={() => undefined}
       onDuplicate={() => undefined}
@@ -102,7 +108,17 @@ export function MaterialRequestsHomePage() {
       onBackStatus={() => undefined}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
-      showApprovalActions
+      showApprovalActions={commandPermissions.canShowApprove || commandPermissions.canShowReject}
+      showNewButton={commandPermissions.canShowNew}
+      showEditButton={commandPermissions.canShowEdit}
+      showDuplicateButton={false}
+      showDeleteButton={commandPermissions.canShowDelete}
+      showSubmitButton={commandPermissions.canShowSubmit}
+      showBackButton={commandPermissions.canShowReturnStatus}
+      showApproveButton={commandPermissions.canShowApprove}
+      showRejectButton={commandPermissions.canShowReject}
+      showFilterButton={commandPermissions.canShowFilter}
+      showExportButton={commandPermissions.canShowExport}
       onExportTable={() => undefined}
       onExportProject={() => undefined}
       availableUnits={[]}

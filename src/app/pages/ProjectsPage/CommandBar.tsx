@@ -156,6 +156,16 @@ export function CommandBar(props: {
   onApprove: () => void;
   onReject: () => void;
   showApprovalActions: boolean;
+  showNewButton?: boolean;
+  showEditButton?: boolean;
+  showDuplicateButton?: boolean;
+  showDeleteButton?: boolean;
+  showSubmitButton?: boolean;
+  showBackButton?: boolean;
+  showApproveButton?: boolean;
+  showRejectButton?: boolean;
+  showFilterButton?: boolean;
+  showExportButton?: boolean;
 
   onExportTable: () => void;
   onExportProject: () => void;
@@ -164,6 +174,16 @@ export function CommandBar(props: {
 }) {
   const hasSelection = props.selectedId != null;
   const unitOptions = props.availableUnits ?? ALL_UNIT_OPTIONS;
+  const showNewButton = props.showNewButton ?? true;
+  const showEditButton = props.showEditButton ?? true;
+  const showDuplicateButton = props.showDuplicateButton ?? true;
+  const showDeleteButton = props.showDeleteButton ?? true;
+  const showSubmitButton = props.showSubmitButton ?? true;
+  const showBackButton = props.showBackButton ?? true;
+  const showApproveButton = props.showApproveButton ?? props.showApprovalActions;
+  const showRejectButton = props.showRejectButton ?? props.showApprovalActions;
+  const showFilterButton = props.showFilterButton ?? true;
+  const showExportButton = props.showExportButton ?? true;
 
   return (
     <div style={styles.commandBar}>
@@ -176,59 +196,61 @@ export function CommandBar(props: {
       <div style={styles.actionsWrap}>
         <Button onClick={props.onRefresh}>Atualizar</Button>
         {props.onUpdateStock ? <Button onClick={props.onUpdateStock}>Atualizar Estoque</Button> : null}
-        <Button
-          tone="primary"
-          onClick={props.onNew}
-          disabled={!props.canCreate}
-          title={!props.canCreate ? props.createDisabledReason : undefined}
-        >
-          Novo
-        </Button>
+        {showNewButton && (
+          <Button
+            tone="primary"
+            onClick={props.onNew}
+            disabled={!props.canCreate}
+            title={!props.canCreate ? props.createDisabledReason : undefined}
+          >
+            Novo
+          </Button>
+        )}
 
         <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onView}>Visualizar</Button>
-        <Button disabled={!props.canEdit} title={!props.canEdit ? props.editDisabledReason : undefined} onClick={props.onEdit}>Editar</Button>
-        <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onDuplicate}>Duplicar</Button>
-        <Button disabled={!props.canDelete} title={!props.canDelete ? props.deleteDisabledReason : undefined} onClick={props.onDelete}>Excluir</Button>
+        {showEditButton && <Button disabled={!props.canEdit} title={!props.canEdit ? props.editDisabledReason : undefined} onClick={props.onEdit}>Editar</Button>}
+        {showDuplicateButton && <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onDuplicate}>Duplicar</Button>}
+        {showDeleteButton && <Button disabled={!props.canDelete} title={!props.canDelete ? props.deleteDisabledReason : undefined} onClick={props.onDelete}>Excluir</Button>}
 
         <span style={styles.divider} />
 
-        <Button disabled={!props.canSend} title={!props.canSend ? props.sendDisabledReason : undefined} onClick={props.onSendToApproval}>Enviar p/ Aprovação</Button>
-        <Button disabled={!props.canBack} title={!props.canBack ? props.backDisabledReason : undefined} onClick={props.onBackStatus}>Voltar Status</Button>
-        {props.showApprovalActions && (
+        {showSubmitButton && <Button disabled={!props.canSend} title={!props.canSend ? props.sendDisabledReason : undefined} onClick={props.onSendToApproval}>Enviar p/ Aprovação</Button>}
+        {showBackButton && <Button disabled={!props.canBack} title={!props.canBack ? props.backDisabledReason : undefined} onClick={props.onBackStatus}>Voltar Status</Button>}
+        {props.showApprovalActions && (showApproveButton || showRejectButton) && (
           <>
-            <Button
+            {showApproveButton && <Button
               tone="primary"
               disabled={!props.canApprove}
               title={!props.canApprove ? props.approveDisabledReason : undefined}
               onClick={props.onApprove}
             >
               Aprovar
-            </Button>
-            <Button
+            </Button>}
+            {showRejectButton && <Button
               disabled={!props.canReject}
               title={!props.canReject ? props.rejectDisabledReason : undefined}
               onClick={props.onReject}
             >
               Reprovar
-            </Button>
+            </Button>}
           </>
         )}
 
         <span style={styles.divider} />
 
-        <FilterMenu
+        {showFilterButton && <FilterMenu
           value={props.filters}
           unitOptions={unitOptions}
           onChange={props.onChangeFilters}
           onApply={props.onApply}
           onClear={props.onClear}
-        />
+        />}
 
-        <ExportMenu
+        {showExportButton && <ExportMenu
           canExportProject={hasSelection}
           onExportTable={props.onExportTable}
           onExportProject={props.onExportProject}
-        />
+        />}
       </div>
     </div>
   );
