@@ -8,6 +8,8 @@ import { MaterialRequestSummaryPanel } from "../../components/materialRequest/Ma
 import { SubmitMaterialRequestModal } from "../../components/materialRequest/SubmitMaterialRequestModal";
 import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
+import { MaterialRequestFilterModal } from "../../components/materialRequest/MaterialRequestFilterModal";
+import { applyMaterialRequestFilters, hasActiveMaterialRequestFilters, type MaterialRequestFilters } from "../../components/materialRequest/materialRequestFilters";
 import { useToast } from "../../components/notifications/useToast";
 import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
@@ -17,6 +19,7 @@ import {
 } from "../../../domain/permissions";
 
 const DEFAULT_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
+const DEFAULT_MATERIAL_FILTERS: MaterialRequestFilters = { center: "", material: "", requester: "", status: "", sort: undefined };
 
 type ApprovalModalState = {
   request: MaterialRequest;
@@ -31,6 +34,8 @@ export function MaterialRequestsHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
+  const [materialFilters, setMaterialFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
@@ -43,6 +48,9 @@ export function MaterialRequestsHomePage() {
     hasSelection: Boolean(selectedRequest),
     selectedStatus: selectedRequest?.status,
   }), [profile, selectedRequest]);
+  const filteredItems = useMemo(() => applyMaterialRequestFilters(items, materialFilters), [items, materialFilters]);
+  const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(materialFilters), [materialFilters]);
+  const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => item.center).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -82,7 +90,7 @@ export function MaterialRequestsHomePage() {
 
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
-      title="Solicitação de Material Cilindros"
+      title={`Cilindros e Discos${hasActiveFilters ? " · Filtro ativo" : ""}`}
       isAdmin={profile === "ADMIN"}
       selectedId={selectedId}
       totalLoaded={items.length}
@@ -96,8 +104,8 @@ export function MaterialRequestsHomePage() {
       rejectDisabledReason="Selecione uma solicitação pendente de aprovação."
       filters={filters}
       onChangeFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-      onApply={() => undefined}
-      onClear={() => setFilters(DEFAULT_FILTERS)}
+      onApply={() => setFilterModalOpen(true)}
+      onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
       onRefresh={() => void loadRequests()}
       onNew={() => setFormOpen(true)}
       onUpdateStock={() => setStockImportOpen(true)}
@@ -132,7 +140,7 @@ export function MaterialRequestsHomePage() {
       minHeight: 0,
     }}
     >
-      {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={items} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} />}
+      {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} totalLoaded={items.length} hasActiveFilters={hasActiveFilters} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />}
       <MaterialRequestSummaryPanel selected={selectedRequest} />
     </div>
 
@@ -143,5 +151,14 @@ export function MaterialRequestsHomePage() {
     {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
     {submitModalRequest && <SubmitMaterialRequestModal request={submitModalRequest} onClose={() => setSubmitModalRequest(null)} onSubmitted={() => { setSubmitModalRequest(null); void loadRequests(); }} />}
+
+    {filterModalOpen && <MaterialRequestFilterModal
+      value={materialFilters}
+      centers={centerOptions}
+      onChange={(patch) => setMaterialFilters((current) => ({ ...current, ...patch }))}
+      onApply={() => setFilterModalOpen(false)}
+      onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
+      onClose={() => setFilterModalOpen(false)}
+    />}
   </div>;
 }
