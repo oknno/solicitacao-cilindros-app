@@ -167,6 +167,7 @@ export function CommandBar(props: {
   showFilterButton?: boolean;
   showExportButton?: boolean;
   filterButtonMode?: "legacyPopover" | "triggerOnly";
+  filterButtonId?: string;
 
   onExportTable: () => void;
   onExportProject: () => void;
@@ -186,6 +187,7 @@ export function CommandBar(props: {
   const showFilterButton = props.showFilterButton ?? true;
   const showExportButton = props.showExportButton ?? true;
   const filterButtonMode = props.filterButtonMode ?? "legacyPopover";
+  const filterButtonId = props.filterButtonId;
 
   return (
     <div style={styles.commandBar}>
@@ -246,7 +248,7 @@ export function CommandBar(props: {
           onChange={props.onChangeFilters}
           onApply={props.onApply}
           onClear={props.onClear}
-        /> : <Button onClick={props.onApply}>Filtro</Button>)}
+        /> : <Button id={filterButtonId} onClick={props.onApply}>Filtro</Button>)}
 
         {showExportButton && <ExportMenu
           canExportProject={hasSelection}
