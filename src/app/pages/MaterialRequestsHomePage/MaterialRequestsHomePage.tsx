@@ -5,6 +5,7 @@ import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
 import { MaterialRequestFormModal } from "../../components/materialRequest/MaterialRequestFormModal";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
+import { SubmitMaterialRequestModal } from "../../components/materialRequest/SubmitMaterialRequestModal";
 import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { useToast } from "../../components/notifications/useToast";
@@ -33,6 +34,7 @@ export function MaterialRequestsHomePage() {
   const [formOpen, setFormOpen] = useState(false);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
+  const [submitModalRequest, setSubmitModalRequest] = useState<MaterialRequest | null>(null);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
   const profile = (import.meta.env.VITE_MATERIAL_REQUEST_PROFILE as MaterialRequestUserProfile | undefined) ?? "ADMIN";
@@ -80,7 +82,7 @@ export function MaterialRequestsHomePage() {
 
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
-      title="Solicitação de Material Cilindros e Discos"
+      title="Solicitação de Material Cilindros"
       isAdmin={profile === "ADMIN"}
       selectedId={selectedId}
       totalLoaded={items.length}
@@ -104,7 +106,7 @@ export function MaterialRequestsHomePage() {
       onEdit={() => undefined}
       onDuplicate={() => undefined}
       onDelete={() => undefined}
-      onSendToApproval={() => undefined}
+      onSendToApproval={() => { if (selectedRequest) setSubmitModalRequest(selectedRequest); }}
       onBackStatus={() => undefined}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
@@ -139,5 +141,7 @@ export function MaterialRequestsHomePage() {
     {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} initialDecision={approvalModalState.initialDecision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onDecided={() => { setApprovalModalState(null); void loadRequests(); }} />}
 
     {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
+
+    {submitModalRequest && <SubmitMaterialRequestModal request={submitModalRequest} onClose={() => setSubmitModalRequest(null)} onSubmitted={() => { setSubmitModalRequest(null); void loadRequests(); }} />}
   </div>;
 }

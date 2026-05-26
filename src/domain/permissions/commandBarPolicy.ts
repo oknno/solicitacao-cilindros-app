@@ -19,7 +19,7 @@ const SHOW_BY_PROFILE: Record<MaterialRequestUserProfile, Omit<MaterialRequestCo
   },
   LAMINATION_MANAGER: {
     canShowUpdate: true, canShowNew: false, canShowView: true, canShowEdit: false, canShowDelete: false,
-    canShowSubmit: true, canShowReturnStatus: false, canShowApprove: true, canShowReject: true, canShowFilter: true, canShowExport: true,
+    canShowSubmit: false, canShowReturnStatus: false, canShowApprove: true, canShowReject: true, canShowFilter: true, canShowExport: true,
   },
   CTO: {
     canShowUpdate: true, canShowNew: false, canShowView: true, canShowEdit: false, canShowDelete: false,
