@@ -37,7 +37,7 @@ export function MaterialRequestsHomePage() {
   const { notify } = useToast();
   const [items, setItems] = useState<MaterialRequest[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<"idle" | "loading" | "error">("loading");
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
   const [materialFilters, setMaterialFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
@@ -60,21 +60,29 @@ export function MaterialRequestsHomePage() {
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, materialFilters), [items, materialFilters]);
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(materialFilters), [materialFilters]);
   const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => item.center).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
+  const isInitialLoading = state === "loading" && items.length === 0;
 
   const loadRequests = useCallback(async () => {
-    setLoading(true);
+    setState("loading");
+    setError("");
     try {
       const result = await getMaterialRequestsUseCase();
       setItems(result);
       setSelectedId((current) => (result.some((item) => item.id === current) ? current : (result[0]?.id ?? null)));
-    } catch {
-      setError("Não foi possível carregar as solicitações de material. Tente novamente.");
-    } finally {
-      setLoading(false);
+      setState("idle");
+    } catch (caughtError) {
+      console.error(caughtError);
+      setState("error");
+      setError(
+        items.length > 0
+          ? "Não foi possível atualizar a lista. Os dados anteriores foram mantidos."
+          : "Não foi possível carregar as solicitações de material. Tente novamente."
+      );
     }
-  }, []);
+  }, [items.length]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadRequests();
   }, [loadRequests]);
 
@@ -161,10 +169,13 @@ export function MaterialRequestsHomePage() {
     }}
     >
       <Card style={sharedPageStyles.listCard}>
-        {loading ? <p>Carregando solicitações...</p> : error ? <p>{error}</p> : <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />}
+        {isInitialLoading ? <p>Carregando solicitações...</p> : <>
+          {error ? <p>{error}</p> : null}
+          <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />
+        </>}
         <div style={sharedPageStyles.footerRow}>
           <div style={sharedPageStyles.helperText}>Itens carregados: <b>{filteredItems.length}</b></div>
-          <Button disabled>{loading ? "Carregando..." : "Fim"}</Button>
+          <Button disabled>{state === "loading" ? "Carregando..." : "Fim"}</Button>
         </div>
       </Card>
       <Card style={{ overflow: "hidden", minHeight: 0, padding: uiTokens.spacing.md, display: "flex", flexDirection: "column" }}>
