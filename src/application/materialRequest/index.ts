@@ -19,3 +19,4 @@ export * from "./exportMaterialRequestsUseCase";
 export * from "./updateMaterialRequestDraftUseCase";
 export * from "./deleteMaterialRequestUseCase";
 export * from "./returnMaterialRequestStatusUseCase";
+export * from "./getCurrentMaterialRequestUserUseCase";

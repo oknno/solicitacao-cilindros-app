@@ -70,3 +70,25 @@ export async function deleteMaterialRequest(id: number): Promise<void> {
   const itemUrl = `${buildListItemsUrl()}(${id})`;
   await spDelete(itemUrl, digest);
 }
+
+export async function addAttachmentToMaterialRequest(
+  requestId: number,
+  file: File,
+): Promise<void> {
+  const digest = await getDigest();
+  const fileName = encodeURIComponent(file.name);
+  const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles/add(FileName='${fileName}')`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json;odata=nometadata",
+      "X-RequestDigest": digest,
+    },
+    body: await file.arrayBuffer(),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Falha ao anexar arquivo. (${res.status}) ${txt}`);
+  }
+}
