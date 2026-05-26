@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
 import type { MaterialRequestFilters } from "./materialRequestFilters";
 import { Button } from "../ui/Button";
@@ -62,15 +62,15 @@ export function MaterialRequestFilterModal(props: {
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [position, setPosition] = useState<{ top: number; right: number }>({
-    top: 84,
-    right: uiTokens.spacing.md,
-  });
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function updatePosition() {
       const anchor = props.anchorId ? document.getElementById(props.anchorId) : null;
-      if (!anchor) return;
+      if (!anchor) {
+        setPosition({ top: 84, right: uiTokens.spacing.md });
+        return;
+      }
       const rect = anchor.getBoundingClientRect();
       setPosition({
         top: Math.round(rect.bottom + 8),
@@ -103,7 +103,12 @@ export function MaterialRequestFilterModal(props: {
         ref={panelRef}
         role="dialog"
         aria-label="Filtro de solicitações"
-        style={{ ...styles.popover, top: position.top, right: position.right }}
+        style={{
+          ...styles.popover,
+          top: (position?.top ?? 84),
+          right: (position?.right ?? uiTokens.spacing.md),
+          visibility: position ? "visible" : "hidden",
+        }}
       >
         <div style={styles.content}>
           <div style={styles.fieldGroup}>
