@@ -1,26 +1,56 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getMaterialRequestHistoryUseCase } from "../../../application/materialRequest";
 import type { MaterialRequestHistoryEntry } from "../../../domain/materialRequest/historyTypes";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { AppModal } from "../common/AppModal";
 import { Card } from "../ui/Card";
 import { Field } from "../ui/Field";
+import { StateMessage } from "../ui/StateMessage";
+import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
+import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
+import { formatDateTime, formatEmpty, formatMaterialRequestStatusLabel, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { StockRecommendationBadge } from "./StockRecommendationBadge";
 
-const M: Partial<Record<MaterialRequest["stockRecommendation"], string>> = {
-  PURCHASE_RECOMMENDED: "Compra recomendada.",
-  PURCHASE_RECOMMENDED_PARTIAL_STOCK: "Compra recomendada com estoque parcial.",
-  PURCHASE_NOT_RECOMMENDED: "Compra não recomendada.",
-  MANUAL_REVIEW_REQUIRED: "Requer análise manual.",
-};
+function ReviewSection(props: { title: string; children: ReactNode }) {
+  const childCount = Array.isArray(props.children) ? props.children.length : 1;
+  return (
+    <section
+      style={{
+        border: `1px solid ${uiTokens.colors.border}`,
+        borderRadius: 16,
+        padding: 20,
+        display: "grid",
+        gap: 14,
+        background: uiTokens.colors.surface,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>{props.title}</h3>
+        <span style={{ fontSize: 11, fontWeight: 700, color: uiTokens.colors.textMuted, border: `1px solid ${uiTokens.colors.border}`, borderRadius: 999, padding: "4px 10px", background: uiTokens.colors.surface }}>
+          {childCount} campo{childCount > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>{props.children}</div>
+    </section>
+  );
+}
+
+function SummaryField(props: { label: string; value: ReactNode; span?: 1 | 2 }) {
+  return (
+    <Card style={{ padding: "12px 14px", gridColumn: `span ${props.span ?? 1}` }}>
+      <Field label={props.label}>{props.value}</Field>
+    </Card>
+  );
+}
 
 export function MaterialRequestViewModal({ request, onClose }: { request: MaterialRequest; onClose: () => void }) {
-  const recommendationMessage = M[request.stockRecommendation] ?? `Parecer não mapeado: ${request.stockRecommendation ?? "-"}.`;
   const [history, setHistory] = useState<MaterialRequestHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const hasHistory = useMemo(() => Boolean(request.id), [request.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -53,62 +83,57 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
     };
   }, [request.id]);
 
-  if (!M[request.stockRecommendation] && import.meta.env.DEV) {
-    console.warn("[MaterialRequestViewModal] Parecer sem mensagem mapeada:", request.stockRecommendation);
-  }
-
   return (
-    <AppModal
-      title={`Visualizar Solicitação #${request.id ?? ""}`}
-      subtitle="Modo visualização: campos bloqueados."
-      onClose={onClose}
-    >
-      <div style={{ display: "grid", gap: 12, padding: 16 }}>
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Dados da Solicitação</div>
-          <Field label="Solicitação / Title" layout="inline">{request.title ?? "-"}</Field>
-          <Field label="Solicitante" layout="inline">{request.requesterName}</Field>
-          <Field label="Material" layout="inline">{request.materialCode}</Field>
-          <Field label="Descrição" layout="inline">{request.materialDescription}</Field>
-          <Field label="Centro" layout="inline">{request.center}</Field>
-          <Field label="Quantidade solicitada" layout="inline">{request.requestedQuantity}</Field>
-          <Field label="Status" layout="inline"><RequestStatusBadge value={request.status} /></Field>
-        </Card>
+    <AppModal title={`Visualizar Solicitação #${request.id ?? ""}`} subtitle="Modo visualização: campos bloqueados." onClose={onClose}>
+      <div style={{ padding: 14, display: "grid", gap: 16 }}>
+        <ReviewSection title="Dados da Solicitação">
+          <SummaryField label={materialRequestFieldLabel("id")} value={formatEmpty(request.id)} />
+          <SummaryField label={materialRequestFieldLabel("title")} value={formatEmpty(request.title)} />
+          <SummaryField label={materialRequestFieldLabel("status")} value={<RequestStatusBadge value={request.status} />} />
+          <SummaryField label={materialRequestFieldLabel("requesterName")} value={formatEmpty(request.requesterName)} />
+          <SummaryField label={materialRequestFieldLabel("requesterEmail")} value={formatEmpty(request.requesterEmail)} />
+          <SummaryField label={materialRequestFieldLabel("createdAt")} value={formatDateTime(request.createdAt)} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Análise de Estoque</div>
-          <Field label="Estoque avaliado total" layout="inline">{request.evaluatedStockTotalAtRequest ?? "-"}</Field>
-          <Field label="Parecer" layout="inline"><StockRecommendationBadge value={request.stockRecommendation} /></Field>
-          <Field label="Mensagem" layout="inline">{recommendationMessage}</Field>
-        </Card>
+        <ReviewSection title="Material">
+          <SummaryField label={materialRequestFieldLabel("center")} value={formatEmpty(request.center)} />
+          <SummaryField label={materialRequestFieldLabel("materialCode")} value={formatEmpty(request.materialCode)} />
+          <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(request.materialDescription)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requestedQuantity")} value={formatNumber(request.requestedQuantity)} />
+          <SummaryField label={materialRequestFieldLabel("evaluatedStockTotalAtRequest")} value={formatNumber(request.evaluatedStockTotalAtRequest)} />
+          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={<StockRecommendationBadge value={request.stockRecommendation} />} span={2} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Justificativa do Solicitante</div>
-          <Field label="Comentário" layout="inline">{request.requesterJustification ?? request.requestReason ?? "-"}</Field>
-        </Card>
+        <ReviewSection title="Justificativas">
+          <SummaryField label={materialRequestFieldLabel("requestReason")} value={formatEmpty(request.requestReason)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={formatEmpty(request.requesterJustification)} span={2} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Aprovação Gerente Laminação</div>
-          <Field label="Responsável" layout="inline">{request.laminationManagerName ?? "-"}</Field>
-          <Field label="Data da decisão" layout="inline">{request.laminationManagerDecisionDate ?? "-"}</Field>
-          <Field label="Justificativa" layout="inline">{request.laminationManagerJustification ?? "-"}</Field>
-        </Card>
+        <ReviewSection title="Aprovação Gerente Laminação">
+          <SummaryField label={materialRequestFieldLabel("laminationManagerName")} value={formatEmpty(request.laminationManagerName)} />
+          <SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} />
+          <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} />
+          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={formatEmpty(request.laminationManagerJustification)} span={2} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Aprovação CTO</div>
-          <Field label="Responsável" layout="inline">{request.ctoApproverName ?? "-"}</Field>
-          <Field label="Data da decisão" layout="inline">{request.ctoDecisionDate ?? "-"}</Field>
-          <Field label="Justificativa" layout="inline">{request.ctoJustification ?? "-"}</Field>
-        </Card>
+        <ReviewSection title="Aprovação CTO">
+          <SummaryField label={materialRequestFieldLabel("ctoApproverName")} value={formatEmpty(request.ctoApproverName)} />
+          <SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} />
+          <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} />
+          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={formatEmpty(request.ctoJustification)} span={2} />
+        </ReviewSection>
 
-        <Card>
-          <div style={{ fontSize: 12, color: "var(--text-muted, #6b7280)", fontWeight: 600 }}>Histórico da Solicitação</div>
-          <MaterialRequestHistoryTimeline
-            items={history}
-            loading={loadingHistory}
-            error={historyError ?? null}
-          />
-        </Card>
+        {hasHistory && (
+          <ReviewSection title="Histórico da Solicitação">
+            <div style={{ gridColumn: "span 2" }}>
+              {historyError ? <StateMessage state="error" message={historyError} /> : null}
+              <MaterialRequestHistoryTimeline items={history} loading={loadingHistory} error={null} />
+            </div>
+          </ReviewSection>
+        )}
+
+        {!hasHistory && <StateMessage state="empty" message="Histórico indisponível para solicitação sem ID." />}
+        <StateMessage state="empty" message={`Status atual: ${formatMaterialRequestStatusLabel(request.status)} · Parecer: ${formatStockRecommendationLabel(request.stockRecommendation)}.`} />
       </div>
     </AppModal>
   );
