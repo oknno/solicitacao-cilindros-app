@@ -3,6 +3,7 @@ import { Card } from "../ui/Card";
 import { Field } from "../ui/Field";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
+import { formatMaterialRequestStatusLabel } from "./materialRequestSummaryFormatters";
 
 interface MaterialRequestHistoryTimelineProps {
   items: MaterialRequestHistoryEntry[];
@@ -60,8 +61,8 @@ export function MaterialRequestHistoryTimeline({ items, loading, error }: Materi
             <Field label="Data e hora" layout="inline">{formatDateTime(item.performedAt)}</Field>
             <Field label="Usuário responsável" layout="inline">{item.performedByName || item.performedByEmail || "-"}</Field>
             <Field label="Ação" layout="inline">{getActionLabel(item.action)}</Field>
-            <Field label="Status anterior" layout="inline">{item.previousStatus ?? "-"}</Field>
-            <Field label="Novo status" layout="inline">{item.newStatus ?? "-"}</Field>
+            <Field label="Status anterior" layout="inline">{item.previousStatus ? formatMaterialRequestStatusLabel(item.previousStatus) : "-"}</Field>
+            <Field label="Novo status" layout="inline">{item.newStatus ? formatMaterialRequestStatusLabel(item.newStatus) : "-"}</Field>
             <Field label="Comentário" layout="inline">{item.comment?.trim() ? item.comment : "-"}</Field>
           </div>
         </Card>
