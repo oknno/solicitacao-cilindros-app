@@ -10,8 +10,24 @@ import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
 import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
 import { formatDateTime, formatEmpty, formatMaterialRequestStatusLabel, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
-import { RequestStatusBadge } from "./RequestStatusBadge";
-import { StockRecommendationBadge } from "./StockRecommendationBadge";
+
+function CollapsibleSection(props: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  return (
+    <details
+      open={props.defaultOpen}
+      style={{
+        border: `1px solid ${uiTokens.colors.border}`,
+        borderRadius: 16,
+        background: uiTokens.colors.surface,
+      }}
+    >
+      <summary style={{ listStyle: "none", cursor: "pointer", padding: "16px 20px", fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>
+        {props.title}
+      </summary>
+      <div style={{ padding: "0 20px 20px", display: "grid", gap: 10 }}>{props.children}</div>
+    </details>
+  );
+}
 
 function ReviewSection(props: { title: string; children: ReactNode }) {
   const childCount = Array.isArray(props.children) ? props.children.length : 1;
@@ -51,6 +67,7 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   const hasHistory = useMemo(() => Boolean(request.id), [request.id]);
+  const requestIdentity = `${formatEmpty(request.center)} - ${formatEmpty(request.materialCode)}`;
 
   useEffect(() => {
     let mounted = true;
@@ -86,53 +103,52 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
   return (
     <AppModal title={`Visualizar Solicitação #${request.id ?? ""}`} subtitle="Modo visualização: campos bloqueados." onClose={onClose}>
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
+        <Card>
+          <Field label="Solicitação">{requestIdentity}</Field>
+        </Card>
         <ReviewSection title="Dados da Solicitação">
-          <SummaryField label={materialRequestFieldLabel("id")} value={formatEmpty(request.id)} />
-          <SummaryField label={materialRequestFieldLabel("title")} value={formatEmpty(request.title)} />
-          <SummaryField label={materialRequestFieldLabel("status")} value={<RequestStatusBadge value={request.status} />} />
           <SummaryField label={materialRequestFieldLabel("requesterName")} value={formatEmpty(request.requesterName)} />
           <SummaryField label={materialRequestFieldLabel("requesterEmail")} value={formatEmpty(request.requesterEmail)} />
           <SummaryField label={materialRequestFieldLabel("createdAt")} value={formatDateTime(request.createdAt)} />
-        </ReviewSection>
-
-        <ReviewSection title="Material">
           <SummaryField label={materialRequestFieldLabel("center")} value={formatEmpty(request.center)} />
           <SummaryField label={materialRequestFieldLabel("materialCode")} value={formatEmpty(request.materialCode)} />
           <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(request.materialDescription)} span={2} />
           <SummaryField label={materialRequestFieldLabel("requestedQuantity")} value={formatNumber(request.requestedQuantity)} />
           <SummaryField label={materialRequestFieldLabel("evaluatedStockTotalAtRequest")} value={formatNumber(request.evaluatedStockTotalAtRequest)} />
-          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={<StockRecommendationBadge value={request.stockRecommendation} />} span={2} />
+          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={formatStockRecommendationLabel(request.stockRecommendation)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requestReason")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requestReason)}</div>} span={2} />
+          <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requesterJustification)}</div>} span={2} />
         </ReviewSection>
 
-        <ReviewSection title="Justificativas">
-          <SummaryField label={materialRequestFieldLabel("requestReason")} value={formatEmpty(request.requestReason)} span={2} />
-          <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={formatEmpty(request.requesterJustification)} span={2} />
-        </ReviewSection>
+        <CollapsibleSection title="Aprovação Gerente Laminação">
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <SummaryField label={materialRequestFieldLabel("laminationManagerName")} value={formatEmpty(request.laminationManagerName)} />
+            <SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} />
+            <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} />
+          </div>
+          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.laminationManagerJustification)}</div>} />
+        </CollapsibleSection>
 
-        <ReviewSection title="Aprovação Gerente Laminação">
-          <SummaryField label={materialRequestFieldLabel("laminationManagerName")} value={formatEmpty(request.laminationManagerName)} />
-          <SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} />
-          <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} />
-          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={formatEmpty(request.laminationManagerJustification)} span={2} />
-        </ReviewSection>
-
-        <ReviewSection title="Aprovação CTO">
-          <SummaryField label={materialRequestFieldLabel("ctoApproverName")} value={formatEmpty(request.ctoApproverName)} />
-          <SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} />
-          <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} />
-          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={formatEmpty(request.ctoJustification)} span={2} />
-        </ReviewSection>
+        <CollapsibleSection title="Aprovação CTO">
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <SummaryField label={materialRequestFieldLabel("ctoApproverName")} value={formatEmpty(request.ctoApproverName)} />
+            <SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} />
+            <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} />
+          </div>
+          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.ctoJustification)}</div>} />
+        </CollapsibleSection>
 
         {hasHistory && (
-          <ReviewSection title="Histórico da Solicitação">
-            <div style={{ gridColumn: "span 2" }}>
-              {historyError ? <StateMessage state="error" message={historyError} /> : null}
-              <MaterialRequestHistoryTimeline items={history} loading={loadingHistory} error={null} />
-            </div>
-          </ReviewSection>
+          <CollapsibleSection title="Histórico da Solicitação">
+            {historyError ? <StateMessage state="error" message={historyError} /> : null}
+            <MaterialRequestHistoryTimeline items={history} loading={loadingHistory} error={null} />
+          </CollapsibleSection>
         )}
 
         {!hasHistory && <StateMessage state="empty" message="Histórico indisponível para solicitação sem ID." />}
+        <Card>
+          <Field label="ID">{formatEmpty(request.id)}</Field>
+        </Card>
         <StateMessage state="empty" message={`Status atual: ${formatMaterialRequestStatusLabel(request.status)} · Parecer: ${formatStockRecommendationLabel(request.stockRecommendation)}.`} />
       </div>
     </AppModal>
