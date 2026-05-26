@@ -12,7 +12,6 @@ import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
-import { StateMessage } from "../../components/ui/StateMessage";
 import { uiTokens } from "../../components/ui/tokens";
 import { wizardLayoutStyles } from "../ProjectsPage/components/wizard/wizardLayoutStyles";
 
@@ -29,6 +28,20 @@ interface MaterialRequestFormPageProps {
   initialRequest?: MaterialRequest;
 }
 
+
+function resolveAnalysisTone(result: AnalyzeMaterialRequestStockOutput | null, isManualMaterial: boolean, requestedQuantity: number): keyof typeof uiTokens.stateTones {
+  if (isManualMaterial) return "danger";
+  if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0 || !result) return "neutral";
+
+  const { recommendation, evaluatedStockTotal } = result.stockAnalysis;
+  if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "success";
+  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "warning";
+  if (recommendation === "PURCHASE_RECOMMENDED") return "danger";
+  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "danger";
+  if (evaluatedStockTotal === 0) return "danger";
+  return "neutral";
+}
+
 function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, isManualMaterial: boolean, requestedQuantity: number): string {
   if (isManualMaterial) return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
   if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) return "Informe a quantidade solicitada para concluir a análise de estoque.";
@@ -36,7 +49,7 @@ function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, 
 
   const { evaluatedStockTotal, recommendation } = result.stockAnalysis;
   if (recommendation === "PURCHASE_RECOMMENDED") return "Não há estoque avaliado para este material. Compra recomendada.";
-  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "Estoque disponível menor que a quantidade solicitada. Compra recomendada com estoque parcial.";
+  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "O estoque disponível é menor que a quantidade solicitada. Compra recomendada com estoque parcial.";
   if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "Há estoque suficiente para a quantidade solicitada. A compra não é recomendada sem justificativa.";
   if (recommendation === "MANUAL_REVIEW_REQUIRED") return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
   if (evaluatedStockTotal === 0) return "Não há estoque avaliado para este material. Compra recomendada.";
@@ -236,6 +249,8 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   }
 
   const analysisMessage = buildAnalysisMessage(analysisResult, isManualMaterial, parsedRequestedQuantity);
+  const analysisTone = resolveAnalysisTone(analysisResult, isManualMaterial, parsedRequestedQuantity);
+  const analysisToneStyle = uiTokens.stateTones[analysisTone];
 
   const content = <div style={{ minHeight: "100%", display: "grid", gridTemplateRows: "1fr auto" }}>
     <div style={{ ...wizardLayoutStyles.body, padding: uiTokens.spacing.lg }}>
@@ -256,28 +271,30 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
               <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={wizardLayoutStyles.input} /></Field>
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
             </div>
-            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{analysisMessage}</p>
+            <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.xl}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.45 }}>{analysisMessage}</div>
 
             {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição do Material"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
 
-            {!isManualMaterial && !!materialDescription && <StateMessage state="empty" message={`Descrição do material: ${materialDescription}`} />}
-
             <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
-            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Descreva o motivo da solicitação de material.</p>
             <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
 
-            {justificationRequired && <Field label="Justificativa do Solicitante"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value)} rows={5} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
+            {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={5} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
+            {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
 
             <Field label="Anexo de apoio">
-              <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={wizardLayoutStyles.input} />
+              <label style={{ display: "grid", gap: uiTokens.spacing.sm, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.lg}px ${uiTokens.spacing.xl}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
+                <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
+                <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
+                <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
+                {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
+              </label>
             </Field>
-            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Anexe PDF ou Excel, se necessário.</p>
-            {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Arquivo selecionado: {attachment.name} <button type="button" onClick={() => setAttachment(null)} style={{ marginLeft: uiTokens.spacing.xs }}>Remover</button></p>}
-            {attachmentError && <StateMessage state="error" message={attachmentError} />}
+            {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
+            {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
           </div>
         </div>
 
-        {error && <StateMessage state="error" message={error} />}
+        {error && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{error}</p>}
       </div>
     </div>
 
