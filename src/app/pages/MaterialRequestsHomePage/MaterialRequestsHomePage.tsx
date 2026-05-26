@@ -10,8 +10,8 @@ import { StockImportModal } from "../../components/materialRequest/StockImportMo
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { MaterialRequestFilterModal } from "../../components/materialRequest/MaterialRequestFilterModal";
 import { ReturnMaterialRequestStatusModal } from "../../components/materialRequest/ReturnMaterialRequestStatusModal";
-import { DeleteMaterialRequestModal } from "../../components/materialRequest/DeleteMaterialRequestModal";
 import { MaterialRequestViewModal } from "../../components/materialRequest/MaterialRequestViewModal";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { applyMaterialRequestFilters, hasActiveMaterialRequestFilters, type MaterialRequestFilters } from "../../components/materialRequest/materialRequestFilters";
 import { useToast } from "../../components/notifications/useToast";
 import { uiTokens } from "../../components/ui/tokens";
@@ -23,6 +23,7 @@ import {
   getMaterialRequestCommandPermissions,
   type MaterialRequestUserProfile,
 } from "../../../domain/permissions";
+import { deleteMaterialRequestUseCase } from "../../../application/materialRequest/deleteMaterialRequestUseCase";
 
 const DEFAULT_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const DEFAULT_MATERIAL_FILTERS: MaterialRequestFilters = { center: "", material: "", requester: "", status: "", sort: undefined };
@@ -44,7 +45,8 @@ export function MaterialRequestsHomePage() {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create"|"edit"|null>(null);
   const [viewRequest, setViewRequest] = useState<MaterialRequest | null>(null);
-  const [deleteRequest, setDeleteRequest] = useState<MaterialRequest | null>(null);
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => Promise<void> | void; tone?: "danger" | "neutral"; confirmingText?: string; confirmText?: string } | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState(false);
   const [returnStatusRequest, setReturnStatusRequest] = useState<MaterialRequest | null>(null);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
@@ -116,6 +118,41 @@ export function MaterialRequestsHomePage() {
     setApprovalModalState({ request: selectedRequest, initialDecision, approverRole });
   }
 
+  function requestConfirm(config: { title: string; message: string; onConfirm: () => Promise<void> | void; tone?: "danger" | "neutral"; confirmingText?: string; confirmText?: string }) {
+    setConfirmState(config);
+  }
+
+  async function onDelete() {
+    if (!selectedRequest) {
+      notify("Selecione uma solicitação.", "info");
+      return;
+    }
+
+    if (!commandPermissions.canDelete) {
+      notify("Somente solicitações em rascunho podem ser excluídas.", "info");
+      return;
+    }
+
+    requestConfirm({
+      title: "Excluir solicitação",
+      message: "Deseja excluir esta solicitação? Esta ação não poderá ser desfeita.",
+      tone: "danger",
+      confirmingText: "Excluindo...",
+      confirmText: "Excluir",
+      onConfirm: async () => {
+        try {
+          await deleteMaterialRequestUseCase({ requestId: selectedRequest.id ?? 0, performedByName: "Usuário atual" });
+          setSelectedId(null);
+          await loadRequests();
+          notify("Solicitação excluída com sucesso.", "success");
+        } catch (error) {
+          console.error(error);
+          notify("Não foi possível excluir a solicitação.", "error");
+        }
+      }
+    });
+  }
+
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
       title={`Cilindros e Discos${hasActiveFilters ? " · Filtro ativo" : ""}`}
@@ -124,6 +161,7 @@ export function MaterialRequestsHomePage() {
       totalLoaded={items.length}
       canEdit={commandPermissions.canEdit}
       canDelete={commandPermissions.canDelete}
+      deleteDisabledReason={selectedRequest ? "Somente solicitações em rascunho podem ser excluídas." : "Selecione uma solicitação."}
       canSend={commandPermissions.canSubmit}
       canBack={commandPermissions.canReturnStatus}
       canApprove={commandPermissions.canApprove}
@@ -141,7 +179,7 @@ export function MaterialRequestsHomePage() {
       onView={() => { if (selectedRequest) setViewRequest(selectedRequest); }}
       onEdit={() => { if (selectedRequest) setFormMode("edit"); }}
       onDuplicate={() => undefined}
-      onDelete={() => { if (selectedRequest) setDeleteRequest(selectedRequest); }}
+      onDelete={() => { void onDelete(); }}
       onSendToApproval={() => { if (selectedRequest) setSubmitModalRequest(selectedRequest); }}
       onBackStatus={() => { if (selectedRequest) setReturnStatusRequest(selectedRequest); }}
       onApprove={() => openApprovalModal("APPROVE")}
@@ -193,7 +231,32 @@ export function MaterialRequestsHomePage() {
 
     {viewRequest && <MaterialRequestViewModal request={viewRequest} onClose={() => setViewRequest(null)} />}
 
-    {deleteRequest && <DeleteMaterialRequestModal request={deleteRequest} onClose={() => setDeleteRequest(null)} onDeleted={() => { setDeleteRequest(null); void loadRequests(); }} />}
+    <ConfirmDialog
+      open={Boolean(confirmState)}
+      title={confirmState?.title ?? ""}
+      message={confirmState?.message ?? ""}
+      tone={confirmState?.tone}
+      confirmText={confirmState?.confirmText}
+      confirmingText={confirmState?.confirmingText}
+      confirming={confirmingAction}
+      onConfirm={() => {
+        if (!confirmState || confirmingAction) return;
+
+        void (async () => {
+          setConfirmingAction(true);
+          try {
+            await confirmState.onConfirm();
+            setConfirmState(null);
+          } finally {
+            setConfirmingAction(false);
+          }
+        })();
+      }}
+      onClose={() => {
+        if (confirmingAction) return;
+        setConfirmState(null);
+      }}
+    />
 
     {returnStatusRequest && <ReturnMaterialRequestStatusModal request={returnStatusRequest} onClose={() => setReturnStatusRequest(null)} onReturned={() => { setReturnStatusRequest(null); void loadRequests(); }} />}
 
