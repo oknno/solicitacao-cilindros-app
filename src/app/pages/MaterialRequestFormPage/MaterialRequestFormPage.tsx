@@ -267,13 +267,18 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
               <Field label="Material"><select value={materialSelection} onChange={(e) => setMaterialSelection(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={m.materialCode} value={m.materialCode}>{`${m.materialCode} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select></Field>
             </div>
 
+            {isManualMaterial && (
+              <div style={wizardLayoutStyles.journeyPairGrid}>
+                <Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field>
+                <Field label="Descrição do Material"><input value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} style={wizardLayoutStyles.input} /></Field>
+              </div>
+            )}
+
             <div style={wizardLayoutStyles.journeyPairGrid}>
               <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
             </div>
             <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{analysisMessage}</div>
-
-            {isManualMaterial && <div style={wizardLayoutStyles.journeyPairGrid}><Field label="Código do Material"><input value={manualMaterialCode} onChange={(e) => setManualMaterialCode(e.target.value)} style={wizardLayoutStyles.input} /></Field><Field label="Descrição do Material"><textarea value={materialDescription} onChange={(e) => setMaterialDescription(e.target.value)} rows={2} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field></div>}
 
             <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
             <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
