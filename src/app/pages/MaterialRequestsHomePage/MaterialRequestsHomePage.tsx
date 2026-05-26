@@ -167,7 +167,7 @@ export function MaterialRequestsHomePage() {
           <Button disabled>{loading ? "Carregando..." : "Fim"}</Button>
         </div>
       </Card>
-      <Card style={{ overflow: "hidden", minHeight: 0, padding: uiTokens.spacing.md }}>
+      <Card style={{ overflow: "hidden", minHeight: 0, padding: uiTokens.spacing.md, display: "flex", flexDirection: "column" }}>
         <MaterialRequestSummaryPanel selected={selectedRequest} />
       </Card>
     </div>
