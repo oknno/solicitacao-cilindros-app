@@ -9,7 +9,7 @@ import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
 import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
-import { formatDateTime, formatEmpty, formatMaterialRequestStatusLabel, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
+import { formatDateTime, formatEmpty, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
 
 function CollapsibleSection(props: { title: string; children: ReactNode; defaultOpen?: boolean }) {
   return (
@@ -21,32 +21,42 @@ function CollapsibleSection(props: { title: string; children: ReactNode; default
         background: uiTokens.colors.surface,
       }}
     >
-      <summary style={{ listStyle: "none", cursor: "pointer", padding: "16px 20px", fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>
+      <summary
+        style={{
+          listStyle: "none",
+          cursor: "pointer",
+          padding: "14px 16px",
+          fontSize: 14,
+          fontWeight: 800,
+          color: uiTokens.colors.textStrong,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 12, color: uiTokens.colors.textMuted }}>▸</span>
         {props.title}
       </summary>
-      <div style={{ padding: "0 20px 20px", display: "grid", gap: 10 }}>{props.children}</div>
+      <div style={{ padding: "0 16px 16px", display: "grid", gap: 10 }}>{props.children}</div>
     </details>
   );
 }
 
-function ReviewSection(props: { title: string; children: ReactNode }) {
-  const childCount = Array.isArray(props.children) ? props.children.length : 1;
+function SummarySection(props: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section
       style={{
-        border: `1px solid ${uiTokens.colors.border}`,
+        border: `1px solid ${uiTokens.colors.borderStrong}`,
         borderRadius: 16,
         padding: 20,
         display: "grid",
         gap: 14,
-        background: uiTokens.colors.surface,
+        background: uiTokens.colors.surfaceMuted,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gap: 4 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>{props.title}</h3>
-        <span style={{ fontSize: 11, fontWeight: 700, color: uiTokens.colors.textMuted, border: `1px solid ${uiTokens.colors.border}`, borderRadius: 999, padding: "4px 10px", background: uiTokens.colors.surface }}>
-          {childCount} campo{childCount > 1 ? "s" : ""}
-        </span>
+        {props.subtitle ? <p style={{ margin: 0, fontSize: 12, color: uiTokens.colors.textMuted }}>{props.subtitle}</p> : null}
       </div>
       <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>{props.children}</div>
     </section>
@@ -103,22 +113,20 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
   return (
     <AppModal title={`Visualizar Solicitação #${request.id ?? ""}`} subtitle="Modo visualização: campos bloqueados." onClose={onClose}>
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
-        <Card>
-          <Field label="Solicitação">{requestIdentity}</Field>
-        </Card>
-        <ReviewSection title="Dados da Solicitação">
+        <SummarySection title="1. Dados da Solicitação" subtitle="Informações principais da solicitação de material.">
+          <SummaryField label="Solicitação" value={requestIdentity} />
           <SummaryField label={materialRequestFieldLabel("requesterName")} value={formatEmpty(request.requesterName)} />
           <SummaryField label={materialRequestFieldLabel("requesterEmail")} value={formatEmpty(request.requesterEmail)} />
           <SummaryField label={materialRequestFieldLabel("createdAt")} value={formatDateTime(request.createdAt)} />
           <SummaryField label={materialRequestFieldLabel("center")} value={formatEmpty(request.center)} />
           <SummaryField label={materialRequestFieldLabel("materialCode")} value={formatEmpty(request.materialCode)} />
-          <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(request.materialDescription)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(request.materialDescription)} />
           <SummaryField label={materialRequestFieldLabel("requestedQuantity")} value={formatNumber(request.requestedQuantity)} />
           <SummaryField label={materialRequestFieldLabel("evaluatedStockTotalAtRequest")} value={formatNumber(request.evaluatedStockTotalAtRequest)} />
-          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={formatStockRecommendationLabel(request.stockRecommendation)} span={2} />
+          <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={formatStockRecommendationLabel(request.stockRecommendation)} />
           <SummaryField label={materialRequestFieldLabel("requestReason")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requestReason)}</div>} span={2} />
           <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requesterJustification)}</div>} span={2} />
-        </ReviewSection>
+        </SummarySection>
 
         <CollapsibleSection title="Aprovação Gerente Laminação">
           <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
@@ -126,7 +134,7 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
             <SummaryField label={materialRequestFieldLabel("laminationManagerEmail")} value={formatEmpty(request.laminationManagerEmail)} />
             <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.laminationManagerDecisionDate)} />
           </div>
-          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.laminationManagerJustification)}</div>} />
+          <SummaryField label={materialRequestFieldLabel("laminationManagerJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.laminationManagerJustification)}</div>} span={2} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Aprovação CTO">
@@ -135,7 +143,7 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
             <SummaryField label={materialRequestFieldLabel("ctoApproverEmail")} value={formatEmpty(request.ctoApproverEmail)} />
             <SummaryField label={materialRequestFieldLabel("decisionDate")} value={formatDateTime(request.ctoDecisionDate)} />
           </div>
-          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.ctoJustification)}</div>} />
+          <SummaryField label={materialRequestFieldLabel("ctoJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.ctoJustification)}</div>} span={2} />
         </CollapsibleSection>
 
         {hasHistory && (
@@ -146,10 +154,12 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
         )}
 
         {!hasHistory && <StateMessage state="empty" message="Histórico indisponível para solicitação sem ID." />}
-        <Card>
-          <Field label="ID">{formatEmpty(request.id)}</Field>
-        </Card>
-        <StateMessage state="empty" message={`Status atual: ${formatMaterialRequestStatusLabel(request.status)} · Parecer: ${formatStockRecommendationLabel(request.stockRecommendation)}.`} />
+
+        {request.id ? (
+          <div style={{ fontSize: 12, color: uiTokens.colors.textMuted }}>
+            ID da solicitação no SharePoint: <b>{request.id}</b>
+          </div>
+        ) : null}
       </div>
     </AppModal>
   );
