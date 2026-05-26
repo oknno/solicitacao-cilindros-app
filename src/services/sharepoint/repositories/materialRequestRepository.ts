@@ -7,7 +7,7 @@ import {
 import { MATERIAL_REQUEST_FIELDS } from "../sharepointFields";
 import { SHAREPOINT_LISTS } from "../sharepointLists";
 import { spConfig } from "../spConfig";
-import { getDigest, spGetJson, spPatchJson, spPostJson } from "../spHttp";
+import { getDigest, spDelete, spGetJson, spPatchJson, spPostJson } from "../spHttp";
 
 type ODataListResponse<T> = {
   value?: T[];
@@ -63,4 +63,10 @@ export async function updateMaterialRequest(id: number, patch: Partial<MaterialR
 
   const updated = await spGetJson<SpRecord>(`${itemUrl}?$select=${buildSelectClause()}`);
   return mapSharePointMaterialRequest(updated);
+}
+
+export async function deleteMaterialRequest(id: number): Promise<void> {
+  const digest = await getDigest();
+  const itemUrl = `${buildListItemsUrl()}(${id})`;
+  await spDelete(itemUrl, digest);
 }

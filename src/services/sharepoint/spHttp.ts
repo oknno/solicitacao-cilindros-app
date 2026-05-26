@@ -96,3 +96,8 @@ export async function getDigest(): Promise<string> {
   _digestCache = { value: digest, expiresAt: now + 25 * 60 * 1000 };
   return digest;
 }
+
+export async function spDelete(url: string, digest: string): Promise<void> {
+  const res = await fetch(url, { method: "POST", headers: { Accept: "application/json;odata=nometadata", "X-RequestDigest": digest, "IF-MATCH": "*", "X-HTTP-Method": "DELETE" } });
+  if (!res.ok && res.status !== 204) { const txt = await res.text(); throw new Error(`DELETE ${res.status}: ${txt}`); }
+}

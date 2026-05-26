@@ -70,7 +70,7 @@ export function getMaterialRequestCommandPermissions(input: MaterialRequestComma
     canEdit: show.canShowEdit && hasSelection && includes(EDITABLE_STATUSES, selectedStatus),
     canDelete: show.canShowDelete && hasSelection && includes(DRAFT_STATUS, selectedStatus),
     canSubmit: show.canShowSubmit && hasSelection && canSubmitByProfile,
-    canReturnStatus: show.canShowReturnStatus && hasSelection && profile === "ADMIN",
+    canReturnStatus: show.canShowReturnStatus && hasSelection && profile === "ADMIN" && selectedStatus !== "DRAFT" && selectedStatus !== "CANCELLED",
     canApprove: show.canShowApprove && hasSelection && canApproveByProfile,
     canReject: show.canShowReject && hasSelection && canRejectByProfile,
     canFilter: true,
