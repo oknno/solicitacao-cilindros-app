@@ -15,3 +15,7 @@ export * from "./getMaterialRequestHistoryUseCase";
 export * from "./submitMaterialRequestForApprovalUseCase";
 
 export * from "./exportMaterialRequestsUseCase";
+
+export * from "./updateMaterialRequestDraftUseCase";
+export * from "./deleteMaterialRequestUseCase";
+export * from "./returnMaterialRequestStatusUseCase";

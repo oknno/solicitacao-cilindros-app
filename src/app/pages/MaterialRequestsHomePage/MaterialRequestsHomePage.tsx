@@ -9,6 +9,9 @@ import { SubmitMaterialRequestModal } from "../../components/materialRequest/Sub
 import { StockImportModal } from "../../components/materialRequest/StockImportModal";
 import { MaterialRequestsTable } from "../../components/materialRequest/MaterialRequestsTable";
 import { MaterialRequestFilterModal } from "../../components/materialRequest/MaterialRequestFilterModal";
+import { ReturnMaterialRequestStatusModal } from "../../components/materialRequest/ReturnMaterialRequestStatusModal";
+import { DeleteMaterialRequestModal } from "../../components/materialRequest/DeleteMaterialRequestModal";
+import { MaterialRequestViewModal } from "../../components/materialRequest/MaterialRequestViewModal";
 import { applyMaterialRequestFilters, hasActiveMaterialRequestFilters, type MaterialRequestFilters } from "../../components/materialRequest/materialRequestFilters";
 import { useToast } from "../../components/notifications/useToast";
 import { uiTokens } from "../../components/ui/tokens";
@@ -36,7 +39,10 @@ export function MaterialRequestsHomePage() {
   const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
   const [materialFilters, setMaterialFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create"|"edit"|null>(null);
+  const [viewRequest, setViewRequest] = useState<MaterialRequest | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<MaterialRequest | null>(null);
+  const [returnStatusRequest, setReturnStatusRequest] = useState<MaterialRequest | null>(null);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
   const [submitModalRequest, setSubmitModalRequest] = useState<MaterialRequest | null>(null);
@@ -118,15 +124,15 @@ export function MaterialRequestsHomePage() {
       onApply={() => setFilterModalOpen(true)}
       onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
       onRefresh={() => void loadRequests()}
-      onNew={() => setFormOpen(true)}
+      onNew={() => setFormMode("create")}
       onUpdateStock={() => setStockImportOpen(true)}
       canCreate={commandPermissions.canNew}
-      onView={() => undefined}
-      onEdit={() => undefined}
+      onView={() => { if (selectedRequest) setViewRequest(selectedRequest); }}
+      onEdit={() => { if (selectedRequest) setFormMode("edit"); }}
       onDuplicate={() => undefined}
-      onDelete={() => undefined}
+      onDelete={() => { if (selectedRequest) setDeleteRequest(selectedRequest); }}
       onSendToApproval={() => { if (selectedRequest) setSubmitModalRequest(selectedRequest); }}
-      onBackStatus={() => undefined}
+      onBackStatus={() => { if (selectedRequest) setReturnStatusRequest(selectedRequest); }}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
       showApprovalActions={commandPermissions.canShowApprove || commandPermissions.canShowReject}
@@ -155,13 +161,19 @@ export function MaterialRequestsHomePage() {
       <MaterialRequestSummaryPanel selected={selectedRequest} />
     </div>
 
-    {formOpen && <MaterialRequestFormModal onClose={() => setFormOpen(false)} onCreated={() => { setFormOpen(false); void loadRequests(); }} />}
+    {formMode && <MaterialRequestFormModal mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
 
     {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} initialDecision={approvalModalState.initialDecision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onDecided={() => { setApprovalModalState(null); void loadRequests(); }} />}
 
     {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
     {submitModalRequest && <SubmitMaterialRequestModal request={submitModalRequest} onClose={() => setSubmitModalRequest(null)} onSubmitted={() => { setSubmitModalRequest(null); void loadRequests(); }} />}
+
+    {viewRequest && <MaterialRequestViewModal request={viewRequest} onClose={() => setViewRequest(null)} />}
+
+    {deleteRequest && <DeleteMaterialRequestModal request={deleteRequest} onClose={() => setDeleteRequest(null)} onDeleted={() => { setDeleteRequest(null); void loadRequests(); }} />}
+
+    {returnStatusRequest && <ReturnMaterialRequestStatusModal request={returnStatusRequest} onClose={() => setReturnStatusRequest(null)} onReturned={() => { setReturnStatusRequest(null); void loadRequests(); }} />}
 
     {filterModalOpen && <MaterialRequestFilterModal
       value={materialFilters}

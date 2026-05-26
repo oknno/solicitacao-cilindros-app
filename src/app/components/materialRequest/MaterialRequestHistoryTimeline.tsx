@@ -20,6 +20,8 @@ const ACTION_LABELS: Partial<Record<MaterialRequestHistoryEntry["action"], strin
   APPROVED_BY_CTO: "Aprovada pelo CTO",
   REJECTED_BY_CTO: "Reprovada pelo CTO",
   RETURNED_BY_CTO: "Devolvida pelo CTO",
+  DELETED: "Excluída",
+  STATUS_RETURNED: "Status retornado",
 };
 
 function getActionLabel(action: MaterialRequestHistoryEntry["action"]): string {

@@ -10,7 +10,9 @@ export type MaterialRequestHistoryAction =
   | "REJECTED_BY_CTO"
   | "RETURNED_BY_CTO"
   | "CANCELLED"
-  | "UPDATED";
+  | "UPDATED"
+  | "DELETED"
+  | "STATUS_RETURNED";
 
 export interface MaterialRequestHistoryEntry {
   id?: number;
