@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { decideMaterialRequestApprovalUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
+import { decideMaterialRequestApprovalUseCase, getCurrentMaterialRequestUserUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest, MaterialRequestDecision, StockMaterial } from "../../../domain/materialRequest";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { useToast } from "../notifications/useToast";
@@ -14,11 +14,13 @@ import {
   SummaryField,
   SummarySection,
 } from "./MaterialRequestViewSections";
-import { formatDateTime, formatMaterialRequestStatusLabel } from "./materialRequestSummaryFormatters";
+import { formatDateTime } from "./materialRequestSummaryFormatters";
+import { wizardLayoutStyles } from "../../pages/ProjectsPage/components/wizard/wizardLayoutStyles";
 
 type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT" | "RETURN_FOR_ADJUSTMENT">;
 
 const JUSTIFICATION_MAX_LENGTH = 2000;
+const GENERIC_CURRENT_USER_NAME = "Usuário atual";
 
 const DECISION_COPY: Record<Decision, { title: string; confirm: string; confirming: string; placeholder: string; successMessage: string }> = {
   APPROVE: {
@@ -66,8 +68,9 @@ export function MaterialRequestApprovalModal(props: {
   onCompleted: () => void;
 }) {
   const { notify } = useToast();
-  const [approverName, setApproverName] = useState("Usuário atual");
+  const [approverName, setApproverName] = useState("");
   const [approverEmail, setApproverEmail] = useState("");
+  const [loadingApprover, setLoadingApprover] = useState(true);
   const [justification, setJustification] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +81,29 @@ export function MaterialRequestApprovalModal(props: {
   const copy = useMemo(() => DECISION_COPY[props.decision], [props.decision]);
   const decisionDate = useMemo(() => new Date().toISOString(), []);
   const showPreviousLaminationApproval = props.approverRole === "CTO" && hasLaminationManagerDecision(props.request);
+
+  useEffect(() => {
+    let mounted = true;
+
+    setLoadingApprover(true);
+    void getCurrentMaterialRequestUserUseCase()
+      .then((user) => {
+        if (!mounted) return;
+        setApproverName(user.name === GENERIC_CURRENT_USER_NAME ? "" : user.name);
+        setApproverEmail(user.email);
+      })
+      .catch((e) => {
+        if (!mounted) return;
+        setError(e instanceof Error ? e.message : "Não foi possível carregar os dados do aprovador autenticado.");
+      })
+      .finally(() => {
+        if (mounted) setLoadingApprover(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -106,7 +132,9 @@ export function MaterialRequestApprovalModal(props: {
   async function handleConfirm() {
     setError("");
     if (!props.request.id) return setError("Não foi possível identificar a solicitação selecionada.");
-    if (!approverName.trim()) return setError("Informe o nome do aprovador.");
+    if (loadingApprover) return setError("Aguarde o carregamento dos dados do aprovador.");
+    if (!approverName.trim()) return setError("Não foi possível carregar o nome do aprovador autenticado.");
+    if (!approverEmail.trim()) return setError("Não foi possível carregar o e-mail do aprovador autenticado.");
     const normalizedJustification = justification.trim();
     if (!normalizedJustification) return setError("Informe a justificativa para concluir esta decisão.");
 
@@ -147,10 +175,6 @@ export function MaterialRequestApprovalModal(props: {
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={props.request.requestedQuantity} mode="approval" />}
 
-        <SummarySection title="Informações Complementares" subtitle="Contexto atual da solicitação para apoiar a decisão.">
-          <SummaryField label="Status atual" value={formatMaterialRequestStatusLabel(props.request.status)} span={2} />
-        </SummarySection>
-
         {showPreviousLaminationApproval ? (
           <MaterialRequestPreviousApprovalSection
             title="Aprovação anterior do Gerente da Laminação"
@@ -168,7 +192,7 @@ export function MaterialRequestApprovalModal(props: {
               <input
                 value={approverName}
                 onChange={(e) => setApproverName(e.target.value)}
-                disabled={sending}
+                disabled={sending || loadingApprover}
                 style={{ width: "100%", boxSizing: "border-box" }}
               />
             )}
@@ -180,7 +204,7 @@ export function MaterialRequestApprovalModal(props: {
                 type="email"
                 value={approverEmail}
                 onChange={(e) => setApproverEmail(e.target.value)}
-                disabled={sending}
+                disabled={sending || loadingApprover}
                 style={{ width: "100%", boxSizing: "border-box" }}
               />
             )}
@@ -194,16 +218,16 @@ export function MaterialRequestApprovalModal(props: {
               <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
                 <textarea
                   value={justification}
-                  onChange={(e) => setJustification(e.target.value)}
-                  rows={7}
+                  onChange={(e) => setJustification(e.target.value.slice(0, JUSTIFICATION_MAX_LENGTH))}
+                  rows={4}
                   maxLength={JUSTIFICATION_MAX_LENGTH}
                   placeholder={copy.placeholder}
                   disabled={sending}
-                  style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
+                  style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable, boxSizing: "border-box", resize: "vertical" }}
                 />
-                <div style={{ textAlign: "right", fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
-                  {justification.length}/{JUSTIFICATION_MAX_LENGTH} caracteres
-                </div>
+                <p style={{ margin: 0, textAlign: "right", fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>
+                  {justification.trim().length}/{JUSTIFICATION_MAX_LENGTH} caracteres
+                </p>
               </div>
             )}
           />
