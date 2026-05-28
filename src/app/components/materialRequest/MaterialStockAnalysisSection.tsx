@@ -83,7 +83,6 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   const hasCurrentCoverage = typeof currentCoverageYears === "number" && Number.isFinite(currentCoverageYears);
   const hasProjectedCoverage = typeof projectedCoverageYears === "number" && Number.isFinite(projectedCoverageYears);
   const coverageIncrease = hasRequestedQuantity && hasCurrentCoverage && hasProjectedCoverage ? projectedCoverageYears - currentCoverageYears : null;
-  const coverageFactor = hasRequestedQuantity && hasCurrentCoverage && hasProjectedCoverage && currentCoverageYears > 0 ? projectedCoverageYears / currentCoverageYears : null;
   const yearConsumptions = CONSUMPTION_YEARS.map((year) => ({
     label: year.label,
     value: asNumber(stockMaterial[year.key]),
@@ -106,7 +105,10 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
     evaluatedStock > 0 ? "Há estoque disponível." : "Não há estoque disponível para este material.",
     `O consumo médio anual é ${formatNumber(stockMaterial.averageAnnualConsumption)}.`,
     `O valor estimado do estoque atual é ${formatCurrency(stockMaterial.totalStockValueBRL)}.`,
-    `O histórico mostra movimentação em ${formatNumber(stockMaterial.consumptionYearsCount)} anos.`,
+    `O histórico mostra movimentação em ${formatNumber(stockMaterial.consumptionYearsCount)} ano(s).`,
+    hasCurrentCoverage
+      ? `A cobertura atual é de aproximadamente ${formatNumber(currentCoverageYears)} anos.`
+      : "Não há consumo histórico suficiente para estimar cobertura.",
   ];
 
   const requestImpactObservations = [
@@ -116,17 +118,11 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
     hasRequestedQuantity
       ? `O estoque projetado após a solicitação seria ${formatNumber(projectedStock)}.`
       : "Informe a quantidade solicitada para calcular o estoque projetado.",
-    hasCurrentCoverage
-      ? `A cobertura atual é de aproximadamente ${formatNumber(currentCoverageYears)} anos.`
-      : "Não há consumo histórico suficiente para estimar cobertura.",
     hasProjectedCoverage
       ? `Com a solicitação, a cobertura projetada passaria para ${formatNumber(projectedCoverageYears)} anos.`
       : "A cobertura após solicitação também não pode ser estimada sem consumo médio.",
     coverageIncrease != null
       ? `A solicitação aumentaria a cobertura em ${formatNumber(coverageIncrease)} anos.`
-      : null,
-    coverageFactor != null
-      ? `A cobertura após solicitação seria ${formatNumber(coverageFactor)}x a cobertura atual.`
       : null,
   ].filter((observation): observation is string => Boolean(observation));
 
@@ -134,22 +130,22 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   const projectedCoverageTone = uiTokens.stateTones[resolveCoverageTone(projectedCoverageYears)];
 
   return (
-    <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.lg, background: uiTokens.colors.surface, padding: uiTokens.spacing.lg, display: "grid", gap: uiTokens.spacing.md }}>
+    <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.lg, background: uiTokens.colors.surface, padding: uiTokens.spacing.md, display: "grid", gap: uiTokens.spacing.sm }}>
       <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
         <h4 style={{ margin: 0, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>{resolveTitle(mode)}</h4>
         <p style={{ margin: 0, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>{stockMaterial.materialCode} - {stockMaterial.description}</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: uiTokens.spacing.sm }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: uiTokens.spacing.xs }}>
         {kpis.map((kpi) => (
-          <div key={kpi.label} style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surfaceMuted, padding: uiTokens.spacing.md }}>
+          <div key={kpi.label} style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surfaceMuted, padding: uiTokens.spacing.sm }}>
             <div style={{ fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted, fontWeight: uiTokens.typography.labelWeight }}>{kpi.label}</div>
             <div style={{ marginTop: uiTokens.spacing.xs, fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong, fontWeight: uiTokens.typography.titleWeight }}>{kpi.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: uiTokens.spacing.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: uiTokens.spacing.sm }}>
         <div style={{ border: `1px solid ${currentCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: currentCoverageTone.bg, color: currentCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
           <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura atual</div>
           <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: currentCoverageTone.fg }}>{formatCoverage(currentCoverageYears)}</div>
@@ -163,10 +159,10 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: uiTokens.spacing.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: uiTokens.spacing.sm }}>
         <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, background: uiTokens.colors.surfaceMuted, display: "grid", gridTemplateRows: "auto 1fr", minHeight: "100%" }}>
           <div style={{ marginBottom: uiTokens.spacing.xs, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Consumo histórico por ano</div>
-          <div style={{ minHeight: 190, height: "100%", display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
+          <div style={{ minHeight: 150, height: "100%", display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
             {yearConsumptions.map((item) => {
               const heightPercent = Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 8 : 2);
               return (
@@ -187,24 +183,24 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
           {!hasRequestedQuantity ? <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Informe a quantidade solicitada para calcular os comparativos.</div> : null}
 
           <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
-            <div style={{ display: "flex", height: 30, borderRadius: uiTokens.radius.pill, overflow: "hidden", background: uiTokens.colors.borderMuted }}>
+            <div style={{ display: "flex", height: 26, borderRadius: uiTokens.radius.pill, overflow: "hidden", background: uiTokens.colors.borderMuted }}>
               <div title={`Estoque atual: ${formatNumber(evaluatedStock)}`} style={{ width: `${stockSegmentPercent}%`, minWidth: evaluatedStock > 0 ? 32 : 0, background: uiTokens.colors.accentAlt }} />
               <div title={`Qtde. solicitada: ${formatNumber(validRequestedQuantity)}`} style={{ width: `${requestSegmentPercent}%`, minWidth: validRequestedQuantity > 0 ? 32 : 0, background: uiTokens.colors.accentWarning }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.sm, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, flexWrap: "wrap" }}>
               <span><strong style={{ color: uiTokens.colors.text }}>Estoque atual:</strong> {formatNumber(evaluatedStock)}</span>
               <span><strong style={{ color: uiTokens.colors.text }}>Qtde. solicitada:</strong> {formatNumber(validRequestedQuantity)}</span>
-              <span><strong style={{ color: uiTokens.colors.text }}>Projetado:</strong> {formatNumber(projectedStock)}</span>
+              <span><strong style={{ color: uiTokens.colors.text }}>Estoque projetado após solicitação:</strong> {formatNumber(projectedStock)}</span>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: uiTokens.spacing.xs }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: uiTokens.spacing.xs }}>
             {[
               { label: "Aumento absoluto", value: `+${formatNumber(validRequestedQuantity)} unidades` },
               { label: "Aumento percentual", value: hasRequestedQuantity ? evaluatedStock > 0 ? `+${formatPercent(requestedPercent)}` : "Sem estoque atual" : "-" },
               { label: "Estoque final projetado", value: `${formatNumber(projectedStock)} unidades` },
             ].map((item) => (
-              <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: uiTokens.spacing.sm, minHeight: 76, boxSizing: "border-box" }}>
+              <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.sm}px`, minHeight: 92, boxSizing: "border-box" }}>
                 <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{item.label}</div>
                 <div style={{ marginTop: 2, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.titleWeight }}>{item.value}</div>
               </div>
@@ -215,7 +211,7 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
 
       <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, background: uiTokens.colors.surfaceMuted }}>
         <div style={{ marginBottom: uiTokens.spacing.xs, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Leitura analítica</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: uiTokens.spacing.md }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: uiTokens.spacing.sm }}>
           {[
             { title: "Estoque e consumo", items: stockConsumptionObservations },
             { title: "Impacto da solicitação", items: requestImpactObservations },
