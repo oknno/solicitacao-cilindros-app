@@ -202,7 +202,7 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
             ].map((item) => (
               <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.sm}px`, minHeight: 92, boxSizing: "border-box" }}>
                 <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{item.label}</div>
-                <div style={{ marginTop: 2, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.titleWeight }}>{item.value}</div>
+                <div style={{ marginTop: 2, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight }}>{item.value}</div>
               </div>
             ))}
           </div>
