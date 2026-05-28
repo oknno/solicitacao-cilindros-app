@@ -8,7 +8,9 @@ import {
   type AnalyzeMaterialRequestStockOutput,
   updateMaterialRequestDraftUseCase,
 } from "../../../application/materialRequest";
+import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import { MaterialStockAnalysisSection } from "../../components/materialRequest/MaterialStockAnalysisSection";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
@@ -36,6 +38,7 @@ function resolveAnalysisTone(result: AnalyzeMaterialRequestStockOutput | null, i
   const { recommendation, evaluatedStockTotal } = result.stockAnalysis;
   if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "danger";
   if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "warning";
+  if (recommendation === "PURCHASE_RECOMMENDED" && evaluatedStockTotal === 0) return "danger";
   if (recommendation === "PURCHASE_RECOMMENDED") return "success";
   if (recommendation === "MANUAL_REVIEW_REQUIRED") return "warning";
   if (evaluatedStockTotal === 0) return "success";
@@ -48,11 +51,11 @@ function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, 
   if (!result) return "Informe os dados do material para concluir a análise de estoque.";
 
   const { evaluatedStockTotal, recommendation } = result.stockAnalysis;
-  if (recommendation === "PURCHASE_RECOMMENDED") return "Não há estoque avaliado para este material. Compra recomendada.";
-  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "O estoque disponível é menor que a quantidade solicitada. Compra recomendada com estoque parcial.";
+  if (recommendation === "PURCHASE_RECOMMENDED") return "Não há estoque disponível para este material.";
+  if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "O estoque atual é insuficiente para atender integralmente a solicitação.";
   if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "Há estoque suficiente para a quantidade solicitada. A compra não é recomendada sem justificativa.";
   if (recommendation === "MANUAL_REVIEW_REQUIRED") return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
-  if (evaluatedStockTotal === 0) return "Não há estoque avaliado para este material. Compra recomendada.";
+  if (evaluatedStockTotal === 0) return "Não há estoque disponível para este material.";
   return "Análise de estoque concluída.";
 }
 
@@ -68,7 +71,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const [requestReason, setRequestReason] = useState("");
   const [requesterJustification, setRequesterJustification] = useState("");
   const [analysisResult, setAnalysisResult] = useState<AnalyzeMaterialRequestStockOutput | null>(null);
-  const [stockMaterials, setStockMaterials] = useState<Array<{ materialCode: string; description: string; evaluatedStockTotal: number | null }>>([]);
+  const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
   const [centers, setCenters] = useState<string[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState("");
@@ -84,7 +87,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const selectedStockMaterial = stockMaterials.find((item) => item.materialCode === materialSelection) ?? null;
 
   const effectiveMaterialCode = isManualMaterial ? manualMaterialCode.trim() : materialSelection.trim();
-  const justificationRequired = forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED";
+  const justificationRequired = !isManualMaterial && (forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED");
 
   useEffect(() => {
     void getCurrentMaterialRequestUserUseCase().then((user) => {
@@ -274,11 +277,27 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
               </div>
             )}
 
-            <div style={wizardLayoutStyles.journeyPairGrid}>
-              <Field label="Estoque Avaliado"><input value={isManualMaterial ? "-" : (selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? "")} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
+            {selectedStockMaterial && !isManualMaterial && (
+              <MaterialStockAnalysisSection material={selectedStockMaterial} requestedQuantity={parsedRequestedQuantity} />
+            )}
+
+            {isManualMaterial && (
+              <div style={{ border: `1px solid ${uiTokens.stateTones.warning.bd}`, background: uiTokens.stateTones.warning.bg, color: uiTokens.stateTones.warning.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>
+                Material não encontrado na base de estoque. A solicitação seguirá para análise manual.
+              </div>
+            )}
+
+            {isManualMaterial ? (
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
-            </div>
-            <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{analysisMessage}</div>
+            ) : (
+              <>
+                <div style={wizardLayoutStyles.journeyPairGrid}>
+                  <Field label="Estoque Avaliado"><input value={selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? ""} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
+                  <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
+                </div>
+                <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{analysisMessage}</div>
+              </>
+            )}
 
             <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
             <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
