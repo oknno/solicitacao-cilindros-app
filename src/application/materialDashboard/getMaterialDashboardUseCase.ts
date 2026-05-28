@@ -170,6 +170,7 @@ export async function getMaterialDashboardUseCase(): Promise<MaterialDashboardRe
     kpis: calculateKpis({ stockItems, rankingItems, openRequests: openMaterialRequests }),
     openRequests: buildOpenRequestViewModels({ openRequests: openMaterialRequests, stockIndex }),
     attentionMaterials: buildAttentionMaterials({ stockItems, openRequestsByMaterial }),
+    stockItems: rankingItems,
     topStockValueItems: [...rankingItems]
       .sort((left, right) => right.totalStockValueBRL - left.totalStockValueBRL)
       .slice(0, 10),
