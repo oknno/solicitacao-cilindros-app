@@ -41,7 +41,8 @@ export function MaterialRequestsHomePage() {
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<ProjectsFilters>(DEFAULT_FILTERS);
-  const [materialFilters, setMaterialFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<MaterialRequestFilters>(DEFAULT_MATERIAL_FILTERS);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create"|"edit"|null>(null);
   const [viewRequest, setViewRequest] = useState<MaterialRequest | null>(null);
@@ -58,8 +59,8 @@ export function MaterialRequestsHomePage() {
     hasSelection: Boolean(selectedRequest),
     selectedStatus: selectedRequest?.status,
   }), [profile, selectedRequest]);
-  const filteredItems = useMemo(() => applyMaterialRequestFilters(items, materialFilters), [items, materialFilters]);
-  const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(materialFilters), [materialFilters]);
+  const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
+  const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
   const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => item.center).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
   const isInitialLoading = state === "loading" && items.length === 0;
 
@@ -183,9 +184,30 @@ export function MaterialRequestsHomePage() {
     });
   }
 
+  function openFilters() {
+    setDraftFilters(appliedFilters);
+    setFilterModalOpen(true);
+  }
+
+  function applyFilters() {
+    setAppliedFilters(draftFilters);
+    setFilterModalOpen(false);
+  }
+
+  function clearFilters() {
+    setDraftFilters(DEFAULT_MATERIAL_FILTERS);
+    setAppliedFilters(DEFAULT_MATERIAL_FILTERS);
+    setFilterModalOpen(false);
+  }
+
+  function closeFilters() {
+    setDraftFilters(appliedFilters);
+    setFilterModalOpen(false);
+  }
+
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
-      title={`Cilindros e Discos${hasActiveFilters ? " · Filtro ativo" : ""}`}
+      title="Cilindros e Discos"
       isAdmin={profile === "ADMIN"}
       selectedId={selectedId}
       totalLoaded={items.length}
@@ -200,8 +222,8 @@ export function MaterialRequestsHomePage() {
       rejectDisabledReason="Selecione uma solicitação pendente de aprovação."
       filters={filters}
       onChangeFilters={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-      onApply={() => setFilterModalOpen(true)}
-      onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
+      onApply={openFilters}
+      onClear={clearFilters}
       filterButtonMode="triggerOnly"
       filterButtonId={MATERIAL_FILTER_BUTTON_ID}
       onRefresh={() => void loadRequests()}
@@ -292,13 +314,13 @@ export function MaterialRequestsHomePage() {
     {returnStatusRequest && <ReturnMaterialRequestStatusModal request={returnStatusRequest} onClose={() => setReturnStatusRequest(null)} onReturned={() => { setReturnStatusRequest(null); void loadRequests(); }} />}
 
     {filterModalOpen && <MaterialRequestFilterModal
-      value={materialFilters}
+      value={draftFilters}
       centers={centerOptions}
       anchorId={MATERIAL_FILTER_BUTTON_ID}
-      onChange={(patch) => setMaterialFilters((current) => ({ ...current, ...patch }))}
-      onApply={() => setFilterModalOpen(false)}
-      onClear={() => setMaterialFilters(DEFAULT_MATERIAL_FILTERS)}
-      onClose={() => setFilterModalOpen(false)}
+      onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
+      onApply={applyFilters}
+      onClear={clearFilters}
+      onClose={closeFilters}
     />}
   </div>;
 }
