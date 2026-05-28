@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { decideMaterialRequestApprovalUseCase } from "../../../application/materialRequest";
-import type { MaterialRequest, MaterialRequestDecision } from "../../../domain/materialRequest";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { decideMaterialRequestApprovalUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
+import type { MaterialRequest, MaterialRequestDecision, StockMaterial } from "../../../domain/materialRequest";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { useToast } from "../notifications/useToast";
 import { Button } from "../ui/Button";
@@ -13,6 +13,7 @@ import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
 import { formatDateTime, formatEmpty, formatMaterialRequestStatusLabel, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { StockRecommendationBadge } from "./StockRecommendationBadge";
+import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
 
 type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT" | "RETURN_FOR_ADJUSTMENT">;
 
@@ -72,8 +73,35 @@ export function MaterialRequestApprovalModal(props: {
   const [justification, setJustification] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [stockMaterial, setStockMaterial] = useState<StockMaterial | null>(null);
+  const [stockAnalysisError, setStockAnalysisError] = useState("");
+  const [loadingStockAnalysis, setLoadingStockAnalysis] = useState(false);
 
   const copy = useMemo(() => DECISION_COPY[props.decision], [props.decision]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadStockAnalysis() {
+      setStockAnalysisError("");
+      setLoadingStockAnalysis(true);
+      try {
+        const result = await getMaterialRequestStockAnalysisUseCase(props.request);
+        if (mounted) setStockMaterial(result.stockMaterial);
+      } catch (e) {
+        if (!mounted) return;
+        setStockMaterial(null);
+        setStockAnalysisError(e instanceof Error ? e.message : "Não foi possível carregar a análise do material.");
+      } finally {
+        if (mounted) setLoadingStockAnalysis(false);
+      }
+    }
+
+    void loadStockAnalysis();
+    return () => {
+      mounted = false;
+    };
+  }, [props.request]);
 
   async function handleConfirm() {
     setError("");
@@ -132,6 +160,9 @@ export function MaterialRequestApprovalModal(props: {
           <SummaryField label="Parecer (texto)" value={formatStockRecommendationLabel(props.request.stockRecommendation)} />
           <SummaryField label="Status (texto)" value={formatMaterialRequestStatusLabel(props.request.status)} span={2} />
         </ReviewSection>
+
+        {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
+        {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={props.request.requestedQuantity} mode="approval" />}
 
         <ReviewSection title="Decisão">
           <SummaryField label="Nome do aprovador" value={<input value={approverName} onChange={(e) => setApproverName(e.target.value)} style={{ width: "100%" }} />} />

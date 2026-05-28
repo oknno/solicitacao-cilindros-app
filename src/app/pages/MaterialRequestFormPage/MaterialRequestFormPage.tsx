@@ -277,26 +277,21 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
               </div>
             )}
 
-            {selectedStockMaterial && !isManualMaterial && (
-              <MaterialStockAnalysisSection material={selectedStockMaterial} requestedQuantity={parsedRequestedQuantity} />
-            )}
-
-            {isManualMaterial && (
-              <div style={{ border: `1px solid ${uiTokens.stateTones.warning.bd}`, background: uiTokens.stateTones.warning.bg, color: uiTokens.stateTones.warning.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>
-                Material não encontrado na base de estoque. A solicitação seguirá para análise manual.
-              </div>
-            )}
-
             {isManualMaterial ? (
               <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
             ) : (
-              <>
-                <div style={wizardLayoutStyles.journeyPairGrid}>
-                  <Field label="Estoque Avaliado"><input value={selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? ""} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
-                  <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
-                </div>
-                <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{analysisMessage}</div>
-              </>
+              <div style={wizardLayoutStyles.journeyPairGrid}>
+                <Field label="Estoque Avaliado"><input value={selectedStockMaterial?.evaluatedStockTotal ?? analysisResult?.stockAnalysis.evaluatedStockTotal ?? ""} readOnly placeholder="-" style={{ ...wizardLayoutStyles.input, background: uiTokens.colors.surfaceMuted, borderColor: uiTokens.colors.border, color: uiTokens.colors.textMuted, cursor: "not-allowed" }} /></Field>
+                <Field label="Qtde. Solicitada"><input type="number" min={1} value={requestedQuantity} onChange={(e) => setRequestedQuantity(e.target.value)} style={wizardLayoutStyles.input} /></Field>
+              </div>
+            )}
+
+            {(isManualMaterial || selectedStockMaterial) && (
+              <MaterialStockAnalysisSection stockMaterial={isManualMaterial ? null : selectedStockMaterial} requestedQuantity={parsedRequestedQuantity} mode="form" />
+            )}
+
+            {!isManualMaterial && (
+              <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{loadingAnalysis ? "Atualizando análise de estoque..." : analysisMessage}</div>
             )}
 
             <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
