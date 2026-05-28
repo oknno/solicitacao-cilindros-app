@@ -11,7 +11,9 @@ import { getDigest, spDelete, spGetJson, spPatchJson, spPostJson } from "../spHt
 
 type ODataListResponse<T> = {
   value?: T[];
-  d?: { results?: T[] };
+  d?: { results?: T[]; __next?: string };
+  "@odata.nextLink"?: string;
+  "odata.nextLink"?: string;
 };
 
 type SpRecord = Record<string, unknown>;
@@ -20,6 +22,23 @@ function readItems(data: ODataListResponse<SpRecord>): SpRecord[] {
   if (Array.isArray(data.value)) return data.value;
   if (Array.isArray(data.d?.results)) return data.d.results;
   return [];
+}
+
+function readNextLink(data: ODataListResponse<SpRecord>): string | null {
+  return data["@odata.nextLink"] ?? data["odata.nextLink"] ?? data.d?.__next ?? null;
+}
+
+async function getAllPagedItems(url: string): Promise<SpRecord[]> {
+  const items: SpRecord[] = [];
+  let nextUrl: string | null = url;
+
+  while (nextUrl) {
+    const data = await spGetJson<ODataListResponse<SpRecord>>(nextUrl);
+    items.push(...readItems(data));
+    nextUrl = readNextLink(data);
+  }
+
+  return items;
 }
 
 function buildListItemsUrl(): string {
@@ -31,9 +50,9 @@ function buildSelectClause(): string {
 }
 
 export async function getMaterialRequests(): Promise<MaterialRequest[]> {
-  const url = `${buildListItemsUrl()}?$select=${buildSelectClause()}&$orderby=Id desc`;
-  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
-  return readItems(data).map(mapSharePointMaterialRequest);
+  const url = `${buildListItemsUrl()}?$select=${buildSelectClause()}&$orderby=Id desc&$top=5000`;
+  const items = await getAllPagedItems(url);
+  return items.map(mapSharePointMaterialRequest);
 }
 
 export async function getMaterialRequestById(id: number): Promise<MaterialRequest | null> {
