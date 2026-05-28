@@ -74,22 +74,22 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
 
   const evaluatedStock = asNumber(stockMaterial.evaluatedStockTotal);
   const averageAnnualConsumption = asNumber(stockMaterial.averageAnnualConsumption);
-  const movementYears = asNumber(stockMaterial.consumptionYearsCount);
-  const historicalConsumption = asNumber(stockMaterial.historicalTotal);
   const validRequestedQuantity = hasPositiveNumber(requestedQuantity) ? requestedQuantity : 0;
   const hasRequestedQuantity = validRequestedQuantity > 0;
   const projectedStock = evaluatedStock + validRequestedQuantity;
   const requestedPercent = evaluatedStock > 0 && hasRequestedQuantity ? (validRequestedQuantity / evaluatedStock) * 100 : null;
   const currentCoverageYears = buildCoverageValue(evaluatedStock, averageAnnualConsumption);
   const projectedCoverageYears = buildCoverageValue(projectedStock, averageAnnualConsumption);
-  const hasCoverage = typeof currentCoverageYears === "number" && Number.isFinite(currentCoverageYears);
-  const movingYearAverage = movementYears > 0 ? historicalConsumption / movementYears : averageAnnualConsumption;
+  const hasCurrentCoverage = typeof currentCoverageYears === "number" && Number.isFinite(currentCoverageYears);
+  const hasProjectedCoverage = typeof projectedCoverageYears === "number" && Number.isFinite(projectedCoverageYears);
+  const coverageIncrease = hasRequestedQuantity && hasCurrentCoverage && hasProjectedCoverage ? projectedCoverageYears - currentCoverageYears : null;
+  const coverageFactor = hasRequestedQuantity && hasCurrentCoverage && hasProjectedCoverage && currentCoverageYears > 0 ? projectedCoverageYears / currentCoverageYears : null;
   const yearConsumptions = CONSUMPTION_YEARS.map((year) => ({
     label: year.label,
     value: asNumber(stockMaterial[year.key]),
   }));
   const maxConsumption = Math.max(...yearConsumptions.map((item) => item.value), 1);
-  const comparativeMax = Math.max(evaluatedStock, validRequestedQuantity, averageAnnualConsumption, projectedStock, currentCoverageYears ?? 0, projectedCoverageYears ?? 0, 1);
+  const stockRequestMax = Math.max(evaluatedStock, validRequestedQuantity, projectedStock, 1);
 
   const kpis = [
     { label: "Estoque atual", value: formatNumber(stockMaterial.evaluatedStockTotal) },
@@ -105,20 +105,23 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
     `O consumo médio anual é ${formatNumber(stockMaterial.averageAnnualConsumption)}.`,
     `O valor estimado do estoque atual é ${formatCurrency(stockMaterial.totalStockValueBRL)}.`,
     `O histórico mostra movimentação em ${formatNumber(stockMaterial.consumptionYearsCount)} anos.`,
-    hasRequestedQuantity
-      ? `A quantidade solicitada representa ${formatPercent(requestedPercent)} do estoque atual e projetaria o estoque para ${formatNumber(projectedStock)}.`
-      : "Informe a quantidade solicitada para calcular os comparativos.",
-    hasCoverage
-      ? `A cobertura atual do estoque é de aproximadamente ${formatNumber(currentCoverageYears)} anos.`
-      : "Não há consumo histórico suficiente para estimar cobertura.",
-    hasCoverage
-      ? `Com a quantidade solicitada, a cobertura projetada passaria para ${formatNumber(projectedCoverageYears)} anos.`
-      : "A cobertura após solicitação também não pode ser estimada sem consumo médio.",
     hasRequestedQuantity && requestedPercent !== null
       ? `A solicitação representa ${formatPercent(requestedPercent)} do estoque atual.`
-      : evaluatedStock > 0 ? "Informe a quantidade solicitada para calcular o percentual sobre o estoque atual." : "Sem estoque atual para calcular o percentual solicitado sobre estoque.",
-    projectedCoverageYears != null && projectedCoverageYears > 50
-      ? "A cobertura projetada é muito superior ao histórico de consumo. Avalie a real necessidade da compra."
+      : evaluatedStock > 0 ? "Informe a quantidade solicitada para calcular o percentual sobre o estoque atual." : "Sem estoque atual para comparação percentual.",
+    hasRequestedQuantity
+      ? `O estoque projetado após a solicitação seria ${formatNumber(projectedStock)}.`
+      : "Informe a quantidade solicitada para calcular o estoque projetado.",
+    hasCurrentCoverage
+      ? `A cobertura atual é de aproximadamente ${formatNumber(currentCoverageYears)} anos.`
+      : "Não há consumo histórico suficiente para estimar cobertura.",
+    hasProjectedCoverage
+      ? `Com a solicitação, a cobertura projetada passaria para ${formatNumber(projectedCoverageYears)} anos.`
+      : "A cobertura após solicitação também não pode ser estimada sem consumo médio.",
+    coverageIncrease != null
+      ? `A solicitação aumentaria a cobertura em ${formatNumber(coverageIncrease)} anos.`
+      : null,
+    coverageFactor != null
+      ? `A cobertura após solicitação seria ${formatNumber(coverageFactor)}x a cobertura atual.`
       : null,
   ].filter((observation): observation is string => Boolean(observation));
 
@@ -145,13 +148,13 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
         <div style={{ border: `1px solid ${currentCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: currentCoverageTone.bg, color: currentCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
           <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura atual</div>
           <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: currentCoverageTone.fg }}>{formatCoverage(currentCoverageYears)}</div>
-          <div style={{ fontSize: uiTokens.typography.sm }}>{hasCoverage ? "Com base no estoque atual e na média anual de consumo." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
+          <div style={{ fontSize: uiTokens.typography.sm }}>{hasCurrentCoverage ? "Com base no estoque atual e na média anual de consumo." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
         </div>
 
         <div style={{ border: `1px solid ${projectedCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: projectedCoverageTone.bg, color: projectedCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
           <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura após solicitação</div>
           <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: projectedCoverageTone.fg }}>{formatCoverage(projectedCoverageYears)}</div>
-          <div style={{ fontSize: uiTokens.typography.sm }}>{hasCoverage ? "Considera o estoque atual somado à quantidade solicitada." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
+          <div style={{ fontSize: uiTokens.typography.sm }}>{hasProjectedCoverage ? "Considera o estoque atual somado à quantidade solicitada." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
         </div>
       </div>
 
@@ -175,35 +178,25 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
         </div>
 
         <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted }}>
-          <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Comparativos</div>
+          <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Estoque x Solicitação</div>
           {!hasRequestedQuantity ? <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Informe a quantidade solicitada para calcular os comparativos.</div> : null}
           {[
-            { label: "Estoque atual", value: evaluatedStock, visible: true },
-            { label: "Qtde. solicitada", value: validRequestedQuantity, visible: true },
-            { label: "Estoque projetado após solicitação", value: projectedStock, visible: true },
-            { label: "Consumo médio anual", value: averageAnnualConsumption, visible: true },
-            { label: "Cobertura atual", value: currentCoverageYears ?? 0, visible: true },
-            { label: "Cobertura após solicitação", value: projectedCoverageYears ?? 0, visible: true },
-          ].filter((item) => item.visible).map((item) => (
+            { label: "Estoque atual", value: evaluatedStock },
+            { label: "Qtde. solicitada", value: validRequestedQuantity },
+            { label: "Estoque projetado após solicitação", value: projectedStock },
+          ].map((item) => (
             <div key={item.label} style={{ display: "grid", gap: uiTokens.spacing.xs, marginBottom: uiTokens.spacing.sm }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
                 <span>{item.label}</span>
                 <strong style={{ color: uiTokens.colors.text }}>{formatNumber(item.value)}</strong>
               </div>
               <div style={{ height: 8, borderRadius: uiTokens.radius.pill, background: uiTokens.colors.borderMuted, overflow: "hidden" }}>
-                <div style={{ width: `${Math.max((item.value / comparativeMax) * 100, item.value > 0 ? 4 : 0)}%`, height: "100%", borderRadius: uiTokens.radius.pill, background: item.label === "Qtde. solicitada" ? uiTokens.colors.accentWarning : uiTokens.colors.accentAlt }} />
+                <div style={{ width: `${Math.max((item.value / stockRequestMax) * 100, item.value > 0 ? 4 : 0)}%`, height: "100%", borderRadius: uiTokens.radius.pill, background: item.label === "Qtde. solicitada" ? uiTokens.colors.accentWarning : uiTokens.colors.accentAlt }} />
               </div>
             </div>
           ))}
           <div style={{ display: "grid", gap: uiTokens.spacing.xs, marginTop: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
-            <span>Estoque atual: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(evaluatedStock)}</strong></span>
-            <span>Qtde. solicitada: <strong style={{ color: uiTokens.colors.text }}>{hasRequestedQuantity ? formatNumber(validRequestedQuantity) : "-"}</strong></span>
-            <span>Estoque projetado após solicitação: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(projectedStock)}</strong></span>
-            <span>Percentual solicitado sobre estoque: <strong style={{ color: uiTokens.colors.text }}>{evaluatedStock > 0 ? formatPercent(requestedPercent) : "Sem estoque atual"}</strong></span>
-            <span>Consumo médio anual: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(averageAnnualConsumption)}</strong></span>
-            <span>Cobertura atual: <strong style={{ color: uiTokens.colors.text }}>{formatCoverage(currentCoverageYears)}</strong></span>
-            <span>Cobertura após solicitação: <strong style={{ color: uiTokens.colors.text }}>{formatCoverage(projectedCoverageYears)}</strong></span>
-            <span>Consumo médio por ano com movimentação: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(movingYearAverage)}</strong></span>
+            <span>Percentual solicitado sobre estoque: <strong style={{ color: uiTokens.colors.text }}>{hasRequestedQuantity ? evaluatedStock > 0 ? formatPercent(requestedPercent) : "Sem estoque atual para comparação percentual" : "-"}</strong></span>
           </div>
         </div>
       </div>
