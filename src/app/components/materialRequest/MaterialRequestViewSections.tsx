@@ -71,11 +71,8 @@ export function LongTextValue({ value, minHeight = 72 }: { value?: string | null
 }
 
 export function MaterialRequestMainInfoSection({ request, title = "Dados da Solicitação" }: { request: MaterialRequest; title?: string }) {
-  const requestIdentity = `${formatEmpty(request.center)} - ${formatEmpty(request.materialCode)}`;
-
   return (
     <SummarySection title={title} subtitle="Informações principais da solicitação de material.">
-      <SummaryField label="Solicitação" value={requestIdentity} />
       <SummaryField label={materialRequestFieldLabel("requesterName")} value={formatEmpty(request.requesterName)} />
       <SummaryField label={materialRequestFieldLabel("requesterEmail")} value={formatEmpty(request.requesterEmail)} />
       <SummaryField label={materialRequestFieldLabel("createdAt")} value={formatDateTime(request.createdAt)} />
