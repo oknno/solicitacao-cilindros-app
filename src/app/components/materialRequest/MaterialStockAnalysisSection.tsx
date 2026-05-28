@@ -204,7 +204,7 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
               { label: "Aumento percentual", value: hasRequestedQuantity ? evaluatedStock > 0 ? `+${formatPercent(requestedPercent)}` : "Sem estoque atual" : "-" },
               { label: "Estoque final projetado", value: `${formatNumber(projectedStock)} unidades` },
             ].map((item) => (
-              <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: uiTokens.spacing.sm }}>
+              <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: uiTokens.spacing.sm, minHeight: 76, boxSizing: "border-box" }}>
                 <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{item.label}</div>
                 <div style={{ marginTop: 2, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.titleWeight }}>{item.value}</div>
               </div>
