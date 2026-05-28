@@ -9,6 +9,7 @@ import { Card } from "../../components/ui/Card";
 import { Field } from "../../components/ui/Field";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { uiTokens } from "../../components/ui/tokens";
+import { wizardLayoutStyles } from "../ProjectsPage/components/wizard/wizardLayoutStyles";
 
 interface CtoApprovalPageProps {
   request: MaterialRequest;
@@ -19,6 +20,7 @@ interface CtoApprovalPageProps {
 
 const ctoApproverNameFallback = "Usuário atual";
 const ctoApproverEmailFallback = "";
+const CTO_JUSTIFICATION_MAX_LENGTH = 2000;
 
 const RECOMMENDATION_MESSAGES: Record<MaterialRequest["stockRecommendation"], string> = {
   PURCHASE_RECOMMENDED: "Compra recomendada. Não há estoque avaliado disponível para este material.",
@@ -118,14 +120,17 @@ export function CtoApprovalPage({ request, initialDecision, onBack, onDecided }:
         <h3 style={{ margin: "0 0 12px" }}>Decisão CTO</h3>
         <div style={{ display: "grid", gap: 12 }}>
           <Field label="Decisão">
-            <select value={decision} onChange={(e) => setDecision(e.target.value as CtoDecision | "")} style={{ width: "100%" }}>
+            <select value={decision} onChange={(e) => setDecision(e.target.value as CtoDecision | "")} style={{ ...wizardLayoutStyles.input, boxSizing: "border-box" }}>
               <option value="">Selecione...</option>
               {Object.entries(DECISION_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </Field>
-          <Field label="Nome do aprovador CTO"><input value={ctoApproverName} onChange={(e) => setCtoApproverName(e.target.value)} style={{ width: "100%" }} /></Field>
-          <Field label="E-mail do aprovador CTO"><input value={ctoApproverEmail} onChange={(e) => setCtoApproverEmail(e.target.value)} style={{ width: "100%" }} /></Field>
-          <Field label="Justificativa CTO"><textarea value={ctoJustification} onChange={(e) => setCtoJustification(e.target.value)} rows={5} style={{ width: "100%", resize: "vertical" }} placeholder="Preencha quando necessário conforme política de exceção." /></Field>
+          <div style={wizardLayoutStyles.journeyPairGrid}>
+            <Field label="Nome do aprovador"><input value={ctoApproverName} onChange={(e) => setCtoApproverName(e.target.value)} style={{ ...wizardLayoutStyles.input, boxSizing: "border-box" }} /></Field>
+            <Field label="E-mail"><input type="email" value={ctoApproverEmail} onChange={(e) => setCtoApproverEmail(e.target.value)} style={{ ...wizardLayoutStyles.input, boxSizing: "border-box" }} /></Field>
+          </div>
+          <Field label="Justificativa"><textarea value={ctoJustification} onChange={(e) => setCtoJustification(e.target.value.slice(0, CTO_JUSTIFICATION_MAX_LENGTH))} rows={5} maxLength={CTO_JUSTIFICATION_MAX_LENGTH} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable, boxSizing: "border-box", resize: "vertical" }} placeholder="Preencha quando necessário conforme política de exceção." /></Field>
+          <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{ctoJustification.trim().length}/{CTO_JUSTIFICATION_MAX_LENGTH} caracteres</p>
           {error && <StateMessage state="error" message={error} />}
           <div style={{ display: "flex", gap: uiTokens.spacing.sm, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <Button onClick={onBack} disabled={sending}>Voltar</Button>
