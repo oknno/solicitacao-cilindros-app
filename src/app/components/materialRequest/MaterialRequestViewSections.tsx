@@ -81,7 +81,7 @@ export function MaterialRequestMainInfoSection({ request, title = "Dados da Soli
       <SummaryField label={materialRequestFieldLabel("materialDescription")} value={formatEmpty(request.materialDescription)} />
       <SummaryField label={materialRequestFieldLabel("requestedQuantity")} value={formatNumber(request.requestedQuantity)} />
       <SummaryField label={materialRequestFieldLabel("evaluatedStockTotalAtRequest")} value={formatNumber(request.evaluatedStockTotalAtRequest)} />
-      <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={formatStockRecommendationLabel(request.stockRecommendation)} />
+      <SummaryField label={materialRequestFieldLabel("stockRecommendation")} value={formatStockRecommendationLabel(request.stockRecommendation)} span={2} />
       <SummaryField label={materialRequestFieldLabel("requestReason")} value={<LongTextValue value={request.requestReason} />} span={2} />
       {request.requesterJustification ? <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={<LongTextValue value={request.requesterJustification} />} span={2} /> : null}
     </SummarySection>

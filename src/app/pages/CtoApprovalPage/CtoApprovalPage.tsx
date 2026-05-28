@@ -89,7 +89,6 @@ export function CtoApprovalPage({ request, initialDecision, onBack, onDecided }:
       <Card>
         <h3 style={{ margin: "0 0 12px" }}>Dados da solicitação</h3>
         <div style={{ display: "grid", gap: 12 }}>
-          <Field label="Solicitação / Title" layout="inline">{request.title ?? "-"}</Field>
           <Field label="Solicitante" layout="inline">{request.requesterName}</Field>
           <Field label="Material" layout="inline">{request.materialCode}</Field>
           <Field label="Descrição" layout="inline">{request.materialDescription}</Field>

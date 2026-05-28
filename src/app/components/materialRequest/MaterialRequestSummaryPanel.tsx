@@ -45,7 +45,6 @@ export function MaterialRequestSummaryPanel({ selected }: { selected: MaterialRe
               title="Dados da solicitação"
               rows={[
                 { label: "Descrição do material", value: formatEmpty(selected.materialDescription) },
-                { label: "Título", value: formatEmpty(selected.title) },
                 { label: "Data da solicitação", value: formatDateTime(selected.createdAt) },
               ]}
             />
