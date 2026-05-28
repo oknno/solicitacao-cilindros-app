@@ -230,52 +230,117 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
               >
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 2fr 0.7fr 1fr 1fr 1fr 1.2fr",
-                    gap: uiTokens.spacing.sm,
-                    padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
-                    background: uiTokens.colors.surfaceMuted,
-                    borderBottom: `1px solid ${uiTokens.colors.border}`,
-                    fontSize: uiTokens.typography.xs,
-                    fontWeight: uiTokens.typography.mediumWeight,
-                    color: uiTokens.colors.textMuted
+                    maxHeight: 250,
+                    overflowX: "auto",
+                    overflowY: "auto"
                   }}
                 >
-                  <span>Material</span>
-                  <span>Descrição</span>
-                  <span>Centro</span>
-                  <span>Estoque Avaliado</span>
-                  <span>Preço Médio</span>
-                  <span>Estoque Total (R$)</span>
-                  <span>Média Anual Consumo</span>
-                </div>
-                <div style={{ maxHeight: 250, overflowY: "auto" }}>
-                  {previewItems.length > 0 ? previewItems.map((item, index) => (
-                    <div
-                      key={`${item.center}-${item.materialCode}-${index}`}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 2fr 0.7fr 1fr 1fr 1fr 1.2fr",
-                        gap: uiTokens.spacing.sm,
-                        padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
-                        fontSize: uiTokens.typography.sm,
-                        color: uiTokens.colors.text,
-                        borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none"
-                      }}
-                    >
-                      <span>{item.materialCode}</span>
-                      <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} title={item.description}>{item.description}</span>
-                      <span>{item.center}</span>
-                      <span>{formatPreviewNumber(item.evaluatedStockTotal)}</span>
-                      <span>{formatPreviewNumber(item.averagePrice)}</span>
-                      <span>{formatPreviewNumber(item.totalStockValueBRL)}</span>
-                      <span>{formatPreviewNumber(item.averageAnnualConsumption)}</span>
-                    </div>
-                  )) : (
-                    <div style={{ padding: uiTokens.spacing.md, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>
-                      Nenhum item válido para exibir.
-                    </div>
-                  )}
+                  <table
+                    style={{
+                      borderCollapse: "collapse",
+                      minWidth: 1360,
+                      tableLayout: "fixed",
+                      width: "max-content"
+                    }}
+                  >
+                    <colgroup>
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 280 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 130 }} />
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 150 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 90 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 80 }} />
+                      <col style={{ width: 160 }} />
+                    </colgroup>
+                    <thead>
+                      <tr
+                        style={{
+                          background: uiTokens.colors.surfaceMuted,
+                          color: uiTokens.colors.textMuted,
+                          fontSize: uiTokens.typography.xs,
+                          fontWeight: uiTokens.typography.mediumWeight
+                        }}
+                      >
+                        {[
+                          "Material",
+                          "Descrição",
+                          "Centro",
+                          "Estoque Avaliado",
+                          "Preço Médio",
+                          "Estoque Total (R$)",
+                          "2021",
+                          "2022",
+                          "2023",
+                          "2024",
+                          "2025",
+                          "2026",
+                          "Total",
+                          "cont",
+                          "Média Anual Consumo"
+                        ].map((column) => (
+                          <th
+                            key={column}
+                            scope="col"
+                            style={{
+                              borderBottom: `1px solid ${uiTokens.colors.border}`,
+                              padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 1,
+                              background: uiTokens.colors.surfaceMuted,
+                              textAlign: "left",
+                              whiteSpace: "nowrap"
+                            }}
+                          >
+                            {column}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewItems.length > 0 ? previewItems.map((item, index) => (
+                        <tr
+                          key={`${item.center}-${item.materialCode}-${index}`}
+                          style={{
+                            fontSize: uiTokens.typography.sm,
+                            color: uiTokens.colors.text
+                          }}
+                        >
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{item.materialCode}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>
+                            <div style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} title={item.description}>{item.description}</div>
+                          </td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{item.center}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.evaluatedStockTotal)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.averagePrice)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.totalStockValueBRL)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2021)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2022)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2023)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2024)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2025)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumption2026)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.historicalTotal)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.consumptionYearsCount)}</td>
+                          <td style={{ padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`, whiteSpace: "nowrap", borderBottom: index < previewItems.length - 1 ? `1px solid ${uiTokens.colors.border}` : "none" }}>{formatPreviewNumber(item.averageAnnualConsumption)}</td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={15} style={{ padding: uiTokens.spacing.md, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>
+                            Nenhum item válido para exibir.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
