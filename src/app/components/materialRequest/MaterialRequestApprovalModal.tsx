@@ -34,14 +34,14 @@ const DECISION_COPY: Record<Decision, { title: string; confirm: string; confirmi
     title: "Reprovar solicitação",
     confirm: "Reprovar",
     confirming: "Reprovando...",
-    placeholder: "Informe o motivo da reprovação.",
+    placeholder: "Informe a justificativa da reprovação.",
     successMessage: "Solicitação reprovada com sucesso.",
   },
   RETURN_FOR_ADJUSTMENT: {
     title: "Devolver solicitação",
     confirm: "Devolver",
     confirming: "Devolvendo...",
-    placeholder: "Informe o motivo da devolução.",
+    placeholder: "Informe a justificativa da decisão.",
     successMessage: "Solicitação devolvida com sucesso.",
   },
 };
@@ -191,9 +191,9 @@ export function MaterialRequestApprovalModal(props: {
             value={(
               <input
                 value={approverName}
-                onChange={(e) => setApproverName(e.target.value)}
-                disabled={sending || loadingApprover}
-                style={{ width: "100%", boxSizing: "border-box" }}
+                readOnly
+                aria-busy={loadingApprover}
+                style={{ ...wizardLayoutStyles.input, boxSizing: "border-box" }}
               />
             )}
           />
@@ -203,9 +203,9 @@ export function MaterialRequestApprovalModal(props: {
               <input
                 type="email"
                 value={approverEmail}
-                onChange={(e) => setApproverEmail(e.target.value)}
-                disabled={sending || loadingApprover}
-                style={{ width: "100%", boxSizing: "border-box" }}
+                readOnly
+                aria-busy={loadingApprover}
+                style={{ ...wizardLayoutStyles.input, boxSizing: "border-box" }}
               />
             )}
           />
@@ -225,7 +225,7 @@ export function MaterialRequestApprovalModal(props: {
                   disabled={sending}
                   style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable, boxSizing: "border-box", resize: "vertical" }}
                 />
-                <p style={{ margin: 0, textAlign: "right", fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>
+                <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>
                   {justification.trim().length}/{JUSTIFICATION_MAX_LENGTH} caracteres
                 </p>
               </div>
