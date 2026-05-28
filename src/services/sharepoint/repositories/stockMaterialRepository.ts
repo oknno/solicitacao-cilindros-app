@@ -14,7 +14,9 @@ import { chunkArray, executeSharePointBatch, type SharePointBatchRequest } from 
 
 type ODataListResponse<T> = {
   value?: T[];
-  d?: { results?: T[] };
+  d?: { results?: T[]; __next?: string };
+  "@odata.nextLink"?: string;
+  "odata.nextLink"?: string;
 };
 
 type SpRecord = Record<string, unknown>;
@@ -59,6 +61,23 @@ function readItems(data: ODataListResponse<SpRecord>): SpRecord[] {
   if (Array.isArray(data.value)) return data.value;
   if (Array.isArray(data.d?.results)) return data.d.results;
   return [];
+}
+
+function readNextLink(data: ODataListResponse<SpRecord>): string | null {
+  return data["@odata.nextLink"] ?? data["odata.nextLink"] ?? data.d?.__next ?? null;
+}
+
+async function getAllPagedItems(url: string): Promise<SpRecord[]> {
+  const items: SpRecord[] = [];
+  let nextUrl: string | null = url;
+
+  while (nextUrl) {
+    const data = await spGetJson<ODataListResponse<SpRecord>>(nextUrl);
+    items.push(...readItems(data));
+    nextUrl = readNextLink(data);
+  }
+
+  return items;
 }
 
 function buildListItemsUrl(): string {
@@ -106,8 +125,8 @@ export async function findStockMaterialByCode(materialCode: string): Promise<Sto
 
 export async function getStockCenters(): Promise<string[]> {
   const url = `${buildListItemsUrl()}?$select=${STOCK_FIELDS.center}&$top=5000`;
-  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
-  return readItems(data)
+  const items = await getAllPagedItems(url);
+  return items
     .map((item) => String(item[STOCK_FIELDS.center] ?? "").trim())
     .filter(Boolean);
 }
@@ -143,14 +162,14 @@ export async function searchStockMaterials(query: string): Promise<StockMaterial
 
 export async function getAllStockItems(): Promise<StockMaterialRecord[]> {
   const url = `${buildListItemsUrl()}?$select=Id,${buildSelectClause()}&$top=5000`;
-  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
-  return readItems(data).map((item) => ({ ...mapSharePointStockMaterial(item, STOCK_MATERIAL_FIELDS), id: Number(item.Id ?? 0) || undefined }));
+  const items = await getAllPagedItems(url);
+  return items.map((item) => ({ ...mapSharePointStockMaterial(item, STOCK_MATERIAL_FIELDS), id: Number(item.Id ?? 0) || undefined }));
 }
 
 export async function getAllStockItemIds(): Promise<number[]> {
   const url = `${buildListItemsUrl()}?$select=Id&$top=5000`;
-  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
-  return readItems(data)
+  const items = await getAllPagedItems(url);
+  return items
     .map((item) => Number(item.Id ?? 0))
     .filter((id) => Number.isFinite(id) && id > 0);
 }
