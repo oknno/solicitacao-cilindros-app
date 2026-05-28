@@ -1,5 +1,6 @@
 import type { StockMaterial } from "../../domain/materialRequest/stockTypes";
 import { buildStockItemTitle } from "../../domain/materialRequest/buildStockItemTitle";
+import { calculateStockDerivedFields } from "../../domain/materialRequest/stockDerivedFields";
 import * as XLSX from "xlsx";
 
 export interface ImportStockItemsFromExcelInput { file: File; }
@@ -8,7 +9,22 @@ export interface ImportStockItemsFromExcelOutput {
   errors: Array<{ row: number; message: string }>;
 }
 
-type HeaderField = "materialCode" | "description" | "center" | "evaluatedStockTotal";
+type HeaderField =
+  | "materialCode"
+  | "description"
+  | "center"
+  | "evaluatedStockTotal"
+  | "totalStockValueBRL"
+  | "consumption2021"
+  | "consumption2022"
+  | "consumption2023"
+  | "consumption2024"
+  | "consumption2025"
+  | "consumption2026"
+  | "historicalTotal"
+  | "consumptionYearsCount"
+  | "averageAnnualConsumption"
+  | "averagePrice";
 type RawRow = unknown[];
 
 const REQUIRED_COLUMNS: Array<{ field: HeaderField; label: string }> = [
@@ -25,7 +41,37 @@ const HEADER_ALIASES: Record<string, HeaderField> = {
   center: "center",
   centro: "center",
   evaluatedstocktotal: "evaluatedStockTotal",
-  estoqueavaliadototal: "evaluatedStockTotal"
+  estoqueavaliadototal: "evaluatedStockTotal",
+  estoquetotalrs: "totalStockValueBRL",
+  estoquetotal: "totalStockValueBRL",
+  "2021": "consumption2021",
+  consumption2021: "consumption2021",
+  consumo2021: "consumption2021",
+  "2022": "consumption2022",
+  consumption2022: "consumption2022",
+  consumo2022: "consumption2022",
+  "2023": "consumption2023",
+  consumption2023: "consumption2023",
+  consumo2023: "consumption2023",
+  "2024": "consumption2024",
+  consumption2024: "consumption2024",
+  consumo2024: "consumption2024",
+  "2025": "consumption2025",
+  consumption2025: "consumption2025",
+  consumo2025: "consumption2025",
+  "2026": "consumption2026",
+  consumption2026: "consumption2026",
+  consumo2026: "consumption2026",
+  total: "historicalTotal",
+  historicaltotal: "historicalTotal",
+  totalhistorico: "historicalTotal",
+  cont: "consumptionYearsCount",
+  consumptionyearscount: "consumptionYearsCount",
+  qtdanosconsumo: "consumptionYearsCount",
+  mediaanualconsumo: "averageAnnualConsumption",
+  averageannualconsumption: "averageAnnualConsumption",
+  precomedio: "averagePrice",
+  averageprice: "averagePrice"
 };
 
 export function normalizeHeader(value: unknown): string {
@@ -34,8 +80,8 @@ export function normalizeHeader(value: unknown): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s/g, "");
+    .replace(/r\$/g, "rs")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 const toText = (value: unknown) => String(value ?? "").trim();
@@ -45,6 +91,15 @@ function parseStockValue(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const parsed = Number(toText(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getHeaderIndex(headerMap: Map<number, HeaderField>, field: HeaderField): number {
+  return Array.from(headerMap.entries()).find(([, mappedField]) => mappedField === field)?.[0] ?? -1;
+}
+
+function readParsedNumber(row: RawRow, headerMap: Map<number, HeaderField>, field: HeaderField): number | null {
+  const index = getHeaderIndex(headerMap, field);
+  return index >= 0 ? parseStockValue(row[index]) : null;
 }
 
 const isEmptyRow = (row: RawRow) => row.every((value) => toText(value) === "");
@@ -106,10 +161,27 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
       if (isEmptyRow(row)) return;
       const line = headerIndex + dataIndex + 2;
 
-      const materialCode = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "materialCode")?.[0] ?? -1]);
-      const description = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "description")?.[0] ?? -1]);
-      const center = toText(row[Array.from(headerMap.entries()).find(([, field]) => field === "center")?.[0] ?? -1]);
-      const evaluatedStockTotal = parseStockValue(row[Array.from(headerMap.entries()).find(([, field]) => field === "evaluatedStockTotal")?.[0] ?? -1]);
+      const materialCode = toText(row[getHeaderIndex(headerMap, "materialCode")]);
+      const description = toText(row[getHeaderIndex(headerMap, "description")]);
+      const center = toText(row[getHeaderIndex(headerMap, "center")]);
+      const evaluatedStockTotal = readParsedNumber(row, headerMap, "evaluatedStockTotal");
+      const consumption2021 = readParsedNumber(row, headerMap, "consumption2021");
+      const consumption2022 = readParsedNumber(row, headerMap, "consumption2022");
+      const consumption2023 = readParsedNumber(row, headerMap, "consumption2023");
+      const consumption2024 = readParsedNumber(row, headerMap, "consumption2024");
+      const consumption2025 = readParsedNumber(row, headerMap, "consumption2025");
+      const consumption2026 = readParsedNumber(row, headerMap, "consumption2026");
+      const averagePrice = readParsedNumber(row, headerMap, "averagePrice");
+      const derivedFields = calculateStockDerivedFields({
+        evaluatedStockTotal,
+        averagePrice,
+        consumption2021,
+        consumption2022,
+        consumption2023,
+        consumption2024,
+        consumption2025,
+        consumption2026
+      });
 
       if (!materialCode) errors.push({ row: line, message: "Material é obrigatório." });
       if (!description) errors.push({ row: line, message: "Descrição é obrigatória." });
@@ -128,7 +200,18 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
           materialCode,
           description,
           center,
-          evaluatedStockTotal
+          evaluatedStockTotal,
+          totalStockValueBRL: derivedFields.totalStockValueBRL,
+          consumption2021,
+          consumption2022,
+          consumption2023,
+          consumption2024,
+          consumption2025,
+          consumption2026,
+          historicalTotal: derivedFields.historicalTotal,
+          consumptionYearsCount: derivedFields.consumptionYearsCount,
+          averageAnnualConsumption: derivedFields.averageAnnualConsumption,
+          averagePrice
         });
       }
     });

@@ -9,6 +9,17 @@ export interface StockMaterial {
   description: string;
   center: string;
   evaluatedStockTotal: number | null;
+  totalStockValueBRL: number | null;
+  consumption2021: number | null;
+  consumption2022: number | null;
+  consumption2023: number | null;
+  consumption2024: number | null;
+  consumption2025: number | null;
+  consumption2026: number | null;
+  historicalTotal: number | null;
+  consumptionYearsCount: number | null;
+  averageAnnualConsumption: number | null;
+  averagePrice: number | null;
 }
 
 export interface StockAnalysisResult {
