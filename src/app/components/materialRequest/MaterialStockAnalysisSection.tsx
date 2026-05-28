@@ -89,7 +89,9 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
     value: asNumber(stockMaterial[year.key]),
   }));
   const maxConsumption = Math.max(...yearConsumptions.map((item) => item.value), 1);
-  const stockRequestMax = Math.max(evaluatedStock, validRequestedQuantity, projectedStock, 1);
+  const stackedTotal = Math.max(projectedStock, 1);
+  const stockSegmentPercent = Math.max((evaluatedStock / stackedTotal) * 100, evaluatedStock > 0 ? 4 : 0);
+  const requestSegmentPercent = Math.max((validRequestedQuantity / stackedTotal) * 100, validRequestedQuantity > 0 ? 4 : 0);
 
   const kpis = [
     { label: "Estoque atual", value: formatNumber(stockMaterial.evaluatedStockTotal) },
@@ -100,11 +102,14 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
     { label: "Média anual de consumo", value: formatNumber(stockMaterial.averageAnnualConsumption) },
   ];
 
-  const observations = [
+  const stockConsumptionObservations = [
     evaluatedStock > 0 ? "Há estoque disponível." : "Não há estoque disponível para este material.",
     `O consumo médio anual é ${formatNumber(stockMaterial.averageAnnualConsumption)}.`,
     `O valor estimado do estoque atual é ${formatCurrency(stockMaterial.totalStockValueBRL)}.`,
     `O histórico mostra movimentação em ${formatNumber(stockMaterial.consumptionYearsCount)} anos.`,
+  ];
+
+  const requestImpactObservations = [
     hasRequestedQuantity && requestedPercent !== null
       ? `A solicitação representa ${formatPercent(requestedPercent)} do estoque atual.`
       : evaluatedStock > 0 ? "Informe a quantidade solicitada para calcular o percentual sobre o estoque atual." : "Sem estoque atual para comparação percentual.",
@@ -159,13 +164,13 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: uiTokens.spacing.md }}>
-        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted, display: "grid", gridTemplateRows: "auto 1fr", minHeight: "100%" }}>
-          <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Consumo histórico por ano</div>
-          <div style={{ minHeight: 252, height: "100%", display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
+        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, background: uiTokens.colors.surfaceMuted, display: "grid", gridTemplateRows: "auto 1fr", minHeight: "100%" }}>
+          <div style={{ marginBottom: uiTokens.spacing.xs, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Consumo histórico por ano</div>
+          <div style={{ minHeight: 190, height: "100%", display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
             {yearConsumptions.map((item) => {
               const heightPercent = Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 8 : 2);
               return (
-                <div key={item.label} style={{ height: "100%", display: "grid", gridTemplateRows: "24px minmax(0, 1fr) 18px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
+                <div key={item.label} style={{ height: "100%", display: "grid", gridTemplateRows: "22px minmax(0, 1fr) 18px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
                   <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
                   <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "end", justifyContent: "center" }}>
                     <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 42, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
@@ -177,35 +182,52 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
           </div>
         </div>
 
-        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted }}>
-          <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Estoque x Solicitação</div>
-          {!hasRequestedQuantity ? <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Informe a quantidade solicitada para calcular os comparativos.</div> : null}
-          {[
-            { label: "Estoque atual", value: evaluatedStock },
-            { label: "Qtde. solicitada", value: validRequestedQuantity },
-            { label: "Estoque projetado após solicitação", value: projectedStock },
-          ].map((item) => (
-            <div key={item.label} style={{ display: "grid", gap: uiTokens.spacing.xs, marginBottom: uiTokens.spacing.sm }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
-                <span>{item.label}</span>
-                <strong style={{ color: uiTokens.colors.text }}>{formatNumber(item.value)}</strong>
-              </div>
-              <div style={{ height: 8, borderRadius: uiTokens.radius.pill, background: uiTokens.colors.borderMuted, overflow: "hidden" }}>
-                <div style={{ width: `${Math.max((item.value / stockRequestMax) * 100, item.value > 0 ? 4 : 0)}%`, height: "100%", borderRadius: uiTokens.radius.pill, background: item.label === "Qtde. solicitada" ? uiTokens.colors.accentWarning : uiTokens.colors.accentAlt }} />
-              </div>
+        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, background: uiTokens.colors.surfaceMuted, display: "grid", gap: uiTokens.spacing.sm, alignContent: "start" }}>
+          <div style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Estoque x Solicitação</div>
+          {!hasRequestedQuantity ? <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Informe a quantidade solicitada para calcular os comparativos.</div> : null}
+
+          <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
+            <div style={{ display: "flex", height: 30, borderRadius: uiTokens.radius.pill, overflow: "hidden", background: uiTokens.colors.borderMuted }}>
+              <div title={`Estoque atual: ${formatNumber(evaluatedStock)}`} style={{ width: `${stockSegmentPercent}%`, minWidth: evaluatedStock > 0 ? 32 : 0, background: uiTokens.colors.accentAlt }} />
+              <div title={`Qtde. solicitada: ${formatNumber(validRequestedQuantity)}`} style={{ width: `${requestSegmentPercent}%`, minWidth: validRequestedQuantity > 0 ? 32 : 0, background: uiTokens.colors.accentWarning }} />
             </div>
-          ))}
-          <div style={{ display: "grid", gap: uiTokens.spacing.xs, marginTop: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
-            <span>Percentual solicitado sobre estoque: <strong style={{ color: uiTokens.colors.text }}>{hasRequestedQuantity ? evaluatedStock > 0 ? formatPercent(requestedPercent) : "Sem estoque atual para comparação percentual" : "-"}</strong></span>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.sm, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, flexWrap: "wrap" }}>
+              <span><strong style={{ color: uiTokens.colors.text }}>Estoque atual:</strong> {formatNumber(evaluatedStock)}</span>
+              <span><strong style={{ color: uiTokens.colors.text }}>Qtde. solicitada:</strong> {formatNumber(validRequestedQuantity)}</span>
+              <span><strong style={{ color: uiTokens.colors.text }}>Projetado:</strong> {formatNumber(projectedStock)}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: uiTokens.spacing.xs }}>
+            {[
+              { label: "Aumento absoluto", value: `+${formatNumber(validRequestedQuantity)} unidades` },
+              { label: "Aumento percentual", value: hasRequestedQuantity ? evaluatedStock > 0 ? `+${formatPercent(requestedPercent)}` : "Sem estoque atual" : "-" },
+              { label: "Estoque final projetado", value: `${formatNumber(projectedStock)} unidades` },
+            ].map((item) => (
+              <div key={item.label} style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.md, background: uiTokens.colors.surface, padding: uiTokens.spacing.sm }}>
+                <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{item.label}</div>
+                <div style={{ marginTop: 2, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.titleWeight }}>{item.value}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted }}>
+      <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.sm, background: uiTokens.colors.surfaceMuted }}>
         <div style={{ marginBottom: uiTokens.spacing.xs, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Leitura analítica</div>
-        <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: uiTokens.spacing.xs, color: uiTokens.colors.text, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>
-          {observations.map((observation) => <li key={observation}>{observation}</li>)}
-        </ul>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: uiTokens.spacing.md }}>
+          {[
+            { title: "Estoque e consumo", items: stockConsumptionObservations },
+            { title: "Impacto da solicitação", items: requestImpactObservations },
+          ].map((group) => (
+            <div key={group.title} style={{ display: "grid", gap: uiTokens.spacing.xs, alignContent: "start" }}>
+              <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{group.title}</div>
+              <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: uiTokens.spacing.xs, color: uiTokens.colors.text, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>
+                {group.items.map((observation) => <li key={observation}>{observation}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
