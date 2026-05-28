@@ -31,66 +31,114 @@ const REQUIRED_COLUMNS: Array<{ field: HeaderField; label: string }> = [
   { field: "materialCode", label: "Material" },
   { field: "description", label: "Descrição" },
   { field: "center", label: "Centro" },
-  { field: "evaluatedStockTotal", label: "Estoque avaliado total" }
+  { field: "evaluatedStockTotal", label: "Estoque avaliado total" },
+  { field: "averagePrice", label: "Preço Médio" }
 ];
 
-const HEADER_ALIASES: Record<string, HeaderField> = {
-  material: "materialCode",
-  description: "description",
-  descricao: "description",
-  center: "center",
-  centro: "center",
-  evaluatedstocktotal: "evaluatedStockTotal",
-  estoqueavaliadototal: "evaluatedStockTotal",
-  estoquetotalrs: "totalStockValueBRL",
-  estoquetotal: "totalStockValueBRL",
-  "2021": "consumption2021",
-  consumption2021: "consumption2021",
-  consumo2021: "consumption2021",
-  "2022": "consumption2022",
-  consumption2022: "consumption2022",
-  consumo2022: "consumption2022",
-  "2023": "consumption2023",
-  consumption2023: "consumption2023",
-  consumo2023: "consumption2023",
-  "2024": "consumption2024",
-  consumption2024: "consumption2024",
-  consumo2024: "consumption2024",
-  "2025": "consumption2025",
-  consumption2025: "consumption2025",
-  consumo2025: "consumption2025",
-  "2026": "consumption2026",
-  consumption2026: "consumption2026",
-  consumo2026: "consumption2026",
-  total: "historicalTotal",
-  historicaltotal: "historicalTotal",
-  totalhistorico: "historicalTotal",
-  cont: "consumptionYearsCount",
-  consumptionyearscount: "consumptionYearsCount",
-  qtdanosconsumo: "consumptionYearsCount",
-  mediaanualconsumo: "averageAnnualConsumption",
-  averageannualconsumption: "averageAnnualConsumption",
-  precomedio: "averagePrice",
-  averageprice: "averagePrice"
-};
+const HEADER_ALIAS_ENTRIES: Array<[string, HeaderField]> = [
+  ["material", "materialCode"],
+  ["descrição", "description"],
+  ["descricao", "description"],
+  ["description", "description"],
+  ["centro", "center"],
+  ["center", "center"],
+  ["estoque avaliado total", "evaluatedStockTotal"],
+  ["estoqueavaliadototal", "evaluatedStockTotal"],
+  ["evaluated stock total", "evaluatedStockTotal"],
+  ["estoque total (r$)", "totalStockValueBRL"],
+  ["estoque total r$", "totalStockValueBRL"],
+  ["estoquetotalr", "totalStockValueBRL"],
+  ["estoque total", "totalStockValueBRL"],
+  ["2021", "consumption2021"],
+  ["2022", "consumption2022"],
+  ["2023", "consumption2023"],
+  ["2024", "consumption2024"],
+  ["2025", "consumption2025"],
+  ["2026", "consumption2026"],
+  ["total", "historicalTotal"],
+  ["cont", "consumptionYearsCount"],
+  ["count", "consumptionYearsCount"],
+  ["quantidade anos", "consumptionYearsCount"],
+  ["anos com movimento", "consumptionYearsCount"],
+  ["média anual consumo", "averageAnnualConsumption"],
+  ["media anual consumo", "averageAnnualConsumption"],
+  ["mediaanualconsumo", "averageAnnualConsumption"],
+  ["preço médio", "averagePrice"],
+  ["preco medio", "averagePrice"],
+  ["precomedio", "averagePrice"],
+  ["average price", "averagePrice"]
+];
 
-export function normalizeHeader(value: unknown): string {
+function normalizeHeaderKey(value: unknown): string {
   return String(value ?? "")
+    .replace(/[\r\n]+/g, " ")
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/r\$/g, "rs")
-    .replace(/[^a-z0-9]+/g, "");
+    .replace(/\s+/g, " ");
+}
+
+function compactHeaderKey(value: string): string {
+  return value.replace(/[^a-z0-9]+/g, "");
+}
+
+const HEADER_ALIASES = HEADER_ALIAS_ENTRIES.reduce<Map<string, HeaderField>>((aliases, [alias, field]) => {
+  const normalized = normalizeHeaderKey(alias);
+  aliases.set(normalized, field);
+  aliases.set(compactHeaderKey(normalized), field);
+  return aliases;
+}, new Map<string, HeaderField>());
+
+export function normalizeHeader(value: unknown): string {
+  return normalizeHeaderKey(value);
+}
+
+function resolveHeaderField(value: unknown): HeaderField | undefined {
+  const normalized = normalizeHeaderKey(value);
+  return HEADER_ALIASES.get(normalized) ?? HEADER_ALIASES.get(compactHeaderKey(normalized));
 }
 
 const toText = (value: unknown) => String(value ?? "").trim();
 
-function parseStockValue(value: unknown): number | null {
+export function parseNumber(value: unknown): number | null {
   if (value == null || value === "") return null;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const parsed = Number(toText(value).replace(",", "."));
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  const raw = String(value)
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[^0-9,.-]/g, "");
+
+  if (!raw || raw === "-" || raw === "." || raw === ",") return null;
+
+  const lastComma = raw.lastIndexOf(",");
+  const lastDot = raw.lastIndexOf(".");
+  let normalized = raw;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? "," : ".";
+    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+    normalized = raw.split(thousandsSeparator).join("").replace(decimalSeparator, ".");
+  } else if (lastComma >= 0) {
+    normalized = normalizeSingleSeparatorNumber(raw, ",");
+  } else if (lastDot >= 0) {
+    normalized = normalizeSingleSeparatorNumber(raw, ".");
+  }
+
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeSingleSeparatorNumber(value: string, separator: "," | "."): string {
+  const parts = value.split(separator);
+  if (parts.length > 2) return parts.join("");
+
+  const [integerPart, decimalPart = ""] = parts;
+  const hasThousandsShape = /^-?\d{1,3}$/.test(integerPart) && /^\d{3}$/.test(decimalPart);
+  if (hasThousandsShape) return `${integerPart}${decimalPart}`;
+
+  return separator === "," ? value.replace(",", ".") : value;
 }
 
 function getHeaderIndex(headerMap: Map<number, HeaderField>, field: HeaderField): number {
@@ -99,7 +147,11 @@ function getHeaderIndex(headerMap: Map<number, HeaderField>, field: HeaderField)
 
 function readParsedNumber(row: RawRow, headerMap: Map<number, HeaderField>, field: HeaderField): number | null {
   const index = getHeaderIndex(headerMap, field);
-  return index >= 0 ? parseStockValue(row[index]) : null;
+  return index >= 0 ? parseNumber(row[index]) : null;
+}
+
+function readOptionalNumber(row: RawRow, headerMap: Map<number, HeaderField>, field: HeaderField, defaultValue: number): number {
+  return readParsedNumber(row, headerMap, field) ?? defaultValue;
 }
 
 const isEmptyRow = (row: RawRow) => row.every((value) => toText(value) === "");
@@ -138,11 +190,12 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
     const headerMap = new Map<number, HeaderField>();
 
     headerRow.forEach((headerValue, index) => {
-      const field = HEADER_ALIASES[normalizeHeader(headerValue)];
+      const field = resolveHeaderField(headerValue);
       if (field) headerMap.set(index, field);
     });
 
-    const missingColumns = REQUIRED_COLUMNS.filter(({ field }) => !Array.from(headerMap.values()).includes(field));
+    const mappedFields = Array.from(headerMap.values());
+    const missingColumns = REQUIRED_COLUMNS.filter(({ field }) => !mappedFields.includes(field));
     if (missingColumns.length > 0) {
       return {
         totalRows: dataRows.length,
@@ -160,18 +213,34 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
     dataRows.forEach((row, dataIndex) => {
       if (isEmptyRow(row)) return;
       const line = headerIndex + dataIndex + 2;
+      const rowErrors: string[] = [];
 
       const materialCode = toText(row[getHeaderIndex(headerMap, "materialCode")]);
       const description = toText(row[getHeaderIndex(headerMap, "description")]);
       const center = toText(row[getHeaderIndex(headerMap, "center")]);
       const evaluatedStockTotal = readParsedNumber(row, headerMap, "evaluatedStockTotal");
-      const consumption2021 = readParsedNumber(row, headerMap, "consumption2021");
-      const consumption2022 = readParsedNumber(row, headerMap, "consumption2022");
-      const consumption2023 = readParsedNumber(row, headerMap, "consumption2023");
-      const consumption2024 = readParsedNumber(row, headerMap, "consumption2024");
-      const consumption2025 = readParsedNumber(row, headerMap, "consumption2025");
-      const consumption2026 = readParsedNumber(row, headerMap, "consumption2026");
       const averagePrice = readParsedNumber(row, headerMap, "averagePrice");
+      const consumption2021 = readOptionalNumber(row, headerMap, "consumption2021", 0);
+      const consumption2022 = readOptionalNumber(row, headerMap, "consumption2022", 0);
+      const consumption2023 = readOptionalNumber(row, headerMap, "consumption2023", 0);
+      const consumption2024 = readOptionalNumber(row, headerMap, "consumption2024", 0);
+      const consumption2025 = readOptionalNumber(row, headerMap, "consumption2025", 0);
+      const consumption2026 = readOptionalNumber(row, headerMap, "consumption2026", 0);
+
+      if (!materialCode) rowErrors.push("Material é obrigatório.");
+      if (!description) rowErrors.push("Descrição é obrigatória.");
+      if (!center) rowErrors.push("Centro é obrigatório.");
+      if (evaluatedStockTotal == null) rowErrors.push("Estoque avaliado total é obrigatório e deve ser numérico.");
+      if (averagePrice == null) rowErrors.push("Preço Médio é obrigatório e deve ser numérico.");
+
+      const itemKey = buildStockItemTitle(center, materialCode);
+      if (rowErrors.length === 0 && seenKeys.has(itemKey)) {
+        rowErrors.push("material duplicado para o mesmo centro.");
+      }
+
+      rowErrors.forEach((message) => errors.push({ row: line, message }));
+      if (rowErrors.length > 0) return;
+
       const derivedFields = calculateStockDerivedFields({
         evaluatedStockTotal,
         averagePrice,
@@ -183,37 +252,24 @@ export async function importStockItemsFromExcelUseCase(input: ImportStockItemsFr
         consumption2026
       });
 
-      if (!materialCode) errors.push({ row: line, message: "Material é obrigatório." });
-      if (!description) errors.push({ row: line, message: "Descrição é obrigatória." });
-      if (!center) errors.push({ row: line, message: "Centro é obrigatório." });
-      if (evaluatedStockTotal == null) errors.push({ row: line, message: "Estoque avaliado total é obrigatório." });
-
-      const itemKey = buildStockItemTitle(center, materialCode);
-      if (!errors.some((error) => error.row === line) && seenKeys.has(itemKey)) {
-        errors.push({ row: line, message: `Duplicidade encontrada para Centro + Material: ${itemKey}.` });
-        return;
-      }
-
-      if (!errors.some((error) => error.row === line)) {
-        seenKeys.add(itemKey);
-        items.push({
-          materialCode,
-          description,
-          center,
-          evaluatedStockTotal,
-          totalStockValueBRL: derivedFields.totalStockValueBRL,
-          consumption2021,
-          consumption2022,
-          consumption2023,
-          consumption2024,
-          consumption2025,
-          consumption2026,
-          historicalTotal: derivedFields.historicalTotal,
-          consumptionYearsCount: derivedFields.consumptionYearsCount,
-          averageAnnualConsumption: derivedFields.averageAnnualConsumption,
-          averagePrice
-        });
-      }
+      seenKeys.add(itemKey);
+      items.push({
+        materialCode,
+        description,
+        center,
+        evaluatedStockTotal,
+        totalStockValueBRL: derivedFields.totalStockValueBRL,
+        consumption2021,
+        consumption2022,
+        consumption2023,
+        consumption2024,
+        consumption2025,
+        consumption2026,
+        historicalTotal: derivedFields.historicalTotal,
+        consumptionYearsCount: derivedFields.consumptionYearsCount,
+        averageAnnualConsumption: derivedFields.averageAnnualConsumption,
+        averagePrice
+      });
     });
 
     return { totalRows: dataRows.length, validRows: items.length, invalidRows: new Set(errors.map((error) => error.row)).size, items, errors };
