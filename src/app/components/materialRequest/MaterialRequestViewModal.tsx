@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { getMaterialRequestHistoryUseCase } from "../../../application/materialRequest";
+import { getMaterialRequestHistoryUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
 import type { MaterialRequestHistoryEntry } from "../../../domain/materialRequest/historyTypes";
+import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { AppModal } from "../common/AppModal";
 import { Card } from "../ui/Card";
@@ -8,6 +9,7 @@ import { Field } from "../ui/Field";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
+import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
 import { materialRequestFieldLabel } from "./materialRequestFieldLabels";
 import { formatDateTime, formatEmpty, formatNumber, formatStockRecommendationLabel } from "./materialRequestSummaryFormatters";
 
@@ -75,9 +77,36 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
   const [history, setHistory] = useState<MaterialRequestHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [stockMaterial, setStockMaterial] = useState<StockMaterial | null>(null);
+  const [stockAnalysisError, setStockAnalysisError] = useState<string | null>(null);
+  const [loadingStockAnalysis, setLoadingStockAnalysis] = useState(false);
 
   const hasHistory = useMemo(() => Boolean(request.id), [request.id]);
   const requestIdentity = `${formatEmpty(request.center)} - ${formatEmpty(request.materialCode)}`;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadStockAnalysis() {
+      setStockAnalysisError(null);
+      setLoadingStockAnalysis(true);
+      try {
+        const result = await getMaterialRequestStockAnalysisUseCase(request);
+        if (mounted) setStockMaterial(result.stockMaterial);
+      } catch (e) {
+        if (!mounted) return;
+        setStockMaterial(null);
+        setStockAnalysisError(e instanceof Error ? e.message : "Não foi possível carregar a análise do material.");
+      } finally {
+        if (mounted) setLoadingStockAnalysis(false);
+      }
+    }
+
+    void loadStockAnalysis();
+    return () => {
+      mounted = false;
+    };
+  }, [request]);
 
   useEffect(() => {
     let mounted = true;
@@ -127,6 +156,9 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
           <SummaryField label={materialRequestFieldLabel("requestReason")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requestReason)}</div>} span={2} />
           <SummaryField label={materialRequestFieldLabel("requesterJustification")} value={<div style={{ whiteSpace: "pre-wrap", minHeight: 72 }}>{formatEmpty(request.requesterJustification)}</div>} span={2} />
         </SummarySection>
+
+        {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
+        {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={request.requestedQuantity} mode="view" />}
 
         <CollapsibleSection title="Aprovação Gerente Laminação">
           <div
