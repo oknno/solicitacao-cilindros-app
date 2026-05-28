@@ -39,6 +39,11 @@ function formatPercent(value: number | null): string {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value)}%`;
 }
 
+function formatCoverage(value: number | null): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Sem consumo médio";
+  return `${formatNumber(value)} anos`;
+}
+
 function buildCoverageValue(stock: number, averageAnnualConsumption: number): number | null {
   if (averageAnnualConsumption <= 0) return null;
   return stock / averageAnnualConsumption;
@@ -50,12 +55,39 @@ function resolveTitle(mode: MaterialStockAnalysisSectionProps["mode"]): string {
   return "Análise do material";
 }
 
+function resolveCoverageTone(coverage: number | null): keyof typeof uiTokens.stateTones {
+  if (coverage == null) return "neutral";
+  if (coverage > 50) return "danger";
+  if (coverage > 5) return "warning";
+  return "neutral";
+}
+
+function buildCoverageMessages(currentCoverage: number | null, projectedCoverage: number | null): string[] {
+  const messages: string[] = [];
+
+  if (currentCoverage != null && currentCoverage > 5) {
+    messages.push("Cobertura elevada. Avalie a real necessidade de nova compra.");
+  }
+
+  if (currentCoverage != null && currentCoverage > 5 && projectedCoverage != null && projectedCoverage > currentCoverage) {
+    messages.push("A solicitação aumentaria ainda mais uma cobertura já elevada.");
+  }
+
+  if (projectedCoverage != null && projectedCoverage > 50) {
+    messages.push("A cobertura projetada é muito superior ao histórico de consumo. Reforce a justificativa da solicitação.");
+  } else if (projectedCoverage != null && projectedCoverage > 10) {
+    messages.push("A cobertura projetada ficaria acima de 10 anos. Reforce a necessidade da compra.");
+  }
+
+  return Array.from(new Set(messages));
+}
+
 export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity, mode = "form" }: MaterialStockAnalysisSectionProps) {
   if (!stockMaterial) {
     return (
       <section style={{ border: `1px solid ${uiTokens.stateTones.warning.bd}`, borderRadius: uiTokens.radius.lg, background: uiTokens.stateTones.warning.bg, color: uiTokens.stateTones.warning.fg, padding: uiTokens.spacing.lg, display: "grid", gap: uiTokens.spacing.xs }}>
         <h4 style={{ margin: 0, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight }}>Análise do material</h4>
-        <p style={{ margin: 0, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>Material não encontrado na base de estoque. A solicitação seguirá para análise manual.</p>
+        <p style={{ margin: 0, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>Material não encontrado na base atual de estoque. A solicitação seguirá para análise manual.</p>
       </section>
     );
   }
@@ -66,18 +98,18 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   const historicalConsumption = asNumber(stockMaterial.historicalTotal);
   const validRequestedQuantity = hasPositiveNumber(requestedQuantity) ? requestedQuantity : 0;
   const hasRequestedQuantity = validRequestedQuantity > 0;
-  const projectedStock = hasRequestedQuantity ? evaluatedStock + validRequestedQuantity : null;
+  const projectedStock = evaluatedStock + validRequestedQuantity;
   const requestedPercent = evaluatedStock > 0 && hasRequestedQuantity ? (validRequestedQuantity / evaluatedStock) * 100 : null;
-  const coverageYears = buildCoverageValue(evaluatedStock, averageAnnualConsumption);
-  const hasCoverage = typeof coverageYears === "number" && Number.isFinite(coverageYears);
-  const isHighCoverage = hasCoverage && coverageYears > 5;
+  const currentCoverageYears = buildCoverageValue(evaluatedStock, averageAnnualConsumption);
+  const projectedCoverageYears = buildCoverageValue(projectedStock, averageAnnualConsumption);
+  const hasCoverage = typeof currentCoverageYears === "number" && Number.isFinite(currentCoverageYears);
   const movingYearAverage = movementYears > 0 ? historicalConsumption / movementYears : averageAnnualConsumption;
   const yearConsumptions = CONSUMPTION_YEARS.map((year) => ({
     label: year.label,
     value: asNumber(stockMaterial[year.key]),
   }));
   const maxConsumption = Math.max(...yearConsumptions.map((item) => item.value), 1);
-  const comparativeMax = Math.max(evaluatedStock, validRequestedQuantity, averageAnnualConsumption, projectedStock ?? 0, 1);
+  const comparativeMax = Math.max(evaluatedStock, validRequestedQuantity, averageAnnualConsumption, projectedStock, currentCoverageYears ?? 0, projectedCoverageYears ?? 0, 1);
 
   const kpis = [
     { label: "Estoque atual", value: formatNumber(stockMaterial.evaluatedStockTotal) },
@@ -97,11 +129,22 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
       ? `A quantidade solicitada representa ${formatPercent(requestedPercent)} do estoque atual e projetaria o estoque para ${formatNumber(projectedStock)}.`
       : "Informe a quantidade solicitada para calcular os comparativos.",
     hasCoverage
-      ? `A cobertura estimada do estoque é de aproximadamente ${formatNumber(coverageYears)} anos, com base na média anual.`
+      ? `A cobertura atual do estoque é de aproximadamente ${formatNumber(currentCoverageYears)} anos.`
       : "Não há consumo histórico suficiente para estimar cobertura.",
-  ];
+    hasCoverage
+      ? `Com a quantidade solicitada, a cobertura projetada passaria para ${formatNumber(projectedCoverageYears)} anos.`
+      : "A cobertura após solicitação também não pode ser estimada sem consumo médio.",
+    hasRequestedQuantity && requestedPercent !== null
+      ? `A solicitação representa ${formatPercent(requestedPercent)} do estoque atual.`
+      : evaluatedStock > 0 ? "Informe a quantidade solicitada para calcular o percentual sobre o estoque atual." : "Sem estoque atual para calcular o percentual solicitado sobre estoque.",
+    projectedCoverageYears != null && projectedCoverageYears > 50
+      ? "A cobertura projetada é muito superior ao histórico de consumo. Avalie a real necessidade da compra."
+      : null,
+  ].filter((observation): observation is string => Boolean(observation));
 
-  const coverageTone = isHighCoverage ? uiTokens.stateTones.warning : uiTokens.stateTones.neutral;
+  const currentCoverageTone = uiTokens.stateTones[resolveCoverageTone(currentCoverageYears)];
+  const projectedCoverageTone = uiTokens.stateTones[resolveCoverageTone(projectedCoverageYears)];
+  const coverageMessages = buildCoverageMessages(currentCoverageYears, projectedCoverageYears);
 
   return (
     <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.lg, background: uiTokens.colors.surface, padding: uiTokens.spacing.lg, display: "grid", gap: uiTokens.spacing.md }}>
@@ -119,26 +162,42 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
         ))}
       </div>
 
-      <div style={{ border: `1px solid ${coverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: coverageTone.bg, color: coverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
-        <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura estimada</div>
-        <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: coverageTone.fg }}>{hasCoverage ? `${formatNumber(coverageYears)} anos` : "Sem consumo médio"}</div>
-        <div style={{ fontSize: uiTokens.typography.sm }}>{hasCoverage ? "Com base na média anual de consumo." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
-        {isHighCoverage ? <div style={{ fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Cobertura elevada. Avalie a real necessidade de nova compra.</div> : null}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: uiTokens.spacing.md }}>
+        <div style={{ border: `1px solid ${currentCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: currentCoverageTone.bg, color: currentCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
+          <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura atual</div>
+          <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: currentCoverageTone.fg }}>{formatCoverage(currentCoverageYears)}</div>
+          <div style={{ fontSize: uiTokens.typography.sm }}>{hasCoverage ? "Com base no estoque atual e na média anual de consumo." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
+        </div>
+
+        <div style={{ border: `1px solid ${projectedCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: projectedCoverageTone.bg, color: projectedCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
+          <div style={{ fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Cobertura após solicitação</div>
+          <div style={{ fontSize: uiTokens.typography.xl, fontWeight: uiTokens.typography.titleWeight, color: projectedCoverageTone.fg }}>{formatCoverage(projectedCoverageYears)}</div>
+          <div style={{ fontSize: uiTokens.typography.sm }}>{hasCoverage ? "Considera o estoque atual somado à quantidade solicitada." : "Não há consumo histórico suficiente para estimar cobertura."}</div>
+        </div>
       </div>
+
+      {coverageMessages.length ? (
+        <div style={{ border: `1px solid ${projectedCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: projectedCoverageTone.bg, color: projectedCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
+          {coverageMessages.map((message) => <div key={message} style={{ fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>{message}</div>)}
+        </div>
+      ) : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: uiTokens.spacing.md }}>
         <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted }}>
           <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Consumo histórico por ano</div>
-          <div style={{ display: "grid", gap: uiTokens.spacing.sm }}>
-            {yearConsumptions.map((item) => (
-              <div key={item.label} style={{ display: "grid", gridTemplateColumns: "44px 1fr 56px", alignItems: "center", gap: uiTokens.spacing.sm }}>
-                <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
-                <div style={{ height: 10, borderRadius: uiTokens.radius.pill, background: uiTokens.colors.borderMuted, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 4 : 0)}%`, height: "100%", borderRadius: uiTokens.radius.pill, background: uiTokens.colors.accent }} />
+          <div style={{ minHeight: 156, display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "end", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
+            {yearConsumptions.map((item) => {
+              const heightPercent = Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 8 : 2);
+              return (
+                <div key={item.label} style={{ minHeight: 144, display: "grid", gridTemplateRows: "24px 1fr 18px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
+                  <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
+                  <div style={{ width: "100%", height: 96, display: "flex", alignItems: "end", justifyContent: "center" }}>
+                    <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 38, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
+                  </div>
+                  <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
                 </div>
-                <span style={{ textAlign: "right", color: uiTokens.colors.text, fontSize: uiTokens.typography.xs }}>{formatNumber(item.value)}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -148,8 +207,10 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
           {[
             { label: "Estoque atual", value: evaluatedStock, visible: true },
             { label: "Qtde. solicitada", value: validRequestedQuantity, visible: true },
-            { label: "Estoque projetado após solicitação", value: projectedStock ?? 0, visible: hasRequestedQuantity },
+            { label: "Estoque projetado após solicitação", value: projectedStock, visible: true },
             { label: "Consumo médio anual", value: averageAnnualConsumption, visible: true },
+            { label: "Cobertura atual", value: currentCoverageYears ?? 0, visible: true },
+            { label: "Cobertura após solicitação", value: projectedCoverageYears ?? 0, visible: true },
           ].filter((item) => item.visible).map((item) => (
             <div key={item.label} style={{ display: "grid", gap: uiTokens.spacing.xs, marginBottom: uiTokens.spacing.sm }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
@@ -162,10 +223,13 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
             </div>
           ))}
           <div style={{ display: "grid", gap: uiTokens.spacing.xs, marginTop: uiTokens.spacing.sm, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>
-            <span>Estoque projetado após solicitação: <strong style={{ color: uiTokens.colors.text }}>{projectedStock === null ? "-" : formatNumber(projectedStock)}</strong></span>
-            <span>Percentual solicitado sobre estoque: <strong style={{ color: uiTokens.colors.text }}>{formatPercent(requestedPercent)}</strong></span>
+            <span>Estoque atual: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(evaluatedStock)}</strong></span>
+            <span>Qtde. solicitada: <strong style={{ color: uiTokens.colors.text }}>{hasRequestedQuantity ? formatNumber(validRequestedQuantity) : "-"}</strong></span>
+            <span>Estoque projetado após solicitação: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(projectedStock)}</strong></span>
+            <span>Percentual solicitado sobre estoque: <strong style={{ color: uiTokens.colors.text }}>{evaluatedStock > 0 ? formatPercent(requestedPercent) : "Sem estoque atual"}</strong></span>
             <span>Consumo médio anual: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(averageAnnualConsumption)}</strong></span>
-            <span>Cobertura estimada em anos: <strong style={{ color: uiTokens.colors.text }}>{hasCoverage ? formatNumber(coverageYears) : "Sem consumo médio"}</strong></span>
+            <span>Cobertura atual: <strong style={{ color: uiTokens.colors.text }}>{formatCoverage(currentCoverageYears)}</strong></span>
+            <span>Cobertura após solicitação: <strong style={{ color: uiTokens.colors.text }}>{formatCoverage(projectedCoverageYears)}</strong></span>
             <span>Consumo médio por ano com movimentação: <strong style={{ color: uiTokens.colors.text }}>{formatNumber(movingYearAverage)}</strong></span>
           </div>
         </div>
