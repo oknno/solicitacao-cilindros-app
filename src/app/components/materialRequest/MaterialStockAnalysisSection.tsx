@@ -62,26 +62,6 @@ function resolveCoverageTone(coverage: number | null): keyof typeof uiTokens.sta
   return "neutral";
 }
 
-function buildCoverageMessages(currentCoverage: number | null, projectedCoverage: number | null): string[] {
-  const messages: string[] = [];
-
-  if (currentCoverage != null && currentCoverage > 5) {
-    messages.push("Cobertura elevada. Avalie a real necessidade de nova compra.");
-  }
-
-  if (currentCoverage != null && currentCoverage > 5 && projectedCoverage != null && projectedCoverage > currentCoverage) {
-    messages.push("A solicitação aumentaria ainda mais uma cobertura já elevada.");
-  }
-
-  if (projectedCoverage != null && projectedCoverage > 50) {
-    messages.push("A cobertura projetada é muito superior ao histórico de consumo. Reforce a justificativa da solicitação.");
-  } else if (projectedCoverage != null && projectedCoverage > 10) {
-    messages.push("A cobertura projetada ficaria acima de 10 anos. Reforce a necessidade da compra.");
-  }
-
-  return Array.from(new Set(messages));
-}
-
 export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity, mode = "form" }: MaterialStockAnalysisSectionProps) {
   if (!stockMaterial) {
     return (
@@ -144,7 +124,6 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
 
   const currentCoverageTone = uiTokens.stateTones[resolveCoverageTone(currentCoverageYears)];
   const projectedCoverageTone = uiTokens.stateTones[resolveCoverageTone(projectedCoverageYears)];
-  const coverageMessages = buildCoverageMessages(currentCoverageYears, projectedCoverageYears);
 
   return (
     <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.lg, background: uiTokens.colors.surface, padding: uiTokens.spacing.lg, display: "grid", gap: uiTokens.spacing.md }}>
@@ -176,23 +155,17 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
         </div>
       </div>
 
-      {coverageMessages.length ? (
-        <div style={{ border: `1px solid ${projectedCoverageTone.bd}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: projectedCoverageTone.bg, color: projectedCoverageTone.fg, display: "grid", gap: uiTokens.spacing.xs }}>
-          {coverageMessages.map((message) => <div key={message} style={{ fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>{message}</div>)}
-        </div>
-      ) : null}
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: uiTokens.spacing.md }}>
-        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted }}>
+        <div style={{ border: `1px solid ${uiTokens.colors.borderMuted}`, borderRadius: uiTokens.radius.md, padding: uiTokens.spacing.md, background: uiTokens.colors.surfaceMuted, display: "grid", gridTemplateRows: "auto 1fr", minHeight: "100%" }}>
           <div style={{ marginBottom: uiTokens.spacing.sm, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.labelWeight }}>Consumo histórico por ano</div>
-          <div style={{ minHeight: 156, display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "end", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
+          <div style={{ minHeight: 252, height: "100%", display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(42px, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
             {yearConsumptions.map((item) => {
               const heightPercent = Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 8 : 2);
               return (
-                <div key={item.label} style={{ minHeight: 144, display: "grid", gridTemplateRows: "24px 1fr 18px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
+                <div key={item.label} style={{ height: "100%", display: "grid", gridTemplateRows: "24px minmax(0, 1fr) 18px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
                   <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
-                  <div style={{ width: "100%", height: 96, display: "flex", alignItems: "end", justifyContent: "center" }}>
-                    <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 38, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "end", justifyContent: "center" }}>
+                    <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 42, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
                   </div>
                   <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
                 </div>
