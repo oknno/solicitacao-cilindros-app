@@ -30,6 +30,10 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
 }
 
+function formatPreviewNumber(value: number | null) {
+  return value == null ? "-" : value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
 export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportStockItemsFromExcelOutput | null>(null);
@@ -227,7 +231,7 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.1fr 2fr 0.8fr 1fr",
+                    gridTemplateColumns: "1fr 2fr 0.7fr 1fr 1fr 1fr 1.2fr",
                     gap: uiTokens.spacing.sm,
                     padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
                     background: uiTokens.colors.surfaceMuted,
@@ -241,6 +245,9 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
                   <span>Descrição</span>
                   <span>Centro</span>
                   <span>Estoque Avaliado</span>
+                  <span>Preço Médio</span>
+                  <span>Estoque Total (R$)</span>
+                  <span>Média Anual Consumo</span>
                 </div>
                 <div style={{ maxHeight: 250, overflowY: "auto" }}>
                   {previewItems.length > 0 ? previewItems.map((item, index) => (
@@ -248,7 +255,7 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
                       key={`${item.center}-${item.materialCode}-${index}`}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.1fr 2fr 0.8fr 1fr",
+                        gridTemplateColumns: "1fr 2fr 0.7fr 1fr 1fr 1fr 1.2fr",
                         gap: uiTokens.spacing.sm,
                         padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
                         fontSize: uiTokens.typography.sm,
@@ -259,7 +266,10 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
                       <span>{item.materialCode}</span>
                       <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} title={item.description}>{item.description}</span>
                       <span>{item.center}</span>
-                      <span>{item.evaluatedStockTotal}</span>
+                      <span>{formatPreviewNumber(item.evaluatedStockTotal)}</span>
+                      <span>{formatPreviewNumber(item.averagePrice)}</span>
+                      <span>{formatPreviewNumber(item.totalStockValueBRL)}</span>
+                      <span>{formatPreviewNumber(item.averageAnnualConsumption)}</span>
                     </div>
                   )) : (
                     <div style={{ padding: uiTokens.spacing.md, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>

@@ -7,7 +7,18 @@ const fields = {
   materialCode: "Material",
   description: "Description",
   center: "Center",
-  evaluatedStockTotal: "EvaluatedStockTotal"
+  evaluatedStockTotal: "EvaluatedStockTotal",
+  totalStockValueBRL: "TotalStockValueBRL",
+  consumption2021: "Consumption2021",
+  consumption2022: "Consumption2022",
+  consumption2023: "Consumption2023",
+  consumption2024: "Consumption2024",
+  consumption2025: "Consumption2025",
+  consumption2026: "Consumption2026",
+  historicalTotal: "HistoricalTotal",
+  consumptionYearsCount: "ConsumptionYearsCount",
+  averageAnnualConsumption: "AverageAnnualConsumption",
+  averagePrice: "AveragePrice"
 };
 
 test("mapSharePointStockMaterial converte estoque numérico textual inteiro", () => {
@@ -21,12 +32,11 @@ test("mapSharePointStockMaterial converte estoque numérico textual inteiro", ()
     fields
   );
 
-  assert.deepEqual(mapped, {
-    materialCode: "MAT-001",
-    description: "Material A",
-    center: "C100",
-    evaluatedStockTotal: 25
-  });
+  assert.equal(mapped.materialCode, "MAT-001");
+  assert.equal(mapped.description, "Material A");
+  assert.equal(mapped.center, "C100");
+  assert.equal(mapped.evaluatedStockTotal, 25);
+  assert.equal(mapped.averagePrice, null);
 });
 
 test("mapSharePointStockMaterial converte estoque textual com vírgula", () => {
