@@ -34,7 +34,7 @@ type ApprovalModalState = {
   approverRole: ApproverRole;
 };
 
-export function MaterialRequestsHomePage() {
+export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void }) {
   const { notify } = useToast();
   const [items, setItems] = useState<MaterialRequest[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -252,6 +252,11 @@ export function MaterialRequestsHomePage() {
       onExportTable={handleExportRequests}
       onExportProject={() => undefined}
       availableUnits={[]}
+      navigationAction={{
+        label: "Abrir Dashboard",
+        icon: <DashboardIcon />,
+        onClick: props.onOpenDashboard,
+      }}
     />
     <div style={{
       display: "grid",
@@ -323,4 +328,16 @@ export function MaterialRequestsHomePage() {
       onClose={closeFilters}
     />}
   </div>;
+}
+
+
+function DashboardIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: "block", stroke: "currentColor", strokeWidth: 1.75, fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }}>
+      <rect x="3" y="3" width="7" height="8" rx="1.5" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" />
+      <rect x="3" y="15" width="7" height="6" rx="1.5" />
+    </svg>
+  );
 }

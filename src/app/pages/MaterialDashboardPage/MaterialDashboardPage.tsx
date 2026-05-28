@@ -14,9 +14,11 @@ import { Card } from "../../components/ui/Card";
 import { fieldControlStyles } from "../../components/ui/fieldControlStyles";
 import { StateMessage } from "../../components/ui/StateMessage";
 import { uiTokens } from "../../components/ui/tokens";
+import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const ATTENTION_LIMIT = 20;
 const TOP_LIMIT = 10;
+const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -173,7 +175,7 @@ function getFilteredDashboard(data: MaterialDashboardResult | null, center: stri
   };
 }
 
-export function MaterialDashboardPage() {
+export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
   const [draftCenter, setDraftCenter] = useState("");
@@ -192,8 +194,25 @@ export function MaterialDashboardPage() {
   }, []);
 
   useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
+    let ignore = false;
+
+    void (async () => {
+      try {
+        const result = await getMaterialDashboardUseCase();
+        if (ignore) return;
+        setDashboard(result);
+        setState("idle");
+      } catch (error) {
+        if (ignore) return;
+        console.error(error);
+        setState("error");
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const filteredDashboard = useMemo(() => getFilteredDashboard(dashboard, appliedCenter), [dashboard, appliedCenter]);
   const centerOptions = dashboard?.centerOptions ?? [];
@@ -211,13 +230,60 @@ export function MaterialDashboardPage() {
 
   return (
     <div style={styles.page}>
+      <CommandBar
+        title="Dashboard Cilindros e Discos"
+        isAdmin={false}
+        selectedId={null}
+        totalLoaded={dashboard?.openRequests.length ?? 0}
+        canEdit={false}
+        canDelete={false}
+        canSend={false}
+        canBack={false}
+        canApprove={false}
+        canReject={false}
+        filters={EMPTY_COMMAND_FILTERS}
+        onChangeFilters={() => undefined}
+        onApply={() => undefined}
+        onClear={() => undefined}
+        onRefresh={() => void loadDashboard()}
+        onNew={() => undefined}
+        canCreate={false}
+        onView={() => undefined}
+        onEdit={() => undefined}
+        onDuplicate={() => undefined}
+        onDelete={() => undefined}
+        onSendToApproval={() => undefined}
+        onBackStatus={() => undefined}
+        onApprove={() => undefined}
+        onReject={() => undefined}
+        showApprovalActions={false}
+        showNewButton={false}
+        showViewButton={false}
+        showEditButton={false}
+        showDuplicateButton={false}
+        showDeleteButton={false}
+        showSubmitButton={false}
+        showBackButton={false}
+        showApproveButton={false}
+        showRejectButton={false}
+        showFilterButton={false}
+        showExportButton={false}
+        onExportTable={() => undefined}
+        onExportProject={() => undefined}
+        availableUnits={[]}
+        navigationAction={{
+          label: "Voltar para Solicitações",
+          icon: <RequestsIcon />,
+          onClick: props.onBackToRequests,
+        }}
+      />
+
       <Card>
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Dashboard Cilindros e Discos</h1>
             <p style={styles.subtitle}>Acompanhe solicitações abertas, estoque atual e materiais que merecem atenção.</p>
           </div>
-          <Button onClick={() => void loadDashboard()}>Atualizar Dashboard</Button>
         </div>
       </Card>
 
@@ -427,5 +493,17 @@ function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) 
     >
       {props.children}
     </div>
+  );
+}
+
+
+function RequestsIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: "block", stroke: "currentColor", strokeWidth: 1.75, fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 8h8" />
+      <path d="M8 12h8" />
+      <path d="M8 16h5" />
+    </svg>
   );
 }

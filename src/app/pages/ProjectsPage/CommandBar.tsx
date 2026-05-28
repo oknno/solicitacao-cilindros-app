@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../components/ui/Button";
 import { fieldControlStyles } from "../../components/ui/fieldControlStyles";
 import { uiTokens } from "../../components/ui/tokens";
@@ -105,6 +105,25 @@ const styles = {
     justifyContent: "flex-end",
     marginTop: uiTokens.spacing.xs,
   } satisfies React.CSSProperties,
+  iconButton: {
+    width: 34,
+    height: 34,
+    padding: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 0,
+  } satisfies React.CSSProperties,
+  icon: {
+    width: 17,
+    height: 17,
+    display: "block",
+    stroke: "currentColor",
+    strokeWidth: 1.75,
+    fill: "none",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  } satisfies React.CSSProperties,
 };
 
 export type ProjectsFilters = {
@@ -157,6 +176,7 @@ export function CommandBar(props: {
   onReject: () => void;
   showApprovalActions: boolean;
   showNewButton?: boolean;
+  showViewButton?: boolean;
   showEditButton?: boolean;
   showDuplicateButton?: boolean;
   showDeleteButton?: boolean;
@@ -173,10 +193,16 @@ export function CommandBar(props: {
   onExportProject: () => void;
   availableUnits?: string[];
   title?: string;
+  navigationAction?: {
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+  };
 }) {
   const hasSelection = props.selectedId != null;
   const unitOptions = props.availableUnits ?? ALL_UNIT_OPTIONS;
   const showNewButton = props.showNewButton ?? true;
+  const showViewButton = props.showViewButton ?? true;
   const showEditButton = props.showEditButton ?? true;
   const showDuplicateButton = props.showDuplicateButton ?? true;
   const showDeleteButton = props.showDeleteButton ?? true;
@@ -186,6 +212,9 @@ export function CommandBar(props: {
   const showRejectButton = props.showRejectButton ?? props.showApprovalActions;
   const showFilterButton = props.showFilterButton ?? true;
   const showExportButton = props.showExportButton ?? true;
+  const showRecordActions = showNewButton || showViewButton || showEditButton || showDuplicateButton || showDeleteButton;
+  const showWorkflowActions = showSubmitButton || showBackButton || (props.showApprovalActions && (showApproveButton || showRejectButton));
+  const showUtilityActions = showFilterButton || showExportButton || Boolean(props.navigationAction);
   const filterButtonMode = props.filterButtonMode ?? "legacyPopover";
   const filterButtonId = props.filterButtonId;
 
@@ -211,12 +240,12 @@ export function CommandBar(props: {
           </Button>
         )}
 
-        <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onView}>Visualizar</Button>
+        {showViewButton && <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onView}>Visualizar</Button>}
         {showEditButton && <Button disabled={!props.canEdit} title={!props.canEdit ? props.editDisabledReason : undefined} onClick={props.onEdit}>Editar</Button>}
         {showDuplicateButton && <Button disabled={!hasSelection} title={!hasSelection ? "Selecione um projeto." : undefined} onClick={props.onDuplicate}>Duplicar</Button>}
         {showDeleteButton && <Button disabled={!props.canDelete} title={!props.canDelete ? props.deleteDisabledReason : undefined} onClick={props.onDelete}>Excluir</Button>}
 
-        <span style={styles.divider} />
+        {showRecordActions && showWorkflowActions ? <span style={styles.divider} /> : null}
 
         {showSubmitButton && <Button disabled={!props.canSend} title={!props.canSend ? props.sendDisabledReason : undefined} onClick={props.onSendToApproval}>Enviar p/ Aprovação</Button>}
         {showBackButton && <Button disabled={!props.canBack} title={!props.canBack ? props.backDisabledReason : undefined} onClick={props.onBackStatus}>Voltar Status</Button>}
@@ -240,7 +269,7 @@ export function CommandBar(props: {
           </>
         )}
 
-        <span style={styles.divider} />
+        {(showRecordActions || showWorkflowActions) && showUtilityActions ? <span style={styles.divider} /> : null}
 
         {showFilterButton && (filterButtonMode === "legacyPopover" ? <FilterMenu
           value={props.filters}
@@ -255,6 +284,17 @@ export function CommandBar(props: {
           onExportTable={props.onExportTable}
           onExportProject={props.onExportProject}
         />}
+
+        {props.navigationAction ? (
+          <Button
+            aria-label={props.navigationAction.label}
+            title={props.navigationAction.label}
+            onClick={props.navigationAction.onClick}
+            style={styles.iconButton}
+          >
+            {props.navigationAction.icon}
+          </Button>
+        ) : null}
       </div>
     </div>
   );
