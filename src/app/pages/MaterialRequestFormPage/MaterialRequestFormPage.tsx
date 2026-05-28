@@ -22,6 +22,14 @@ const MAX_REASON_LENGTH = 1000;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".xlsx", ".xls"];
 
+function normalizeMaterialKey(value: string | number | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeFormText(value: string | number | null | undefined): string {
+  return String(value ?? "").trim();
+}
+
 interface MaterialRequestFormPageProps {
   onBack: () => void;
   onCreated: () => void;
@@ -46,7 +54,7 @@ function resolveAnalysisTone(result: AnalyzeMaterialRequestStockOutput | null, i
 }
 
 function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, isManualMaterial: boolean, requestedQuantity: number): string {
-  if (isManualMaterial) return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
+  if (isManualMaterial) return "Material não encontrado na base atual de estoque. A solicitação seguirá para análise manual.";
   if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) return "Informe a quantidade solicitada para concluir a análise de estoque.";
   if (!result) return "Informe os dados do material para concluir a análise de estoque.";
 
@@ -54,7 +62,7 @@ function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, 
   if (recommendation === "PURCHASE_RECOMMENDED") return "Não há estoque disponível para este material.";
   if (recommendation === "PURCHASE_RECOMMENDED_PARTIAL_STOCK") return "O estoque atual é insuficiente para atender integralmente a solicitação.";
   if (recommendation === "PURCHASE_NOT_RECOMMENDED") return "Há estoque suficiente para a quantidade solicitada. A compra não é recomendada sem justificativa.";
-  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "Material não encontrado na base de estoque. A solicitação seguirá para análise manual.";
+  if (recommendation === "MANUAL_REVIEW_REQUIRED") return "Material não encontrado na base atual de estoque. A solicitação seguirá para análise manual.";
   if (evaluatedStockTotal === 0) return "Não há estoque disponível para este material.";
   return "Análise de estoque concluída.";
 }
@@ -72,6 +80,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const [requesterJustification, setRequesterJustification] = useState("");
   const [analysisResult, setAnalysisResult] = useState<AnalyzeMaterialRequestStockOutput | null>(null);
   const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
+  const [materialsLoadedCenter, setMaterialsLoadedCenter] = useState("");
   const [centers, setCenters] = useState<string[]>([]);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [attachmentError, setAttachmentError] = useState("");
@@ -84,7 +93,16 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
 
   const parsedRequestedQuantity = useMemo(() => Number(requestedQuantity), [requestedQuantity]);
   const isManualMaterial = materialSelection === MANUAL_NOT_FOUND_OPTION;
-  const selectedStockMaterial = stockMaterials.find((item) => item.materialCode === materialSelection) ?? null;
+  const normalizedMaterialSelection = normalizeMaterialKey(materialSelection);
+  const selectedStockMaterial = stockMaterials.find((item) => normalizeMaterialKey(item.materialCode) === normalizedMaterialSelection) ?? null;
+  const centerOptions = useMemo(() => {
+    const options = [...centers];
+    const normalizedCurrentCenter = normalizeMaterialKey(center);
+    if (center.trim() && !options.some((option) => normalizeMaterialKey(option) === normalizedCurrentCenter)) {
+      options.unshift(center.trim());
+    }
+    return options;
+  }, [center, centers]);
 
   const effectiveMaterialCode = isManualMaterial ? manualMaterialCode.trim() : materialSelection.trim();
   const justificationRequired = !isManualMaterial && (forceShowJustification || analysisResult?.stockAnalysis.recommendation === "PURCHASE_NOT_RECOMMENDED");
@@ -98,12 +116,13 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
 
   useEffect(() => {
     if (!initialRequest) return;
-    setCenter(initialRequest.center ?? "");
+    setCenter(normalizeFormText(initialRequest.center));
     setRequestedQuantity(String(initialRequest.requestedQuantity ?? ""));
     setRequestReason(initialRequest.requestReason ?? "");
     setRequesterJustification(initialRequest.requesterJustification ?? "");
     setMaterialDescription(initialRequest.materialDescription ?? "");
-    setMaterialSelection(initialRequest.materialCode ?? "");
+    setManualMaterialCode("");
+    setMaterialSelection(normalizeFormText(initialRequest.materialCode));
   }, [initialRequest]);
 
   useEffect(() => {
@@ -112,20 +131,66 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   }, []);
 
   useEffect(() => {
-    setMaterialSelection("");
-    setManualMaterialCode("");
-    setMaterialDescription("");
+    const normalizedCenter = normalizeFormText(center);
+    const isEditingInitialCenter = mode === "edit" && normalizeMaterialKey(initialRequest?.center) === normalizeMaterialKey(normalizedCenter);
+
     setAnalysisResult(null);
-    if (!center.trim()) {
+    setMaterialsLoadedCenter("");
+    if (!isEditingInitialCenter) {
+      setMaterialSelection("");
+      setManualMaterialCode("");
+      setMaterialDescription("");
+    }
+
+    if (!normalizedCenter) {
       setStockMaterials([]);
       return;
     }
+
+    let cancelled = false;
     setLoadingMaterials(true);
-    void getStockMaterialsByCenterUseCase({ center })
-      .then((items) => setStockMaterials(items))
-      .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar materiais."))
-      .finally(() => setLoadingMaterials(false));
-  }, [center]);
+    void getStockMaterialsByCenterUseCase({ center: normalizedCenter })
+      .then((items) => {
+        if (cancelled) return;
+        setStockMaterials(items);
+        setMaterialsLoadedCenter(normalizedCenter);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setStockMaterials([]);
+        setError(e instanceof Error ? e.message : "Erro ao carregar materiais.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingMaterials(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [center, initialRequest?.center, mode]);
+
+  useEffect(() => {
+    if (mode !== "edit" || !initialRequest) return;
+    if (!center.trim()) return;
+    if (normalizeMaterialKey(center) !== normalizeMaterialKey(initialRequest.center)) return;
+    if (normalizeMaterialKey(materialsLoadedCenter) !== normalizeMaterialKey(center)) return;
+
+    const savedMaterialCode = normalizeFormText(initialRequest.materialCode);
+    if (!savedMaterialCode) return;
+
+    const matchingMaterial = stockMaterials.find((item) => normalizeMaterialKey(item.materialCode) === normalizeMaterialKey(savedMaterialCode));
+    if (matchingMaterial) {
+      setMaterialSelection(normalizeFormText(matchingMaterial.materialCode));
+      setManualMaterialCode("");
+      setMaterialDescription(matchingMaterial.description);
+      return;
+    }
+
+    setMaterialSelection(MANUAL_NOT_FOUND_OPTION);
+    setManualMaterialCode(savedMaterialCode);
+    setMaterialDescription(initialRequest.materialDescription ?? "");
+  }, [center, initialRequest, materialsLoadedCenter, mode, stockMaterials]);
 
   useEffect(() => {
     if (!isManualMaterial && selectedStockMaterial) {
@@ -142,8 +207,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
       });
     }
     if (isManualMaterial) {
-      setMaterialDescription("");
-      setAnalysisResult({ stockMaterial: null, stockAnalysis: { materialFound: false, evaluatedStockTotal: null, requestedQuantity: Number.isFinite(parsedRequestedQuantity) ? parsedRequestedQuantity : 0, recommendation: "MANUAL_REVIEW_REQUIRED", requiresRequesterJustification: false, message: "Material não encontrado na base de estoque. A solicitação requer análise manual." } });
+      setAnalysisResult({ stockMaterial: null, stockAnalysis: { materialFound: false, evaluatedStockTotal: null, requestedQuantity: Number.isFinite(parsedRequestedQuantity) ? parsedRequestedQuantity : 0, recommendation: "MANUAL_REVIEW_REQUIRED", requiresRequesterJustification: false, message: "Material não encontrado na base atual de estoque. A solicitação requer análise manual." } });
     }
   }, [isManualMaterial, selectedStockMaterial, parsedRequestedQuantity]);
 
@@ -176,6 +240,15 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
       cancelled = true;
     };
   }, [center, effectiveMaterialCode, isManualMaterial, parsedRequestedQuantity]);
+
+
+  function handleMaterialSelectionChange(value: string) {
+    setMaterialSelection(value);
+    if (value === MANUAL_NOT_FOUND_OPTION) {
+      setManualMaterialCode("");
+      setMaterialDescription("");
+    }
+  }
 
   function handleAttachmentChange(file: File | null) {
     setAttachmentError("");
@@ -266,8 +339,8 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
               <Field label="E-mail do solicitante"><input value={requesterEmail || "-"} readOnly style={wizardLayoutStyles.input} /></Field>
             </div>
             <div style={wizardLayoutStyles.journeyPairGrid}>
-              <Field label="Centro"><select value={center} onChange={(e) => setCenter(e.target.value)} style={wizardLayoutStyles.input}><option value="">{loadingCenters ? "Carregando centros..." : "Selecione"}</option>{centers.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-              <Field label="Material"><select value={materialSelection} onChange={(e) => setMaterialSelection(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={m.materialCode} value={m.materialCode}>{`${m.materialCode} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select></Field>
+              <Field label="Centro"><select value={center} onChange={(e) => setCenter(e.target.value)} style={wizardLayoutStyles.input}><option value="">{loadingCenters ? "Carregando centros..." : "Selecione"}</option>{centerOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
+              <Field label="Material"><select value={materialSelection} onChange={(e) => handleMaterialSelectionChange(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={normalizeFormText(m.materialCode)} value={normalizeFormText(m.materialCode)}>{`${normalizeFormText(m.materialCode)} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select></Field>
             </div>
 
             {isManualMaterial && (
