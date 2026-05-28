@@ -57,6 +57,7 @@ export interface MaterialDashboardResult {
   kpis: MaterialDashboardKpis;
   openRequests: DashboardOpenRequest[];
   attentionMaterials: DashboardAttentionMaterial[];
+  stockItems: DashboardStockRankingItem[];
   topStockValueItems: DashboardStockRankingItem[];
   topCoverageItems: DashboardStockRankingItem[];
   centerOptions: string[];
