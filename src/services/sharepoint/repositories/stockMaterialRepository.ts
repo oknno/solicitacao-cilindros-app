@@ -3,7 +3,11 @@ import { buildStockItemTitle } from "../../../domain/materialRequest/buildStockI
 import { spConfig } from "../spConfig";
 import { getDigest, spGetJson } from "../spHttp";
 import { escapeODataFilterLiterals } from "../odataFilter";
-import { mapSharePointStockMaterial, type StockMaterialSharePointFields } from "../mappers/stockMaterialMapper";
+import {
+  mapSharePointStockMaterial,
+  mapStockMaterialToSharePointCreatePayload,
+  type StockMaterialSharePointFields
+} from "../mappers/stockMaterialMapper";
 import { SHAREPOINT_LISTS } from "../sharepointLists";
 import { STOCK_FIELDS } from "../sharepointFields";
 import { chunkArray, executeSharePointBatch, type SharePointBatchRequest } from "../sharepointBatch";
@@ -32,10 +36,23 @@ export type StockItemsReplaceProgress = {
 };
 
 const STOCK_MATERIAL_FIELDS: StockMaterialSharePointFields = {
+  title: STOCK_FIELDS.title,
   materialCode: STOCK_FIELDS.materialCode,
   description: STOCK_FIELDS.description,
   center: STOCK_FIELDS.center,
-  evaluatedStockTotal: STOCK_FIELDS.evaluatedStockTotal
+  evaluatedStockTotal: STOCK_FIELDS.evaluatedStockTotal,
+  totalStockValueBRL: STOCK_FIELDS.totalStockValueBRL,
+  consumption2021: STOCK_FIELDS.consumption2021,
+  consumption2022: STOCK_FIELDS.consumption2022,
+  consumption2023: STOCK_FIELDS.consumption2023,
+  consumption2024: STOCK_FIELDS.consumption2024,
+  consumption2025: STOCK_FIELDS.consumption2025,
+  consumption2026: STOCK_FIELDS.consumption2026,
+  historicalTotal: STOCK_FIELDS.historicalTotal,
+  consumptionYearsCount: STOCK_FIELDS.consumptionYearsCount,
+  averageAnnualConsumption: STOCK_FIELDS.averageAnnualConsumption,
+  averagePrice: STOCK_FIELDS.averagePrice,
+  importDate: STOCK_FIELDS.importDate
 };
 
 function readItems(data: ODataListResponse<SpRecord>): SpRecord[] {
@@ -55,6 +72,17 @@ function buildSelectClause(): string {
     STOCK_FIELDS.description,
     STOCK_FIELDS.center,
     STOCK_FIELDS.evaluatedStockTotal,
+    STOCK_FIELDS.totalStockValueBRL,
+    STOCK_FIELDS.consumption2021,
+    STOCK_FIELDS.consumption2022,
+    STOCK_FIELDS.consumption2023,
+    STOCK_FIELDS.consumption2024,
+    STOCK_FIELDS.consumption2025,
+    STOCK_FIELDS.consumption2026,
+    STOCK_FIELDS.historicalTotal,
+    STOCK_FIELDS.consumptionYearsCount,
+    STOCK_FIELDS.averageAnnualConsumption,
+    STOCK_FIELDS.averagePrice,
     STOCK_FIELDS.importDate
   ].join(",");
 }
@@ -128,14 +156,10 @@ export async function getAllStockItemIds(): Promise<number[]> {
 }
 
 function toPayload(item: StockMaterial): Record<string, string> {
-  return {
-    [STOCK_FIELDS.title]: buildStockItemTitle(item.center, item.materialCode),
-    [STOCK_FIELDS.materialCode]: item.materialCode,
-    [STOCK_FIELDS.description]: item.description,
-    [STOCK_FIELDS.center]: item.center,
-    [STOCK_FIELDS.evaluatedStockTotal]: String(item.evaluatedStockTotal ?? ""),
-    [STOCK_FIELDS.importDate]: new Date().toISOString()
-  };
+  return mapStockMaterialToSharePointCreatePayload(item, STOCK_MATERIAL_FIELDS, {
+    title: buildStockItemTitle(item.center, item.materialCode),
+    importDate: new Date().toISOString()
+  });
 }
 
 export async function deleteStockItemsByIds(ids: number[], options?: { onProgress?: (progress: StockItemsReplaceProgress) => void }): Promise<void> {

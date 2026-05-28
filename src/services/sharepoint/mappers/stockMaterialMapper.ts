@@ -1,5 +1,19 @@
 import type { StockMaterial } from "../../../domain/materialRequest/stockTypes";
 
+export type StockMaterialNumericField =
+  | "evaluatedStockTotal"
+  | "totalStockValueBRL"
+  | "consumption2021"
+  | "consumption2022"
+  | "consumption2023"
+  | "consumption2024"
+  | "consumption2025"
+  | "consumption2026"
+  | "historicalTotal"
+  | "consumptionYearsCount"
+  | "averageAnnualConsumption"
+  | "averagePrice";
+
 type SpRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): SpRecord {
@@ -7,6 +21,7 @@ function asRecord(value: unknown): SpRecord {
 }
 
 function readFieldValue(source: SpRecord, fieldName: string): unknown {
+  if (!fieldName) return undefined;
   if (fieldName in source) return source[fieldName];
 
   const lowerKey = fieldName.toLowerCase();
@@ -39,12 +54,41 @@ function readNullableNumber(source: SpRecord, fieldName: string): number | null 
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export type StockMaterialSharePointFields = {
+function nullableNumberToCreateText(value: number | null | undefined): string {
+  return value == null ? "" : String(value);
+}
+
+function maybeAddUpdateNumber(
+  payload: Record<string, string>,
+  fieldName: string,
+  value: number | null | undefined
+): void {
+  if (value === undefined) return;
+  payload[fieldName] = value === null ? "" : String(value);
+}
+
+export type StockMaterialSharePointFields = Record<StockMaterialNumericField, string> & {
+  title: string;
   materialCode: string;
   description: string;
   center: string;
-  evaluatedStockTotal: string;
+  importDate: string;
 };
+
+const NUMERIC_FIELDS: StockMaterialNumericField[] = [
+  "evaluatedStockTotal",
+  "totalStockValueBRL",
+  "consumption2021",
+  "consumption2022",
+  "consumption2023",
+  "consumption2024",
+  "consumption2025",
+  "consumption2026",
+  "historicalTotal",
+  "consumptionYearsCount",
+  "averageAnnualConsumption",
+  "averagePrice"
+];
 
 export function mapSharePointStockMaterial(
   item: unknown,
@@ -56,6 +100,57 @@ export function mapSharePointStockMaterial(
     materialCode: readString(source, fields.materialCode),
     description: readString(source, fields.description),
     center: readString(source, fields.center),
-    evaluatedStockTotal: readNullableNumber(source, fields.evaluatedStockTotal)
+    evaluatedStockTotal: readNullableNumber(source, fields.evaluatedStockTotal),
+    totalStockValueBRL: readNullableNumber(source, fields.totalStockValueBRL),
+    consumption2021: readNullableNumber(source, fields.consumption2021),
+    consumption2022: readNullableNumber(source, fields.consumption2022),
+    consumption2023: readNullableNumber(source, fields.consumption2023),
+    consumption2024: readNullableNumber(source, fields.consumption2024),
+    consumption2025: readNullableNumber(source, fields.consumption2025),
+    consumption2026: readNullableNumber(source, fields.consumption2026),
+    historicalTotal: readNullableNumber(source, fields.historicalTotal),
+    consumptionYearsCount: readNullableNumber(source, fields.consumptionYearsCount),
+    averageAnnualConsumption: readNullableNumber(source, fields.averageAnnualConsumption),
+    averagePrice: readNullableNumber(source, fields.averagePrice)
   };
+}
+
+export function mapStockMaterialToSharePointCreatePayload(
+  item: StockMaterial,
+  fields: StockMaterialSharePointFields,
+  options: { title: string; importDate: string }
+): Record<string, string> {
+  const payload: Record<string, string> = {
+    [fields.title]: options.title,
+    [fields.materialCode]: item.materialCode,
+    [fields.description]: item.description,
+    [fields.center]: item.center,
+    [fields.importDate]: options.importDate
+  };
+
+  for (const field of NUMERIC_FIELDS) {
+    payload[fields[field]] = nullableNumberToCreateText(item[field]);
+  }
+
+  return payload;
+}
+
+export function mapStockMaterialToSharePointUpdatePayload(
+  item: Partial<StockMaterial>,
+  fields: StockMaterialSharePointFields,
+  options?: { title?: string; importDate?: string }
+): Record<string, string> {
+  const payload: Record<string, string> = {};
+
+  if (options?.title !== undefined) payload[fields.title] = options.title;
+  if (item.materialCode !== undefined) payload[fields.materialCode] = item.materialCode;
+  if (item.description !== undefined) payload[fields.description] = item.description;
+  if (item.center !== undefined) payload[fields.center] = item.center;
+  if (options?.importDate !== undefined) payload[fields.importDate] = options.importDate;
+
+  for (const field of NUMERIC_FIELDS) {
+    maybeAddUpdateNumber(payload, fields[field], item[field]);
+  }
+
+  return payload;
 }
