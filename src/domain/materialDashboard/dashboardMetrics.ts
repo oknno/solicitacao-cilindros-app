@@ -27,9 +27,16 @@ export function isZeroStock(input: Pick<StockMaterial, "evaluatedStockTotal">): 
   return toDashboardNumber(input.evaluatedStockTotal) === 0;
 }
 
-export function isLowStock(input: Pick<StockMaterial, "evaluatedStockTotal" | "averageAnnualConsumption">): boolean {
+export function isLowCoverage(input: Pick<StockMaterial, "evaluatedStockTotal" | "averageAnnualConsumption">): boolean {
   const coverageYears = calculateCoverageYears(input);
   return toDashboardNumber(input.evaluatedStockTotal) > 0 && coverageYears !== null && coverageYears <= 1;
+}
+
+export function isFrequentUseWithLowStock(input: Pick<StockMaterial, "averageAnnualConsumption" | "consumptionYearsCount" | "evaluatedStockTotal">): boolean {
+  const coverageYears = calculateCoverageYears(input);
+  const consumptionYearsCount = toDashboardNumber(input.consumptionYearsCount);
+  const hasRecurringConsumption = consumptionYearsCount >= 3 || toDashboardNumber(input.averageAnnualConsumption) > 0;
+  return hasRecurringConsumption && coverageYears !== null && coverageYears <= 1;
 }
 
 export function isHighCoverage(coverageYears: number | null): boolean {

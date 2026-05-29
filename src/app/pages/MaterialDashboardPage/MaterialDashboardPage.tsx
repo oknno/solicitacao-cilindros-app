@@ -31,11 +31,12 @@ const HIGH_REQUEST_VALUE_BRL = 100_000;
 const HIGH_COVERAGE_YEARS = 5;
 const REQUEST_SIGNAL_OPTIONS = ["Estoque suficiente", "Estoque parcial", "Sem estoque", "Análise manual", "Aumenta cobertura", "Impacto financeiro alto", "Pendente Gerente", "Pendente CTO", "Devolvida"];
 const STOCK_SIGNAL_OPTIONS: MaterialDashboardAttentionLabel[] = [
-  "Estoque zerado com consumo",
-  "Estoque baixo",
-  "Cobertura elevada",
-  "Valor alto parado",
   "Sem consumo histórico",
+  "Valor alto parado",
+  "Cobertura elevada",
+  "Cobertura baixa",
+  "Uso frequente com estoque baixo",
+  "Estoque zerado com consumo",
   "Solicitação aberta com estoque disponível",
 ];
 const STOCK_SEVERITY_OPTIONS: { value: MaterialDashboardSeverity; label: string }[] = [
@@ -384,8 +385,8 @@ function getStockSeverityTone(severity: MaterialDashboardSeverity | null): "neut
 }
 
 function getStockSignalTone(signal: MaterialDashboardAttentionLabel): "neutral" | "info" | "success" | "danger" | "warning" {
-  if (signal === "Estoque zerado com consumo" || signal === "Valor alto parado") return "danger";
-  if (signal === "Estoque baixo" || signal === "Cobertura elevada") return "warning";
+  if (signal === "Estoque zerado com consumo" || signal === "Uso frequente com estoque baixo" || signal === "Valor alto parado") return "danger";
+  if (signal === "Cobertura baixa" || signal === "Cobertura elevada") return "warning";
   if (signal === "Solicitação aberta com estoque disponível") return "info";
   return "neutral";
 }
@@ -398,7 +399,11 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
       const severityOrder: Record<MaterialDashboardSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
       const severityComparison = (left.severity ? severityOrder[left.severity] : 3) - (right.severity ? severityOrder[right.severity] : 3);
       if (severityComparison !== 0) return severityComparison;
-      return right.totalStockValueBRL - left.totalStockValueBRL;
+      const lowStockComparison = Number(right.attentionLabels.includes("Uso frequente com estoque baixo")) - Number(left.attentionLabels.includes("Uso frequente com estoque baixo"));
+      if (lowStockComparison !== 0) return lowStockComparison;
+      const valueComparison = right.totalStockValueBRL - left.totalStockValueBRL;
+      if (valueComparison !== 0) return valueComparison;
+      return (right.coverageYears ?? -1) - (left.coverageYears ?? -1);
     });
   const distribution = STOCK_SIGNAL_OPTIONS
     .map((signal) => ({ label: signal, count: stockItems.filter((item) => item.attentionLabels.includes(signal)).length, tone: getStockSignalTone(signal) }))
@@ -419,10 +424,10 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
     distribution,
     stockValueByCenter,
     kpis: {
-      materialsCount: stockItems.length,
-      zeroStockCount: stockItems.filter((item) => item.evaluatedStockTotal === 0).length,
       totalStockValueBRL: stockItems.reduce((total, item) => total + item.totalStockValueBRL, 0),
       highCoverageCount: stockItems.filter((item) => item.coverageYears !== null && item.coverageYears > 5).length,
+      frequentUseLowStockCount: stockItems.filter((item) => item.attentionLabels.includes("Uso frequente com estoque baixo")).length,
+      zeroStockWithConsumptionCount: stockItems.filter((item) => item.evaluatedStockTotal === 0 && item.historicalTotal > 0).length,
       highIdleValueCount: stockItems.filter((item) => item.attentionLabels.includes("Valor alto parado")).length,
       noHistoricalConsumptionCount: stockItems.filter((item) => item.historicalTotal === 0 || item.averageAnnualConsumption === 0).length,
     },
@@ -644,11 +649,11 @@ function MaterialStockDashboardView(props: { model: ReturnType<typeof getStockDa
 
 function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["kpis"] }) {
   const cards = [
-    { label: "Materiais cadastrados", value: formatNumber(props.kpis.materialsCount), helper: "Itens de estoque" },
-    { label: "Estoque zerado", value: formatNumber(props.kpis.zeroStockCount), helper: "Saldo avaliado zero" },
-    { label: "Valor em estoque", value: formatCurrency(props.kpis.totalStockValueBRL), helper: "Valor total avaliado" },
-    { label: "Cobertura elevada", value: formatNumber(props.kpis.highCoverageCount), helper: "Acima de 5 anos" },
-    { label: "Valor alto parado", value: formatNumber(props.kpis.highIdleValueCount), helper: "Risco financeiro" },
+    { label: "Valor total em estoque", value: formatCurrency(props.kpis.totalStockValueBRL), helper: "Soma do valor avaliado" },
+    { label: "Cobertura elevada", value: formatNumber(props.kpis.highCoverageCount), helper: "Materiais acima de 5 anos" },
+    { label: "Uso frequente com estoque baixo", value: formatNumber(props.kpis.frequentUseLowStockCount), helper: "Consumo e cobertura até 1 ano" },
+    { label: "Estoque zerado com consumo", value: formatNumber(props.kpis.zeroStockWithConsumptionCount), helper: "Saldo zero e histórico > 0" },
+    { label: "Valor alto parado", value: formatNumber(props.kpis.highIdleValueCount), helper: "≥ R$ 500 mil com excesso/sem consumo" },
     { label: "Sem consumo histórico", value: formatNumber(props.kpis.noHistoricalConsumptionCount), helper: "Histórico ou média zero" },
   ];
 
@@ -698,24 +703,25 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
 }
 
 function StockAttentionTable(props: { items: StockDashboardItem[] }) {
-  const columns = "58px 76px minmax(132px,1.3fr) 72px 104px 82px 86px 78px minmax(160px,1.4fr)";
+  const columns = "52px 70px minmax(120px,1.1fr) 62px 92px 76px 70px 82px 68px minmax(150px,1.2fr)";
   return (
     <DashboardSection title="Estoque em atenção" count={props.items.length}>
       <DashboardTable
         columns={columns}
-        minWidth={900}
+        minWidth={1020}
         maxHeight={650}
-        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Cobertura", "Solic. abertas", "Sinalização"]}
+        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
         emptyMessage="Nenhum material em atenção no momento."
       >
         {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={900}>
+          <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={1020}>
             <Cell title={item.center}>{item.center}</Cell>
             <Cell title={item.material}>{item.material}</Cell>
             <Cell title={item.description}>{item.description}</Cell>
             <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
             <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
             <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
+            <Cell>{formatNumber(item.consumptionYearsCount)}</Cell>
             <Cell>{formatCoverage(item.coverageYears)}</Cell>
             <Cell>{formatNumber(item.openRequestsCount)}</Cell>
             <Cell noWrap={false}>

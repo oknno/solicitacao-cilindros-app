@@ -5,7 +5,8 @@ export type MaterialDashboardSeverity = "HIGH" | "MEDIUM" | "LOW";
 
 export type MaterialDashboardAttentionLabel =
   | "Estoque zerado com consumo"
-  | "Estoque baixo"
+  | "Uso frequente com estoque baixo"
+  | "Cobertura baixa"
   | "Cobertura elevada"
   | "Valor alto parado"
   | "Sem consumo histórico"
@@ -55,6 +56,7 @@ export interface DashboardStockRankingItem {
   averageAnnualConsumption: number;
   coverageYears: number | null;
   historicalTotal: number;
+  consumptionYearsCount: number;
 }
 
 export interface DashboardAttentionMaterial extends DashboardStockRankingItem {
