@@ -63,6 +63,17 @@ const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
   "Solicitação aberta com estoque disponível",
 ];
+const REQUEST_SIGNAL_PRIORITY: RequestSignal[] = [
+  "Sem estoque",
+  "Impacto financeiro alto",
+  "Estoque parcial",
+  "Análise manual",
+  "Aumenta cobertura",
+  "Estoque suficiente",
+  "Pendente CTO",
+  "Pendente Gerente",
+  "Devolvida",
+];
 
 type DashboardView = "requests" | "stock";
 type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
@@ -178,9 +189,9 @@ const styles = {
   } satisfies React.CSSProperties,
   requestsLayout: {
     display: "grid",
-    gridTemplateColumns: "minmax(280px, 0.9fr) minmax(520px, 1.6fr)",
+    gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
     gap: uiTokens.spacing.md,
-    alignItems: "start",
+    alignItems: "stretch",
   } satisfies React.CSSProperties,
   stockLayout: {
     display: "grid",
@@ -193,6 +204,13 @@ const styles = {
     gap: uiTokens.spacing.md,
   } satisfies React.CSSProperties,
   stockTableSection: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+    overflow: "hidden",
+  } satisfies React.CSSProperties,
+  requestTableSection: {
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -443,12 +461,6 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
     label: allRequests.find((request) => request.requestStatus === status)?.requestStatusLabel ?? getFallbackStatusLabel(status),
     count: requests.filter((request) => request.requestStatus === status).length,
   })).filter((item) => item.count > 0 || item.status !== "DRAFT");
-  const impactCounts = [
-    { key: "sufficient" as const, label: "Com estoque suficiente", count: openRequests.filter((request) => getImpactKey(request) === "sufficient").length },
-    { key: "partial" as const, label: "Estoque parcial", count: openRequests.filter((request) => getImpactKey(request) === "partial").length },
-    { key: "none" as const, label: "Sem estoque", count: openRequests.filter((request) => getImpactKey(request) === "none").length },
-    { key: "manual" as const, label: "Análise manual", count: openRequests.filter((request) => getImpactKey(request) === "manual").length },
-  ];
   const estimatedValueByStatus = STATUS_CHART_ORDER
     .map((status) => ({
       status,
@@ -463,7 +475,6 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
     requests,
     openRequests,
     statusCounts,
-    impactCounts,
     estimatedValueByStatus,
     kpis: {
       openRequestsCount: openRequests.length,
@@ -542,6 +553,24 @@ function getStockAttentionPriority(label: MaterialDashboardAttentionLabel): numb
 function getCompactStockAttentionLabels(labels: MaterialDashboardAttentionLabel[]): { visible: MaterialDashboardAttentionLabel[]; hidden: MaterialDashboardAttentionLabel[] } {
   const orderedLabels = [...labels].sort((left, right) => {
     const priorityDiff = getStockAttentionPriority(left) - getStockAttentionPriority(right);
+    return priorityDiff !== 0 ? priorityDiff : left.localeCompare(right, "pt-BR");
+  });
+
+  if (orderedLabels.length <= 2) {
+    return { visible: orderedLabels, hidden: [] };
+  }
+
+  return { visible: orderedLabels.slice(0, 1), hidden: orderedLabels.slice(1) };
+}
+
+function getRequestSignalPriority(label: RequestSignal): number {
+  const priority = REQUEST_SIGNAL_PRIORITY.indexOf(label);
+  return priority >= 0 ? priority : REQUEST_SIGNAL_PRIORITY.length;
+}
+
+function getCompactRequestSignals(labels: RequestSignal[]): { visible: RequestSignal[]; hidden: RequestSignal[] } {
+  const orderedLabels = [...labels].sort((left, right) => {
+    const priorityDiff = getRequestSignalPriority(left) - getRequestSignalPriority(right);
     return priorityDiff !== 0 ? priorityDiff : left.localeCompare(right, "pt-BR");
   });
 
@@ -805,7 +834,6 @@ function MaterialRequestsDashboardView(props: {
       <div style={styles.requestsLayout}>
         <div style={styles.analyticsColumn}>
           <RequestsStatusChart items={props.model.statusCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
-          <RequestsImpactChart items={props.model.impactCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
           <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
         </div>
         <OpenRequestsTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
@@ -1204,25 +1232,6 @@ function RequestsStatusChart(props: { items: { status: MaterialRequestStatus; la
   );
 }
 
-function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; count: number }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
-  const total = props.items.reduce((sum, item) => sum + item.count, 0);
-  const toneByImpact: Record<ImpactKey, "neutral" | "info" | "success" | "danger" | "warning"> = {
-    sufficient: "success",
-    partial: "warning",
-    none: "danger",
-    manual: "info",
-  };
-  return (
-    <DashboardSection title="Impacto para aprovação" count={total}>
-      <SimpleBarChart
-        emptyMessage="Sem dados para exibir."
-        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: toneByImpact[item.key], filterValue: item.key }))}
-        onItemClick={(item) => props.onApplyQuickFilter({ view: "requests", type: "impact", value: item.filterValue, label: item.label })}
-      />
-    </DashboardSection>
-  );
-}
-
 function EstimatedValueByStatusChart(props: { items: { status: MaterialRequestStatus; label: string; value: number }[] }) {
   const total = props.items.reduce((sum, item) => sum + item.value, 0);
   const visibleItems = props.items.filter((item) => item.value > 0);
@@ -1284,20 +1293,25 @@ function SimpleBarChart<TItem extends { label: string; count: number; tone: "neu
 }
 
 function OpenRequestsTable(props: { items: DashboardOpenRequest[]; quickFilter: RequestQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
-  const columns = "48px 62px 78px 54px 68px 74px 96px 104px minmax(92px,1fr) minmax(140px,1.2fr)";
+  const columns = "56px 84px 120px 72px 110px 110px 130px 130px 150px 220px";
+  const minWidth = 1182;
+
   return (
-    <DashboardSection title="Solicitações abertas" count={props.items.length}>
+    <DashboardSection title="Solicitações abertas" count={props.items.length} style={styles.requestTableSection}>
       <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
-        minWidth={880}
+        minWidth={minWidth}
+        fillHeight
         headers={["ID", "Centro", "Material", "Qtde.", "Estoque atual", "Estoque proj.", "Valor estimado", "Cobertura após", "Status", "Sinalização"]}
         emptyMessage={props.emptyMessage}
       >
         {props.items.map((item) => {
-          const signals = getRequestSignals(item);
+          const compactSignals = getCompactRequestSignals(getRequestSignals(item));
+          const hiddenSignalsTitle = compactSignals.hidden.join("; ");
+
           return (
-            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns} minWidth={880}>
+            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns} minWidth={minWidth}>
               <Cell>{item.id ?? "-"}</Cell>
               <Cell title={item.center}>{item.center}</Cell>
               <Cell title={`${item.material} - ${item.description}`}>{item.material}</Cell>
@@ -1307,9 +1321,10 @@ function OpenRequestsTable(props: { items: DashboardOpenRequest[]; quickFilter: 
               <Cell>{formatCurrency(item.estimatedRequestedValueBRL)}</Cell>
               <Cell title={item.averageAnnualConsumption === 0 ? "Sem consumo médio" : undefined}>{formatRequestCoverage(item)}</Cell>
               <Cell><Badge text={item.requestStatusLabel} tone={statusTone[item.requestStatus] ?? "neutral"} /></Cell>
-              <Cell noWrap={false}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: uiTokens.spacing.xs }}>
-                  {signals.map((signal) => <Badge key={signal} text={signal} tone={signalTone[signal]} />)}
+              <Cell>
+                <div style={styles.badgeStack}>
+                  {compactSignals.visible.map((signal) => <Badge key={signal} text={signal} tone={signalTone[signal]} style={styles.compactBadge} />)}
+                  {compactSignals.hidden.length > 0 ? <Badge text={`+${compactSignals.hidden.length}`} tone="neutral" title={hiddenSignalsTitle} style={styles.compactSignalBadge} /> : null}
                 </div>
               </Cell>
             </TableRow>
