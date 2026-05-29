@@ -15,23 +15,23 @@ export default function App() {
     setShowSplash(false);
   }, []);
 
-  if (showSplash) {
-    return <SplashScreen onFinish={handleSplashFinish} />;
-  }
-
   return (
-    <ToastProvider>
-      <div className="capex-app">
-        <main className="capex-container" style={{ minHeight: 0 }}>
-          <div style={{ minHeight: 0, overflow: "hidden" }}>
-            {currentView === "requests" ? (
-              <MaterialRequestsHomePage onOpenDashboard={() => setCurrentView("dashboard")} />
-            ) : (
-              <MaterialDashboardPage onBackToRequests={() => setCurrentView("requests")} />
-            )}
-          </div>
-        </main>
-      </div>
-    </ToastProvider>
+    <>
+      <ToastProvider>
+        <div className="capex-app">
+          <main className="capex-container" style={{ minHeight: 0 }}>
+            <div style={{ minHeight: 0, overflow: "hidden" }}>
+              {currentView === "requests" ? (
+                <MaterialRequestsHomePage onOpenDashboard={() => setCurrentView("dashboard")} />
+              ) : (
+                <MaterialDashboardPage onBackToRequests={() => setCurrentView("requests")} />
+              )}
+            </div>
+          </main>
+        </div>
+      </ToastProvider>
+
+      {showSplash ? <SplashScreen onFinish={handleSplashFinish} /> : null}
+    </>
   );
 }
