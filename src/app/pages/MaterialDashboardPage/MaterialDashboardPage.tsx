@@ -10,7 +10,7 @@ import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
-const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", signal: "", severity: "" };
+const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", signal: "", severity: "", materialKey: "" };
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const STOCK_SIGNAL_OPTIONS: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
@@ -56,6 +56,11 @@ type StockDashboardItem = DashboardStockRankingItem & { attentionLabels: Materia
 type QuickFilter = { view: "stock"; type: "signal" | "severity"; value: string; label: string };
 type StockQuickFilter = QuickFilter;
 type StockSignalDistributionItem = { label: MaterialDashboardAttentionLabel; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning"; color: string };
+type StockSortKey = "center" | "material" | "description" | "evaluatedStockTotal" | "totalStockValueBRL" | "averageAnnualConsumption" | "consumptionYearsCount" | "coverageYears" | "openRequestsCount" | "signal";
+type SortDirection = "asc" | "desc";
+type StockSortConfig = { key: StockSortKey; direction: SortDirection } | null;
+type StockTableHeader = { label: string; sortKey?: StockSortKey };
+type MaterialFilterOption = { key: string; center: string; material: string; description: string; label: string; searchText: string };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -316,6 +321,59 @@ const styles = {
     cursor: "default",
     userSelect: "none",
   } satisfies React.CSSProperties,
+  sortableHeader: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: "100%",
+    border: 0,
+    background: "transparent",
+    color: "inherit",
+    cursor: "pointer",
+    padding: 0,
+    font: "inherit",
+    fontWeight: "inherit",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+  } satisfies React.CSSProperties,
+  sortableHeaderHover: {
+    color: uiTokens.colors.accent,
+  } satisfies React.CSSProperties,
+  sortIndicator: {
+    color: uiTokens.colors.accent,
+    fontSize: 11,
+    lineHeight: 1,
+  } satisfies React.CSSProperties,
+  materialCombobox: {
+    position: "relative",
+  } satisfies React.CSSProperties,
+  materialOptionsList: {
+    position: "absolute",
+    zIndex: 2,
+    top: "calc(100% + 4px)",
+    left: 0,
+    right: 0,
+    maxHeight: 220,
+    overflowY: "auto",
+    margin: 0,
+    padding: 4,
+    listStyle: "none",
+    background: uiTokens.colors.surface,
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.sm,
+    boxShadow: `0 8px 20px ${uiTokens.colors.shadowSoft}`,
+  } satisfies React.CSSProperties,
+  materialOptionButton: {
+    width: "100%",
+    border: 0,
+    borderRadius: uiTokens.radius.sm,
+    background: "transparent",
+    color: uiTokens.colors.text,
+    cursor: "pointer",
+    padding: "7px 8px",
+    textAlign: "left",
+    fontSize: uiTokens.typography.sm,
+  } satisfies React.CSSProperties,
 };
 
 function formatNumber(value: number | null | undefined): string {
@@ -338,10 +396,11 @@ interface DashboardFilters {
   center: string;
   signal: string;
   severity: string;
+  materialKey: string;
 }
 
 function hasManualFilters(filters: DashboardFilters): boolean {
-  return Boolean(filters.center || filters.signal || filters.severity);
+  return Boolean(filters.center || filters.signal || filters.severity || filters.materialKey);
 }
 
 function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQuickFilter | null): StockDashboardItem[] {
@@ -356,7 +415,8 @@ function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQu
 }
 
 function getQuickFilterEmptyMessage(quickFilter: QuickFilter | null, filters: DashboardFilters): string {
-  if (!quickFilter) return "Nenhum item de estoque encontrado.";
+  if (filters.materialKey) return "Nenhum material encontrado para os filtros aplicados.";
+  if (!quickFilter) return hasManualFilters(filters) ? "Nenhum item encontrado para os filtros aplicados." : "Nenhum item de estoque encontrado.";
   if (hasManualFilters(filters)) return "Nenhum item encontrado para os filtros aplicados.";
   return `Nenhum material encontrado para o filtro ${quickFilter.label}.`;
 }
@@ -394,6 +454,7 @@ function filterStockItems(items: StockDashboardItem[], filters: DashboardFilters
     if (filters.center && item.center !== filters.center) return false;
     if (stockSignal && !item.attentionLabels.includes(stockSignal)) return false;
     if (filters.severity && item.severity !== filters.severity) return false;
+    if (filters.materialKey && buildMaterialKey(item.center, item.material) !== filters.materialKey) return false;
     return true;
   });
 }
@@ -461,6 +522,58 @@ function sortStockItemsForManagement(left: StockDashboardItem, right: StockDashb
   if (coverageComparison !== 0) return coverageComparison;
 
   return `${left.center}-${left.material}`.localeCompare(`${right.center}-${right.material}`, "pt-BR", { numeric: true });
+}
+
+function getPrimaryStockSignal(item: StockDashboardItem): string {
+  return getCompactStockAttentionLabels(item.attentionLabels).visible[0] ?? "";
+}
+
+function getStockSortValue(item: StockDashboardItem, key: StockSortKey): string | number | null {
+  if (key === "signal") return getPrimaryStockSignal(item);
+  return item[key] as string | number | null;
+}
+
+function compareNullableValues(leftValue: string | number | null | undefined, rightValue: string | number | null | undefined, direction: SortDirection, numeric: boolean): number {
+  const leftEmpty = leftValue == null || leftValue === "" || (typeof leftValue === "number" && !Number.isFinite(leftValue));
+  const rightEmpty = rightValue == null || rightValue === "" || (typeof rightValue === "number" && !Number.isFinite(rightValue));
+  if (leftEmpty || rightEmpty) {
+    if (leftEmpty && rightEmpty) return 0;
+    return leftEmpty ? 1 : -1;
+  }
+
+  const comparison = numeric
+    ? Number(leftValue) - Number(rightValue)
+    : String(leftValue).localeCompare(String(rightValue), "pt-BR", { numeric: true, sensitivity: "base" });
+  return direction === "asc" ? comparison : -comparison;
+}
+
+function sortStockItemsByColumn(items: StockDashboardItem[], sortConfig: StockSortConfig): StockDashboardItem[] {
+  if (!sortConfig) return items;
+  const numericColumns = new Set<StockSortKey>(["evaluatedStockTotal", "totalStockValueBRL", "averageAnnualConsumption", "consumptionYearsCount", "coverageYears", "openRequestsCount"]);
+  return [...items].sort((left, right) => {
+    const comparison = compareNullableValues(getStockSortValue(left, sortConfig.key), getStockSortValue(right, sortConfig.key), sortConfig.direction, numericColumns.has(sortConfig.key));
+    return comparison !== 0 ? comparison : sortStockItemsForManagement(left, right);
+  });
+}
+
+function buildMaterialFilterOptions(items: StockDashboardItem[], selectedCenter: string): MaterialFilterOption[] {
+  const uniqueOptions = new Map<string, MaterialFilterOption>();
+  for (const item of items) {
+    if (selectedCenter && item.center !== selectedCenter) continue;
+    const key = buildMaterialKey(item.center, item.material);
+    if (uniqueOptions.has(key)) continue;
+    const label = `${item.center} | ${item.material} - ${item.description || "Descrição não informada"}`;
+    uniqueOptions.set(key, {
+      key,
+      center: item.center,
+      material: item.material,
+      description: item.description,
+      label,
+      searchText: `${item.center} ${item.material} ${item.description}`.toLocaleUpperCase("pt-BR"),
+    });
+  }
+
+  return Array.from(uniqueOptions.values()).sort((left, right) => left.label.localeCompare(right.label, "pt-BR", { numeric: true, sensitivity: "base" }));
 }
 
 function getStockDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
@@ -537,6 +650,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const stockQuickFilter = quickFilter;
   const quickFilteredStockItems = useMemo(() => applyStockQuickFilter(stockDashboard.stockItems, stockQuickFilter), [stockDashboard.stockItems, stockQuickFilter]);
+  const allStockItems = useMemo(() => getStockDashboardItems(dashboard), [dashboard]);
+  const materialOptions = useMemo(() => buildMaterialFilterOptions(allStockItems, draftFilters.center), [allStockItems, draftFilters.center]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const isInitialLoading = state === "loading" && !dashboard;
   const hasDashboardData = dashboard ? dashboard.stockItems.length > 0 : false;
@@ -619,8 +734,16 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         centers={centerOptions}
         signals={STOCK_SIGNAL_OPTIONS}
         severities={STOCK_SEVERITY_OPTIONS}
+        materialOptions={materialOptions}
         anchorId={DASHBOARD_FILTER_BUTTON_ID}
-        onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
+        onChange={(patch) => setDraftFilters((current) => {
+          const next = { ...current, ...patch };
+          if (patch.center !== undefined && next.materialKey) {
+            const selectedMaterial = allStockItems.find((item) => buildMaterialKey(item.center, item.material) === next.materialKey);
+            if (selectedMaterial && next.center && selectedMaterial.center !== next.center) next.materialKey = "";
+          }
+          return next;
+        })}
         onApply={applyFilters}
         onClear={clearFilters}
         onClose={closeFilters}
@@ -646,6 +769,8 @@ function MaterialStockDashboardView(props: {
   onClearQuickFilter: () => void;
 }) {
   const [selectedMaterial, setSelectedMaterial] = useState<StockDashboardItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<StockSortConfig>(null);
+  const sortedTableItems = useMemo(() => sortStockItemsByColumn(props.tableItems, sortConfig), [props.tableItems, sortConfig]);
 
   if (!props.hasAnyStock) return <CenteredState state="empty" message="Nenhum item de estoque carregado." />;
 
@@ -661,7 +786,7 @@ function MaterialStockDashboardView(props: {
           <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
-        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage(props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} onOpenMaterial={setSelectedMaterial} />
+        <StockManagementTable items={sortedTableItems} sortConfig={sortConfig} onSortChange={setSortConfig} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage(props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} onOpenMaterial={setSelectedMaterial} />
       </div>
       {selectedMaterial ? <MaterialDetailModal material={selectedMaterial} openRequests={selectedMaterialRequests} onClose={() => setSelectedMaterial(null)} /> : null}
     </>
@@ -739,9 +864,27 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
   );
 }
 
-function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void; onOpenMaterial: (item: StockDashboardItem) => void }) {
-  const columns = "80px 120px 280px 90px 150px 110px 100px 120px 80px 340px";
-  const minWidth = 1470;
+function StockManagementTable(props: { items: StockDashboardItem[]; sortConfig: StockSortConfig; onSortChange: (sortConfig: StockSortConfig) => void; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void; onOpenMaterial: (item: StockDashboardItem) => void }) {
+  const columns = "80px 120px 280px 90px 150px 110px 100px 120px 110px 340px";
+  const minWidth = 1500;
+  const headers: StockTableHeader[] = [
+    { label: "Centro", sortKey: "center" },
+    { label: "Material", sortKey: "material" },
+    { label: "Descrição", sortKey: "description" },
+    { label: "Estoque", sortKey: "evaluatedStockTotal" },
+    { label: "Valor estoque", sortKey: "totalStockValueBRL" },
+    { label: "Média anual", sortKey: "averageAnnualConsumption" },
+    { label: "Anos mov.", sortKey: "consumptionYearsCount" },
+    { label: "Cobertura", sortKey: "coverageYears" },
+    { label: "Solic. abertas", sortKey: "openRequestsCount" },
+    { label: "Sinalização", sortKey: "signal" },
+  ];
+
+  function toggleSort(sortKey: StockSortKey) {
+    props.onSortChange(props.sortConfig?.key === sortKey
+      ? { key: sortKey, direction: props.sortConfig.direction === "desc" ? "asc" : "desc" }
+      : { key: sortKey, direction: "desc" });
+  }
 
   return (
     <DashboardSection title="Tabela gerencial de estoque" count={props.items.length} style={styles.stockTableSection}>
@@ -750,7 +893,9 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
         columns={columns}
         minWidth={minWidth}
         fillHeight
-        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
+        headers={headers}
+        sortConfig={props.sortConfig}
+        onSort={toggleSort}
         emptyMessage={props.emptyMessage}
       >
         {props.items.map((item) => {
@@ -786,14 +931,16 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
 }
 
 function MaterialDetailModal(props: { material: StockDashboardItem; openRequests: MaterialDashboardResult["openRequests"]; onClose: () => void }) {
+  const { onClose } = props;
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") props.onClose();
+      if (event.key === "Escape") onClose();
     }
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [props.onClose]);
+  }, [onClose]);
 
   const totalRequested = props.openRequests.reduce((total, request) => total + request.requestedQuantity, 0);
   const hasOpenRequests = props.openRequests.length > 0;
@@ -919,11 +1066,67 @@ function SectionMiniTitle(props: { title: string }) {
   return <div style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight }}>{props.title}</div>;
 }
 
+function MaterialFilterCombobox(props: { value: string; options: MaterialFilterOption[]; onChange: (materialKey: string) => void }) {
+  const selectedOption = props.options.find((option) => option.key === props.value) ?? null;
+  const [query, setQuery] = useState(selectedOption?.label ?? "");
+  const [open, setOpen] = useState(false);
+
+  const normalizedQuery = query.trim().toLocaleUpperCase("pt-BR");
+  const visibleOptions = (normalizedQuery
+    ? props.options.filter((option) => option.searchText.includes(normalizedQuery) || option.label.toLocaleUpperCase("pt-BR").includes(normalizedQuery))
+    : props.options).slice(0, 30);
+
+  function selectOption(option: MaterialFilterOption) {
+    props.onChange(option.key);
+    setQuery(option.label);
+    setOpen(false);
+  }
+
+  return (
+    <label style={styles.label}>
+      Material
+      <div style={styles.materialCombobox}>
+        <input
+          type="text"
+          value={query}
+          placeholder="Pesquisar por código ou descrição"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            props.onChange("");
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          style={fieldControlStyles.input}
+          aria-label="Pesquisar material"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          role="combobox"
+        />
+        {open ? (
+          <ul style={styles.materialOptionsList} role="listbox">
+            {visibleOptions.length > 0 ? visibleOptions.map((option) => (
+              <li key={option.key} role="option" aria-selected={option.key === props.value}>
+                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOption(option)} style={styles.materialOptionButton}>
+                  {option.label}
+                </button>
+              </li>
+            )) : (
+              <li style={{ padding: "8px", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Nenhum material encontrado.</li>
+            )}
+          </ul>
+        ) : null}
+      </div>
+    </label>
+  );
+}
+
 function DashboardFilterPopover(props: {
   value: DashboardFilters;
   centers: string[];
   signals: readonly string[];
   severities: readonly { value: MaterialDashboardSeverity; label: string }[];
+  materialOptions: MaterialFilterOption[];
   anchorId: string;
   onChange: (patch: Partial<DashboardFilters>) => void;
   onApply: () => void;
@@ -1005,6 +1208,13 @@ function DashboardFilterPopover(props: {
               {props.signals.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
             </select>
           </label>
+
+          <MaterialFilterCombobox
+            key={props.value.materialKey}
+            value={props.value.materialKey}
+            options={props.materialOptions}
+            onChange={(materialKey) => props.onChange({ materialKey })}
+          />
 
           <div style={styles.filterFooterActions}>
             <Button type="button" onClick={props.onClear}>Limpar</Button>
@@ -1136,7 +1346,7 @@ function DashboardSection(props: { title: string; count?: number; children: Reac
   );
 }
 
-function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode; minWidth?: number; maxHeight?: number; fillHeight?: boolean }) {
+function DashboardTable(props: { columns: string; headers: StockTableHeader[]; emptyMessage: string; children: ReactNode; sortConfig?: StockSortConfig; onSort?: (sortKey: StockSortKey) => void; minWidth?: number; maxHeight?: number; fillHeight?: boolean }) {
   const hasRows = Array.isArray(props.children) ? props.children.length > 0 : Boolean(props.children);
   const scrollerStyle = props.fillHeight
     ? { ...styles.tableScroller, ...styles.tableScrollerFill }
@@ -1146,7 +1356,7 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
     <div style={{ ...styles.tableShell, ...(props.fillHeight ? styles.tableShellFill : null) }}>
       <div style={scrollerStyle}>
         <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
-          {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
+          {props.headers.map((header) => <HeaderCell key={header.label} header={header} sortConfig={props.sortConfig} onSort={props.onSort} />)}
         </div>
         {hasRows ? props.children : <div style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>{props.emptyMessage}</div>}
       </div>
@@ -1162,8 +1372,29 @@ function TableRow(props: { columns: string; children: ReactNode; minWidth?: numb
   );
 }
 
-function HeaderCell(props: { children: ReactNode }) {
-  return <div style={{ padding: "10px 8px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text, whiteSpace: "nowrap" }}>{props.children}</div>;
+function HeaderCell(props: { header: StockTableHeader; sortConfig?: StockSortConfig; onSort?: (sortKey: StockSortKey) => void }) {
+  const [hovered, setHovered] = useState(false);
+  const isSorted = props.sortConfig?.key === props.header.sortKey;
+  const indicator = isSorted ? (props.sortConfig?.direction === "asc" ? "↑" : "↓") : null;
+
+  return (
+    <div style={{ padding: "10px 8px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text, whiteSpace: "nowrap" }}>
+      {props.header.sortKey && props.onSort ? (
+        <button
+          type="button"
+          onClick={() => props.header.sortKey ? props.onSort?.(props.header.sortKey) : undefined}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{ ...styles.sortableHeader, ...(hovered ? styles.sortableHeaderHover : null) }}
+          aria-sort={isSorted ? (props.sortConfig?.direction === "asc" ? "ascending" : "descending") : "none"}
+          title={`Ordenar por ${props.header.label}`}
+        >
+          <span>{props.header.label}</span>
+          {indicator ? <span aria-hidden="true" style={styles.sortIndicator}>{indicator}</span> : null}
+        </button>
+      ) : props.header.label}
+    </div>
+  );
 }
 
 function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) {
