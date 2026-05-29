@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import "./index.css";
 import { ToastProvider } from "./app/components/notifications/ToastProvider";
 import { MaterialDashboardPage } from "./app/pages/MaterialDashboardPage";
@@ -10,29 +10,17 @@ type CurrentView = "requests" | "dashboard";
 export default function App() {
   const [currentView, setCurrentView] = useState<CurrentView>("requests");
   const [showSplash, setShowSplash] = useState(true);
-  const [isSplashExiting, setIsSplashExiting] = useState(false);
 
-  useEffect(() => {
-    const splashDurationInMs = 3000;
-    const splashExitDurationInMs = 500;
-
-    const exitTimer = window.setTimeout(() => {
-      setIsSplashExiting(true);
-    }, splashDurationInMs);
-
-    const removeTimer = window.setTimeout(() => {
-      setShowSplash(false);
-    }, splashDurationInMs + splashExitDurationInMs);
-
-    return () => {
-      window.clearTimeout(exitTimer);
-      window.clearTimeout(removeTimer);
-    };
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
   }, []);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
 
   return (
     <ToastProvider>
-      {showSplash ? <SplashScreen isExiting={isSplashExiting} /> : null}
       <div className="capex-app">
         <main className="capex-container" style={{ minHeight: 0 }}>
           <div style={{ minHeight: 0, overflow: "hidden" }}>
