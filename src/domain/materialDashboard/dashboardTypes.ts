@@ -30,6 +30,12 @@ export interface DashboardOpenRequest {
   evaluatedStockTotal: number | null;
   averagePrice: number;
   averageAnnualConsumption: number;
+  consumption2021: number;
+  consumption2022: number;
+  consumption2023: number;
+  consumption2024: number;
+  consumption2025: number;
+  consumption2026: number;
   projectedStockTotal: number;
   estimatedRequestedValueBRL: number;
   requestedStockRatio: number | null;

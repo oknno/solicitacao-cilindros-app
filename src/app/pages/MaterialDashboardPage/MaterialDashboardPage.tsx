@@ -63,6 +63,14 @@ const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
   "Solicitação aberta com estoque disponível",
 ];
+const CONSUMPTION_YEARS = [
+  { label: "2021", key: "consumption2021" },
+  { label: "2022", key: "consumption2022" },
+  { label: "2023", key: "consumption2023" },
+  { label: "2024", key: "consumption2024" },
+  { label: "2025", key: "consumption2025" },
+  { label: "2026", key: "consumption2026" },
+] as const;
 const REQUEST_SIGNAL_PRIORITY: RequestSignal[] = [
   "Sem estoque",
   "Impacto financeiro alto",
@@ -192,6 +200,7 @@ const styles = {
     gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
     gap: uiTokens.spacing.md,
     alignItems: "stretch",
+    minHeight: 650,
   } satisfies React.CSSProperties,
   stockLayout: {
     display: "grid",
@@ -203,6 +212,22 @@ const styles = {
     display: "grid",
     gap: uiTokens.spacing.md,
   } satisfies React.CSSProperties,
+  requestsAnalyticsColumn: {
+    display: "grid",
+    gridTemplateRows: "1fr 1fr",
+    gap: uiTokens.spacing.md,
+    minHeight: 0,
+  } satisfies React.CSSProperties,
+  requestChartSection: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 315,
+    overflow: "hidden",
+  } satisfies React.CSSProperties,
+  chartFill: {
+    flex: "1 1 auto",
+    minHeight: 0,
+  } satisfies React.CSSProperties,
   stockTableSection: {
     display: "flex",
     flexDirection: "column",
@@ -213,6 +238,7 @@ const styles = {
   requestTableSection: {
     display: "flex",
     flexDirection: "column",
+    height: "100%",
     alignSelf: "stretch",
     minHeight: 0,
     overflow: "hidden",
@@ -247,6 +273,31 @@ const styles = {
     borderRadius: 999,
     background: uiTokens.colors.surfaceMuted,
     overflow: "hidden",
+  } satisfies React.CSSProperties,
+  consumptionChart: {
+    minHeight: 210,
+    height: "100%",
+    display: "grid",
+    gridTemplateColumns: `repeat(${CONSUMPTION_YEARS.length}, minmax(42px, 1fr))`,
+    alignItems: "stretch",
+    gap: uiTokens.spacing.sm,
+    padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`,
+    borderBottom: `1px solid ${uiTokens.colors.border}`,
+  } satisfies React.CSSProperties,
+  consumptionBarColumn: {
+    height: "100%",
+    display: "grid",
+    gridTemplateRows: "22px minmax(0, 1fr) 18px",
+    alignItems: "end",
+    justifyItems: "center",
+    gap: uiTokens.spacing.xs,
+  } satisfies React.CSSProperties,
+  consumptionBarWrap: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "end",
+    justifyContent: "center",
   } satisfies React.CSSProperties,
   clickableChartRow: {
     cursor: "pointer",
@@ -456,11 +507,10 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
   const allRequests = data?.requests ?? data?.openRequests ?? [];
   const requests = filterRequests(allRequests, filters);
   const openRequests = requests.filter(isOpenRequest);
-  const statusCounts = STATUS_CHART_ORDER.map((status) => ({
-    status,
-    label: allRequests.find((request) => request.requestStatus === status)?.requestStatusLabel ?? getFallbackStatusLabel(status),
-    count: requests.filter((request) => request.requestStatus === status).length,
-  })).filter((item) => item.count > 0 || item.status !== "DRAFT");
+  const consumptionHistory = CONSUMPTION_YEARS.map((year) => ({
+    label: year.label,
+    value: requests.reduce((total, request) => total + request[year.key], 0),
+  }));
   const estimatedValueByStatus = STATUS_CHART_ORDER
     .map((status) => ({
       status,
@@ -474,7 +524,7 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
   return {
     requests,
     openRequests,
-    statusCounts,
+    consumptionHistory,
     estimatedValueByStatus,
     kpis: {
       openRequestsCount: openRequests.length,
@@ -832,8 +882,8 @@ function MaterialRequestsDashboardView(props: {
     <>
       <KpiGrid kpis={props.model.kpis} onApplyQuickFilter={props.onApplyQuickFilter} />
       <div style={styles.requestsLayout}>
-        <div style={styles.analyticsColumn}>
-          <RequestsStatusChart items={props.model.statusCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
+        <div style={styles.requestsAnalyticsColumn}>
+          <RequestsConsumptionHistoryChart items={props.model.consumptionHistory} />
           <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
         </div>
         <RequestsManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
@@ -1219,15 +1269,28 @@ function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpi
   );
 }
 
-function RequestsStatusChart(props: { items: { status: MaterialRequestStatus; label: string; count: number }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
-  const total = props.items.reduce((sum, item) => sum + item.count, 0);
+function RequestsConsumptionHistoryChart(props: { items: { label: string; value: number }[] }) {
+  const total = props.items.reduce((sum, item) => sum + item.value, 0);
+  const max = Math.max(...props.items.map((item) => item.value), 1);
+
   return (
-    <DashboardSection title="Status das solicitações" count={total}>
-      <SimpleBarChart
-        emptyMessage="Sem dados para exibir."
-        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: statusTone[item.status] ?? "neutral", filterValue: item.status }))}
-        onItemClick={(item) => props.onApplyQuickFilter({ view: "requests", type: "status", value: item.filterValue, label: item.label })}
-      />
+    <DashboardSection title="Histórico de consumo" style={styles.requestChartSection}>
+      {total === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem histórico de consumo para o recorte atual.</div> : (
+        <div style={{ ...styles.chartFill, ...styles.consumptionChart }}>
+          {props.items.map((item) => {
+            const heightPercent = Math.max((item.value / max) * 100, item.value > 0 ? 8 : 2);
+            return (
+              <div key={item.label} style={styles.consumptionBarColumn}>
+                <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
+                <div style={styles.consumptionBarWrap}>
+                  <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 42, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
+                </div>
+                <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </DashboardSection>
   );
 }
@@ -1238,9 +1301,9 @@ function EstimatedValueByStatusChart(props: { items: { status: MaterialRequestSt
   const max = Math.max(...visibleItems.map((item) => item.value), 0);
 
   return (
-    <DashboardSection title="Valor estimado por status" count={visibleItems.length}>
+    <DashboardSection title="Valor estimado por status" count={visibleItems.length} style={styles.requestChartSection}>
       {visibleItems.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
-        <div style={styles.chartRows}>
+        <div style={{ ...styles.chartRows, ...styles.chartFill, alignContent: "center" }}>
           {visibleItems.map((item) => {
             const tone = uiTokens.stateTones[statusTone[item.status] ?? "neutral"];
             return (
