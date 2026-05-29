@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
-import type { DashboardOpenRequest, DashboardStockRankingItem, MaterialDashboardAttentionLabel, MaterialDashboardResult, MaterialDashboardSeverity } from "../../../domain/materialDashboard";
-import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
-import type { StockRecommendation } from "../../../domain/materialRequest/stockTypes";
+import type { DashboardStockRankingItem, MaterialDashboardAttentionLabel, MaterialDashboardResult, MaterialDashboardSeverity } from "../../../domain/materialDashboard";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -12,28 +10,8 @@ import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
-const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", requestStatus: "", recommendation: "", signal: "", severity: "" };
-const DEFAULT_DASHBOARD_FILTERS_BY_VIEW: Record<DashboardView, DashboardFilters> = {
-  requests: DEFAULT_DASHBOARD_FILTERS,
-  stock: DEFAULT_DASHBOARD_FILTERS,
-};
+const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", signal: "", severity: "" };
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
-const OPEN_REQUEST_STATUSES = new Set<MaterialRequestStatus>([
-  "PENDING_LAMINATION_MANAGER_APPROVAL",
-  "PENDING_CTO_APPROVAL",
-  "RETURNED_FOR_ADJUSTMENT",
-]);
-const STATUS_CHART_ORDER: MaterialRequestStatus[] = [
-  "PENDING_LAMINATION_MANAGER_APPROVAL",
-  "PENDING_CTO_APPROVAL",
-  "RETURNED_FOR_ADJUSTMENT",
-  "APPROVED",
-  "REJECTED",
-  "DRAFT",
-];
-const HIGH_REQUEST_VALUE_BRL = 100_000;
-const HIGH_COVERAGE_YEARS = 5;
-const REQUEST_SIGNAL_OPTIONS = ["Estoque suficiente", "Estoque parcial", "Sem estoque", "Análise manual", "Aumenta cobertura", "Impacto financeiro alto", "Pendente Gerente", "Pendente CTO", "Devolvida"];
 const STOCK_SIGNAL_OPTIONS: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
   "Valor alto parado",
@@ -48,12 +26,6 @@ const STOCK_SEVERITY_OPTIONS: { value: MaterialDashboardSeverity; label: string 
   { value: "MEDIUM", label: "Média" },
   { value: "LOW", label: "Baixa" },
 ];
-const REQUEST_RECOMMENDATION_OPTIONS: StockRecommendation[] = [
-  "PURCHASE_RECOMMENDED",
-  "PURCHASE_RECOMMENDED_PARTIAL_STOCK",
-  "PURCHASE_NOT_RECOMMENDED",
-  "MANUAL_REVIEW_REQUIRED",
-];
 const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Uso frequente com estoque baixo",
   "Estoque zerado com consumo",
@@ -63,57 +35,12 @@ const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
   "Solicitação aberta com estoque disponível",
 ];
-const CONSUMPTION_YEARS = [
-  { label: "2021", key: "consumption2021" },
-  { label: "2022", key: "consumption2022" },
-  { label: "2023", key: "consumption2023" },
-  { label: "2024", key: "consumption2024" },
-  { label: "2025", key: "consumption2025" },
-  { label: "2026", key: "consumption2026" },
-] as const;
-const REQUEST_SIGNAL_PRIORITY: RequestSignal[] = [
-  "Sem estoque",
-  "Impacto financeiro alto",
-  "Estoque parcial",
-  "Análise manual",
-  "Aumenta cobertura",
-  "Estoque suficiente",
-  "Pendente CTO",
-  "Pendente Gerente",
-  "Devolvida",
-];
-
-type DashboardView = "requests" | "stock";
-type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
-type ImpactKey = "sufficient" | "partial" | "none" | "manual";
 type StockDashboardItem = DashboardStockRankingItem & { attentionLabels: MaterialDashboardAttentionLabel[]; severity: MaterialDashboardSeverity | null; openRequestsCount: number };
-type QuickFilter = { view: DashboardView; type: "status" | "signal" | "impact" | "severity"; value: string; label: string };
-type RequestQuickFilter = QuickFilter & { view: "requests" };
-type StockQuickFilter = QuickFilter & { view: "stock" };
+type QuickFilter = { view: "stock"; type: "signal" | "severity"; value: string; label: string };
+type StockQuickFilter = QuickFilter;
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
-const statusTone: Partial<Record<MaterialRequestStatus, "neutral" | "info" | "success" | "danger" | "warning">> = {
-  DRAFT: "neutral",
-  PENDING_LAMINATION_MANAGER_APPROVAL: "warning",
-  PENDING_CTO_APPROVAL: "info",
-  RETURNED_FOR_ADJUSTMENT: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
-
-const signalTone: Record<RequestSignal, "neutral" | "info" | "success" | "danger" | "warning"> = {
-  "Estoque suficiente": "success",
-  "Estoque parcial": "warning",
-  "Sem estoque": "danger",
-  "Análise manual": "info",
-  "Aumenta cobertura": "warning",
-  "Impacto financeiro alto": "danger",
-  "Pendente Gerente": "warning",
-  "Pendente CTO": "info",
-  Devolvida: "warning",
-};
 
 const styles = {
   page: {
@@ -158,18 +85,6 @@ const styles = {
     fontSize: uiTokens.typography.xs,
     fontWeight: uiTokens.typography.mediumWeight,
   } satisfies React.CSSProperties,
-  viewActions: {
-    display: "inline-flex",
-    gap: uiTokens.spacing.xs,
-    padding: 3,
-    border: `1px solid ${uiTokens.colors.border}`,
-    borderRadius: uiTokens.radius.sm,
-    background: uiTokens.colors.surfaceMuted,
-  } satisfies React.CSSProperties,
-  viewButton: {
-    padding: "7px 10px",
-    borderRadius: uiTokens.radius.sm - 2,
-  } satisfies React.CSSProperties,
   kpiGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -195,13 +110,6 @@ const styles = {
     fontWeight: uiTokens.typography.titleWeight,
     lineHeight: 1.1,
   } satisfies React.CSSProperties,
-  requestsLayout: {
-    display: "grid",
-    gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
-    gap: uiTokens.spacing.md,
-    alignItems: "stretch",
-    minHeight: 650,
-  } satisfies React.CSSProperties,
   stockLayout: {
     display: "grid",
     gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
@@ -212,34 +120,10 @@ const styles = {
     display: "grid",
     gap: uiTokens.spacing.md,
   } satisfies React.CSSProperties,
-  requestsAnalyticsColumn: {
-    display: "grid",
-    gridTemplateRows: "1fr 1fr",
-    gap: uiTokens.spacing.md,
-    minHeight: 0,
-  } satisfies React.CSSProperties,
-  requestChartSection: {
-    display: "flex",
-    flexDirection: "column",
-    minHeight: 315,
-    overflow: "hidden",
-  } satisfies React.CSSProperties,
-  chartFill: {
-    flex: "1 1 auto",
-    minHeight: 0,
-  } satisfies React.CSSProperties,
   stockTableSection: {
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    minHeight: 0,
-    overflow: "hidden",
-  } satisfies React.CSSProperties,
-  requestTableSection: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    alignSelf: "stretch",
     minHeight: 0,
     overflow: "hidden",
   } satisfies React.CSSProperties,
@@ -273,31 +157,6 @@ const styles = {
     borderRadius: 999,
     background: uiTokens.colors.surfaceMuted,
     overflow: "hidden",
-  } satisfies React.CSSProperties,
-  consumptionChart: {
-    minHeight: 210,
-    height: "100%",
-    display: "grid",
-    gridTemplateColumns: `repeat(${CONSUMPTION_YEARS.length}, minmax(42px, 1fr))`,
-    alignItems: "stretch",
-    gap: uiTokens.spacing.sm,
-    padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.xs}px 0`,
-    borderBottom: `1px solid ${uiTokens.colors.border}`,
-  } satisfies React.CSSProperties,
-  consumptionBarColumn: {
-    height: "100%",
-    display: "grid",
-    gridTemplateRows: "22px minmax(0, 1fr) 18px",
-    alignItems: "end",
-    justifyItems: "center",
-    gap: uiTokens.spacing.xs,
-  } satisfies React.CSSProperties,
-  consumptionBarWrap: {
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    alignItems: "end",
-    justifyContent: "center",
   } satisfies React.CSSProperties,
   clickableChartRow: {
     cursor: "pointer",
@@ -397,87 +256,14 @@ function formatCoverage(value: number | null | undefined): string {
   return `${numberFormatter.format(rounded)} ${rounded === 1 ? "ano" : "anos"}`;
 }
 
-function formatRequestCoverage(request: DashboardOpenRequest): string {
-  if (request.averageAnnualConsumption === 0) return "Sem consumo médio";
-  return formatCoverage(request.coverageAfterRequestYears);
-}
-
-function isOpenRequest(request: DashboardOpenRequest): boolean {
-  return OPEN_REQUEST_STATUSES.has(request.requestStatus);
-}
-
-function getRequestSignal(request: DashboardOpenRequest): RequestSignal {
-  if (request.stockRecommendation === "MANUAL_REVIEW_REQUIRED" || !request.materialFound || request.evaluatedStockTotal == null) return "Análise manual";
-  if (request.evaluatedStockTotal >= request.requestedQuantity) return "Estoque suficiente";
-  if (request.evaluatedStockTotal > 0) return "Estoque parcial";
-  return "Sem estoque";
-}
-
-function getWorkflowSignal(request: DashboardOpenRequest): RequestSignal | null {
-  if (request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL") return "Pendente Gerente";
-  if (request.requestStatus === "PENDING_CTO_APPROVAL") return "Pendente CTO";
-  if (request.requestStatus === "RETURNED_FOR_ADJUSTMENT") return "Devolvida";
-  return null;
-}
-
-function getRequestSignals(request: DashboardOpenRequest): RequestSignal[] {
-  const signals = [getRequestSignal(request)];
-  if (request.coverageAfterRequestYears !== null && request.currentCoverageYears !== null && request.coverageAfterRequestYears > request.currentCoverageYears && request.coverageAfterRequestYears > HIGH_COVERAGE_YEARS) {
-    signals.push("Aumenta cobertura");
-  }
-  if (request.estimatedRequestedValueBRL >= HIGH_REQUEST_VALUE_BRL) {
-    signals.push("Impacto financeiro alto");
-  }
-  const workflowSignal = getWorkflowSignal(request);
-  if (workflowSignal) signals.push(workflowSignal);
-  return signals;
-}
-
-function getImpactKey(request: DashboardOpenRequest): ImpactKey {
-  const signal = getRequestSignal(request);
-  if (signal === "Estoque suficiente") return "sufficient";
-  if (signal === "Estoque parcial") return "partial";
-  if (signal === "Sem estoque") return "none";
-  return "manual";
-}
-
 interface DashboardFilters {
   center: string;
-  requestStatus: string;
-  recommendation: string;
   signal: string;
   severity: string;
 }
 
-function filterRequests(requests: DashboardOpenRequest[], filters: DashboardFilters): DashboardOpenRequest[] {
-  const requestSignal = REQUEST_SIGNAL_OPTIONS.includes(filters.signal as RequestSignal) ? filters.signal as RequestSignal : "";
-  return requests.filter((request) => {
-    if (filters.center && request.center !== filters.center) return false;
-    if (filters.requestStatus && request.requestStatus !== filters.requestStatus) return false;
-    if (filters.recommendation && request.stockRecommendation !== filters.recommendation) return false;
-    if (requestSignal && !getRequestSignals(request).includes(requestSignal)) return false;
-    return true;
-  });
-}
-
-
 function hasManualFilters(filters: DashboardFilters): boolean {
-  return Boolean(filters.center || filters.requestStatus || filters.recommendation || filters.signal || filters.severity);
-}
-
-function applyRequestQuickFilter(requests: DashboardOpenRequest[], quickFilter: RequestQuickFilter | null): DashboardOpenRequest[] {
-  if (!quickFilter) return requests;
-  if (quickFilter.type === "status") {
-    if (quickFilter.value === "OPEN_REQUESTS") return requests.filter(isOpenRequest);
-    return requests.filter((request) => request.requestStatus === quickFilter.value);
-  }
-  if (quickFilter.type === "impact") {
-    return requests.filter((request) => getImpactKey(request) === quickFilter.value);
-  }
-  if (quickFilter.type === "signal") {
-    return requests.filter((request) => getRequestSignals(request).includes(quickFilter.value as RequestSignal));
-  }
-  return requests;
+  return Boolean(filters.center || filters.signal || filters.severity);
 }
 
 function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQuickFilter | null): StockDashboardItem[] {
@@ -491,53 +277,11 @@ function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQu
   return items;
 }
 
-function getQuickFilterEmptyMessage(view: DashboardView, quickFilter: QuickFilter | null, filters: DashboardFilters): string {
-  if (view === "requests") {
-    if (quickFilter) return "Nenhuma solicitação encontrada para o filtro aplicado.";
-    if (hasManualFilters(filters)) return "Nenhuma solicitação encontrada para os filtros aplicados.";
-    return "Nenhuma solicitação encontrada.";
-  }
-
+function getQuickFilterEmptyMessage(quickFilter: QuickFilter | null, filters: DashboardFilters): string {
   if (!quickFilter) return "Nenhum item de estoque encontrado.";
   if (hasManualFilters(filters)) return "Nenhum item encontrado para os filtros aplicados.";
   return `Nenhum material encontrado para o filtro ${quickFilter.label}.`;
 }
-
-function getRequestDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
-  const allRequests = data?.requests ?? data?.openRequests ?? [];
-  const requests = filterRequests(allRequests, filters);
-  const openRequests = requests.filter(isOpenRequest);
-  const consumptionHistory = CONSUMPTION_YEARS.map((year) => ({
-    label: year.label,
-    value: requests.reduce((total, request) => total + request[year.key], 0),
-  }));
-  const estimatedValueByStatus = STATUS_CHART_ORDER
-    .map((status) => ({
-      status,
-      label: allRequests.find((request) => request.requestStatus === status)?.requestStatusLabel ?? getFallbackStatusLabel(status),
-      value: requests
-        .filter((request) => request.requestStatus === status)
-        .reduce((total, request) => total + request.estimatedRequestedValueBRL, 0),
-    }))
-    .filter((item) => item.value > 0);
-
-  return {
-    requests,
-    openRequests,
-    consumptionHistory,
-    estimatedValueByStatus,
-    kpis: {
-      openRequestsCount: openRequests.length,
-      pendingLaminationManagerCount: openRequests.filter((request) => request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
-      pendingCtoCount: openRequests.filter((request) => request.requestStatus === "PENDING_CTO_APPROVAL").length,
-      returnedForAdjustmentCount: openRequests.filter((request) => request.requestStatus === "RETURNED_FOR_ADJUSTMENT").length,
-      sufficientStockRequestsCount: openRequests.filter((request) => getRequestSignal(request) === "Estoque suficiente").length,
-      estimatedRequestedValueBRL: openRequests.reduce((total, request) => total + request.estimatedRequestedValueBRL, 0),
-      projectedStockTotal: openRequests.reduce((total, request) => total + request.projectedStockTotal, 0),
-    },
-  };
-}
-
 
 function buildMaterialKey(center: string, material: string): string {
   return `${center.trim().toLocaleUpperCase("pt-BR")}::${material.trim().toLocaleUpperCase("pt-BR")}`;
@@ -613,24 +357,6 @@ function getCompactStockAttentionLabels(labels: MaterialDashboardAttentionLabel[
   return { visible: orderedLabels.slice(0, 1), hidden: orderedLabels.slice(1) };
 }
 
-function getRequestSignalPriority(label: RequestSignal): number {
-  const priority = REQUEST_SIGNAL_PRIORITY.indexOf(label);
-  return priority >= 0 ? priority : REQUEST_SIGNAL_PRIORITY.length;
-}
-
-function getCompactRequestSignals(labels: RequestSignal[]): { visible: RequestSignal[]; hidden: RequestSignal[] } {
-  const orderedLabels = [...labels].sort((left, right) => {
-    const priorityDiff = getRequestSignalPriority(left) - getRequestSignalPriority(right);
-    return priorityDiff !== 0 ? priorityDiff : left.localeCompare(right, "pt-BR");
-  });
-
-  if (orderedLabels.length <= 2) {
-    return { visible: orderedLabels, hidden: [] };
-  }
-
-  return { visible: orderedLabels.slice(0, 1), hidden: orderedLabels.slice(1) };
-}
-
 function sortStockItemsForManagement(left: StockDashboardItem, right: StockDashboardItem): number {
   const severityOrder: Record<MaterialDashboardSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   const leftSeverityOrder = left.severity ? severityOrder[left.severity] : 3;
@@ -680,25 +406,11 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
   };
 }
 
-function getFallbackStatusLabel(status: MaterialRequestStatus): string {
-  const labels: Record<MaterialRequestStatus, string> = {
-    DRAFT: "Rascunho",
-    PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
-    PENDING_CTO_APPROVAL: "Pendente CTO",
-    RETURNED_FOR_ADJUSTMENT: "Devolvida",
-    APPROVED: "Aprovada",
-    REJECTED: "Reprovada",
-    CANCELLED: "Cancelada",
-  };
-  return labels[status];
-}
-
 export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
-  const [dashboardView, setDashboardView] = useState<DashboardView>("requests");
-  const [draftFiltersByView, setDraftFiltersByView] = useState<Record<DashboardView, DashboardFilters>>(DEFAULT_DASHBOARD_FILTERS_BY_VIEW);
-  const [appliedFiltersByView, setAppliedFiltersByView] = useState<Record<DashboardView, DashboardFilters>>(DEFAULT_DASHBOARD_FILTERS_BY_VIEW);
+  const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
   const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
@@ -735,58 +447,41 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     };
   }, []);
 
-  const draftFilters = draftFiltersByView[dashboardView];
-  const requestAppliedFilters = appliedFiltersByView.requests;
-  const stockAppliedFilters = appliedFiltersByView.stock;
-  const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, requestAppliedFilters), [dashboard, requestAppliedFilters]);
-  const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, stockAppliedFilters), [dashboard, stockAppliedFilters]);
-  const requestQuickFilter = quickFilter?.view === "requests" ? quickFilter as RequestQuickFilter : null;
-  const stockQuickFilter = quickFilter?.view === "stock" ? quickFilter as StockQuickFilter : null;
-  const quickFilteredRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.requests, requestQuickFilter), [requestDashboard.requests, requestQuickFilter]);
+  const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
+  const stockQuickFilter = quickFilter;
   const quickFilteredStockItems = useMemo(() => applyStockQuickFilter(stockDashboard.stockItems, stockQuickFilter), [stockDashboard.stockItems, stockQuickFilter]);
   const centerOptions = dashboard?.centerOptions ?? [];
-  const requestStatusOptions = useMemo(() => {
-    const labels = new Map<string, string>();
-    for (const request of dashboard?.requests ?? dashboard?.openRequests ?? []) {
-      labels.set(request.requestStatus, request.requestStatusLabel);
-    }
-    return STATUS_CHART_ORDER.map((status) => ({
-      value: status,
-      label: labels.get(status) ?? getFallbackStatusLabel(status),
-    }));
-  }, [dashboard]);
-  const recommendationOptions = REQUEST_RECOMMENDATION_OPTIONS;
   const isInitialLoading = state === "loading" && !dashboard;
-  const hasDashboardData = dashboard ? (dashboard.requests?.length ?? dashboard.openRequests.length) > 0 || dashboard.stockItems.length > 0 : false;
+  const hasDashboardData = dashboard ? dashboard.stockItems.length > 0 : false;
 
   function openFilters() {
-    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: appliedFiltersByView[dashboardView] }));
+    setDraftFilters(appliedFilters);
     setFilterModalOpen(true);
   }
 
   function applyFilters() {
-    setAppliedFiltersByView((current) => ({ ...current, [dashboardView]: draftFiltersByView[dashboardView] }));
+    setAppliedFilters(draftFilters);
     setFilterModalOpen(false);
   }
 
   function clearFilters() {
-    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: DEFAULT_DASHBOARD_FILTERS }));
-    setAppliedFiltersByView((current) => ({ ...current, [dashboardView]: DEFAULT_DASHBOARD_FILTERS }));
+    setDraftFilters(DEFAULT_DASHBOARD_FILTERS);
+    setAppliedFilters(DEFAULT_DASHBOARD_FILTERS);
     setFilterModalOpen(false);
   }
 
   function closeFilters() {
-    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: appliedFiltersByView[dashboardView] }));
+    setDraftFilters(appliedFilters);
     setFilterModalOpen(false);
   }
 
   return (
     <div style={styles.page}>
       <CommandBar
-        title="Dashboard Cilindros e Discos"
+        title="Dashboard de Estoque — Cilindros e Discos"
         isAdmin={false}
         selectedId={null}
-        totalLoaded={dashboardView === "stock" ? stockDashboard.stockItems.length : requestDashboard.requests.length}
+        totalLoaded={stockDashboard.stockItems.length}
         canEdit={false}
         canDelete={false}
         canSend={false}
@@ -825,7 +520,6 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         onExportTable={() => undefined}
         onExportProject={() => undefined}
         availableUnits={[]}
-        viewActions={<DashboardViewActions value={dashboardView} onChange={setDashboardView} />}
         navigationAction={{
           label: "Voltar para Solicitações",
           icon: <RequestsIcon />,
@@ -836,16 +530,10 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {filterModalOpen && <DashboardFilterPopover
         value={draftFilters}
         centers={centerOptions}
-        view={dashboardView}
-        requestStatuses={requestStatusOptions}
-        recommendations={recommendationOptions}
-        signals={dashboardView === "stock" ? STOCK_SIGNAL_OPTIONS : REQUEST_SIGNAL_OPTIONS}
+        signals={STOCK_SIGNAL_OPTIONS}
         severities={STOCK_SEVERITY_OPTIONS}
         anchorId={DASHBOARD_FILTER_BUTTON_ID}
-        onChange={(patch) => setDraftFiltersByView((current) => ({
-          ...current,
-          [dashboardView]: { ...current[dashboardView], ...patch },
-        }))}
+        onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
         onApply={applyFilters}
         onClear={clearFilters}
         onClose={closeFilters}
@@ -855,44 +543,10 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredRequests} quickFilter={requestQuickFilter} appliedFilters={requestAppliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
-      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={stockAppliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={dashboard.stockItems.length > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
 }
-
-function DashboardViewActions(props: { value: DashboardView; onChange: (value: DashboardView) => void }) {
-  return (
-    <div style={styles.viewActions} aria-label="Visão do dashboard">
-      <Button type="button" tone={props.value === "requests" ? "primary" : "default"} onClick={() => props.onChange("requests")} style={styles.viewButton}>Solicitações</Button>
-      <Button type="button" tone={props.value === "stock" ? "primary" : "default"} onClick={() => props.onChange("stock")} style={styles.viewButton}>Estoque</Button>
-    </div>
-  );
-}
-
-function MaterialRequestsDashboardView(props: {
-  model: ReturnType<typeof getRequestDashboardModel>;
-  tableItems: DashboardOpenRequest[];
-  quickFilter: RequestQuickFilter | null;
-  appliedFilters: DashboardFilters;
-  onApplyQuickFilter: (filter: QuickFilter) => void;
-  onClearQuickFilter: () => void;
-}) {
-  return (
-    <>
-      <KpiGrid kpis={props.model.kpis} onApplyQuickFilter={props.onApplyQuickFilter} />
-      <div style={styles.requestsLayout}>
-        <div style={styles.requestsAnalyticsColumn}>
-          <RequestsConsumptionHistoryChart items={props.model.consumptionHistory} />
-          <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
-        </div>
-        <RequestsManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
-      </div>
-    </>
-  );
-}
-
-
 
 function MaterialStockDashboardView(props: {
   model: ReturnType<typeof getStockDashboardModel>;
@@ -913,7 +567,7 @@ function MaterialStockDashboardView(props: {
           <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
-        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("stock", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
+        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage(props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
       </div>
     </>
   );
@@ -1038,10 +692,7 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
 
 function DashboardFilterPopover(props: {
   value: DashboardFilters;
-  view: DashboardView;
   centers: string[];
-  requestStatuses: { value: string; label: string }[];
-  recommendations: string[];
   signals: readonly string[];
   severities: readonly { value: MaterialDashboardSeverity; label: string }[];
   anchorId: string;
@@ -1110,33 +761,13 @@ function DashboardFilterPopover(props: {
             </select>
           </label>
 
-          {props.view === "requests" ? (
-            <>
-              <label style={styles.label}>
-                Status solicitação
-                <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
-                  <option value="">Todos</option>
-                  {props.requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                </select>
-              </label>
-
-              <label style={styles.label}>
-                Parecer
-                <select value={props.value.recommendation} onChange={(event) => props.onChange({ recommendation: event.target.value })} style={fieldControlStyles.select}>
-                  <option value="">Todos</option>
-                  {props.recommendations.map((recommendation) => <option key={recommendation} value={recommendation}>{getFallbackRecommendationLabel(recommendation as StockRecommendation)}</option>)}
-                </select>
-              </label>
-            </>
-          ) : (
-            <label style={styles.label}>
-              Severidade
-              <select value={props.value.severity} onChange={(event) => props.onChange({ severity: event.target.value })} style={fieldControlStyles.select}>
-                <option value="">Todas</option>
-                {props.severities.map((severity) => <option key={severity.value} value={severity.value}>{severity.label}</option>)}
-              </select>
-            </label>
-          )}
+          <label style={styles.label}>
+            Severidade
+            <select value={props.value.severity} onChange={(event) => props.onChange({ severity: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todas</option>
+              {props.severities.map((severity) => <option key={severity.value} value={severity.value}>{severity.label}</option>)}
+            </select>
+          </label>
 
           <label style={styles.label}>
             Sinalização
@@ -1152,6 +783,36 @@ function DashboardFilterPopover(props: {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SimpleBarChart<TItem extends { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }>(props: { items: TItem[]; emptyMessage: string; onItemClick?: (item: TItem) => void }) {
+  const visibleItems = props.items.filter((item) => item.count > 0);
+  const max = Math.max(...visibleItems.map((item) => item.count), 0);
+  if (visibleItems.length === 0) return <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{props.emptyMessage}</div>;
+
+  return (
+    <div style={styles.chartRows}>
+      {visibleItems.map((item) => {
+        const tone = uiTokens.stateTones[item.tone];
+        const content = (
+          <>
+            <div style={styles.chartLabelRow}>
+              <span>{item.label}</span>
+              <strong>{formatNumber(item.count)}</strong>
+            </div>
+            <div style={styles.chartTrack} aria-hidden="true">
+              <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
+            </div>
+          </>
+        );
+        return props.onItemClick ? (
+          <ClickableChartRow key={item.label} label={item.label} onClick={() => props.onItemClick?.(item)}>
+            {content}
+          </ClickableChartRow>
+        ) : <div key={item.label}>{content}</div>;
+      })}
     </div>
   );
 }
@@ -1231,181 +892,6 @@ function QuickFilterNotice(props: { quickFilter: QuickFilter | null; onClear: ()
       <button type="button" onClick={props.onClear} style={styles.quickFilterClearButton}>Limpar filtro</button>
     </div>
   );
-}
-
-function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpis"]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
-  const cards = [
-    { label: "Solicitações abertas", value: formatNumber(props.kpis.openRequestsCount), helper: "Em aprovação ou ajuste", quickFilter: { view: "requests", type: "status", value: "OPEN_REQUESTS", label: "Solicitações abertas" } as QuickFilter },
-    { label: "Pendentes Gerente", value: formatNumber(props.kpis.pendingLaminationManagerCount), helper: "Gerente Laminação", quickFilter: { view: "requests", type: "status", value: "PENDING_LAMINATION_MANAGER_APPROVAL", label: "Pendente Gerente" } as QuickFilter },
-    { label: "Pendentes CTO", value: formatNumber(props.kpis.pendingCtoCount), helper: "Aguardando CTO", quickFilter: { view: "requests", type: "status", value: "PENDING_CTO_APPROVAL", label: "Pendente CTO" } as QuickFilter },
-    { label: "Valor estimado solicitado", value: formatCurrency(props.kpis.estimatedRequestedValueBRL), helper: "Qtde. x preço médio" },
-    { label: "Estoque projetado após aprovação", value: formatNumber(props.kpis.projectedStockTotal), helper: "Estoque atual + solicitado" },
-    { label: "Solicitações com estoque suficiente", value: formatNumber(props.kpis.sufficientStockRequestsCount), helper: "Estoque cobre a solicitação", quickFilter: { view: "requests", type: "impact", value: "sufficient", label: "Com estoque suficiente" } as QuickFilter },
-  ];
-
-  return (
-    <div style={styles.kpiGrid}>
-      {cards.map((card) => {
-        const cardContent = (
-          <>
-            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
-            <div style={styles.kpiValue}>{card.value}</div>
-            <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
-          </>
-        );
-        if (!card.quickFilter) return <Card key={card.label} style={styles.kpiCard}>{cardContent}</Card>;
-        return (
-          <QuickFilterCard
-            key={card.label}
-            title={`Filtrar tabela por ${card.quickFilter.label}`}
-            ariaLabel={`Filtrar tabela por ${card.quickFilter.label}`}
-            onClick={() => props.onApplyQuickFilter(card.quickFilter)}
-          >
-            {cardContent}
-          </QuickFilterCard>
-        );
-      })}
-    </div>
-  );
-}
-
-function RequestsConsumptionHistoryChart(props: { items: { label: string; value: number }[] }) {
-  const total = props.items.reduce((sum, item) => sum + item.value, 0);
-  const max = Math.max(...props.items.map((item) => item.value), 1);
-
-  return (
-    <DashboardSection title="Histórico de consumo" style={styles.requestChartSection}>
-      {total === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem histórico de consumo para o recorte atual.</div> : (
-        <div style={{ ...styles.chartFill, ...styles.consumptionChart }}>
-          {props.items.map((item) => {
-            const heightPercent = Math.max((item.value / max) * 100, item.value > 0 ? 8 : 2);
-            return (
-              <div key={item.label} style={styles.consumptionBarColumn}>
-                <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
-                <div style={styles.consumptionBarWrap}>
-                  <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "70%", maxWidth: 42, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
-                </div>
-                <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </DashboardSection>
-  );
-}
-
-function EstimatedValueByStatusChart(props: { items: { status: MaterialRequestStatus; label: string; value: number }[] }) {
-  const total = props.items.reduce((sum, item) => sum + item.value, 0);
-  const visibleItems = props.items.filter((item) => item.value > 0);
-  const max = Math.max(...visibleItems.map((item) => item.value), 0);
-
-  return (
-    <DashboardSection title="Valor estimado por status" count={visibleItems.length} style={styles.requestChartSection}>
-      {visibleItems.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
-        <div style={{ ...styles.chartRows, ...styles.chartFill, alignContent: "center" }}>
-          {visibleItems.map((item) => {
-            const tone = uiTokens.stateTones[statusTone[item.status] ?? "neutral"];
-            return (
-              <div key={item.status}>
-                <div style={styles.chartLabelRow}>
-                  <span>{item.label}</span>
-                  <strong>{formatCurrency(item.value)}</strong>
-                </div>
-                <div style={styles.chartTrack} aria-hidden="true">
-                  <div style={{ width: `${max > 0 ? Math.max((item.value / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
-                </div>
-              </div>
-            );
-          })}
-          <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>Total filtrado: {formatCurrency(total)}</div>
-        </div>
-      )}
-    </DashboardSection>
-  );
-}
-
-function SimpleBarChart<TItem extends { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }>(props: { items: TItem[]; emptyMessage: string; onItemClick?: (item: TItem) => void }) {
-  const visibleItems = props.items.filter((item) => item.count > 0);
-  const max = Math.max(...visibleItems.map((item) => item.count), 0);
-  if (visibleItems.length === 0) return <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{props.emptyMessage}</div>;
-
-  return (
-    <div style={styles.chartRows}>
-      {visibleItems.map((item) => {
-        const tone = uiTokens.stateTones[item.tone];
-        const content = (
-          <>
-            <div style={styles.chartLabelRow}>
-              <span>{item.label}</span>
-              <strong>{formatNumber(item.count)}</strong>
-            </div>
-            <div style={styles.chartTrack} aria-hidden="true">
-              <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
-            </div>
-          </>
-        );
-        return props.onItemClick ? (
-          <ClickableChartRow key={item.label} label={item.label} onClick={() => props.onItemClick?.(item)}>
-            {content}
-          </ClickableChartRow>
-        ) : <div key={item.label}>{content}</div>;
-      })}
-    </div>
-  );
-}
-
-function RequestsManagementTable(props: { items: DashboardOpenRequest[]; quickFilter: RequestQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
-  const columns = "56px 84px 120px 72px 110px 110px 130px 130px 150px 220px";
-  const minWidth = 1182;
-
-  return (
-    <DashboardSection title="Tabela gerencial de solicitações" count={props.items.length} style={styles.requestTableSection}>
-      <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
-      <DashboardTable
-        columns={columns}
-        minWidth={minWidth}
-        fillHeight
-        headers={["ID", "Centro", "Material", "Qtde.", "Estoque atual", "Estoque proj.", "Valor estimado", "Cobertura após", "Status", "Sinalização"]}
-        emptyMessage={props.emptyMessage}
-      >
-        {props.items.map((item) => {
-          const compactSignals = getCompactRequestSignals(getRequestSignals(item));
-          const hiddenSignalsTitle = compactSignals.hidden.join("; ");
-
-          return (
-            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns} minWidth={minWidth}>
-              <Cell>{item.id ?? "-"}</Cell>
-              <Cell title={item.center}>{item.center}</Cell>
-              <Cell title={`${item.material} - ${item.description}`}>{item.material}</Cell>
-              <Cell>{formatNumber(item.requestedQuantity)}</Cell>
-              <Cell>{item.evaluatedStockTotal === 0 ? "Sem estoque" : formatNumber(item.evaluatedStockTotal)}</Cell>
-              <Cell>{formatNumber(item.projectedStockTotal)}</Cell>
-              <Cell>{formatCurrency(item.estimatedRequestedValueBRL)}</Cell>
-              <Cell title={item.averageAnnualConsumption === 0 ? "Sem consumo médio" : undefined}>{formatRequestCoverage(item)}</Cell>
-              <Cell><Badge text={item.requestStatusLabel} tone={statusTone[item.requestStatus] ?? "neutral"} /></Cell>
-              <Cell>
-                <div style={styles.badgeStack}>
-                  {compactSignals.visible.map((signal) => <Badge key={signal} text={signal} tone={signalTone[signal]} style={styles.compactBadge} />)}
-                  {compactSignals.hidden.length > 0 ? <Badge text={`+${compactSignals.hidden.length}`} tone="neutral" title={hiddenSignalsTitle} style={styles.compactSignalBadge} /> : null}
-                </div>
-              </Cell>
-            </TableRow>
-          );
-        })}
-      </DashboardTable>
-    </DashboardSection>
-  );
-}
-
-function getFallbackRecommendationLabel(recommendation: StockRecommendation): string {
-  const labels: Record<StockRecommendation, string> = {
-    PURCHASE_RECOMMENDED: "Compra recomendada",
-    PURCHASE_RECOMMENDED_PARTIAL_STOCK: "Compra recomendada com estoque parcial",
-    PURCHASE_NOT_RECOMMENDED: "Compra não recomendada",
-    MANUAL_REVIEW_REQUIRED: "Requer análise manual",
-  };
-  return labels[recommendation] ?? recommendation;
 }
 
 function DashboardSection(props: { title: string; count?: number; children: ReactNode; style?: React.CSSProperties; titleTooltip?: string }) {
