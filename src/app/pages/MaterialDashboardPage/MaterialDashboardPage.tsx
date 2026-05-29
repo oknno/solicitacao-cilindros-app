@@ -13,6 +13,10 @@ import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
 const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", requestStatus: "", recommendation: "", signal: "", severity: "" };
+const DEFAULT_DASHBOARD_FILTERS_BY_VIEW: Record<DashboardView, DashboardFilters> = {
+  requests: DEFAULT_DASHBOARD_FILTERS,
+  stock: DEFAULT_DASHBOARD_FILTERS,
+};
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const OPEN_REQUEST_STATUSES = new Set<MaterialRequestStatus>([
   "PENDING_LAMINATION_MANAGER_APPROVAL",
@@ -43,6 +47,12 @@ const STOCK_SEVERITY_OPTIONS: { value: MaterialDashboardSeverity; label: string 
   { value: "HIGH", label: "Alta" },
   { value: "MEDIUM", label: "Média" },
   { value: "LOW", label: "Baixa" },
+];
+const REQUEST_RECOMMENDATION_OPTIONS: StockRecommendation[] = [
+  "PURCHASE_RECOMMENDED",
+  "PURCHASE_RECOMMENDED_PARTIAL_STOCK",
+  "PURCHASE_NOT_RECOMMENDED",
+  "MANUAL_REVIEW_REQUIRED",
 ];
 const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Uso frequente com estoque baixo",
@@ -362,10 +372,6 @@ function getImpactKey(request: DashboardOpenRequest): ImpactKey {
   return "manual";
 }
 
-function uniqueSorted(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, "pt-BR"));
-}
-
 interface DashboardFilters {
   center: string;
   requestStatus: string;
@@ -417,11 +423,15 @@ function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQu
 }
 
 function getQuickFilterEmptyMessage(view: DashboardView, quickFilter: QuickFilter | null, filters: DashboardFilters): string {
-  if (!quickFilter) return view === "stock" ? "Nenhum item de estoque encontrado." : "Nenhuma solicitação aberta no momento.";
+  if (view === "requests") {
+    if (quickFilter) return "Nenhuma solicitação encontrada para o filtro aplicado.";
+    if (hasManualFilters(filters)) return "Nenhuma solicitação encontrada para os filtros aplicados.";
+    return "Nenhuma solicitação aberta no momento.";
+  }
+
+  if (!quickFilter) return "Nenhum item de estoque encontrado.";
   if (hasManualFilters(filters)) return "Nenhum item encontrado para os filtros aplicados.";
-  return view === "stock"
-    ? `Nenhum material encontrado para o filtro ${quickFilter.label}.`
-    : `Nenhuma solicitação encontrada para o filtro ${quickFilter.label}.`;
+  return `Nenhum material encontrado para o filtro ${quickFilter.label}.`;
 }
 
 function getRequestDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
@@ -608,8 +618,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
   const [dashboardView, setDashboardView] = useState<DashboardView>("requests");
-  const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
-  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+  const [draftFiltersByView, setDraftFiltersByView] = useState<Record<DashboardView, DashboardFilters>>(DEFAULT_DASHBOARD_FILTERS_BY_VIEW);
+  const [appliedFiltersByView, setAppliedFiltersByView] = useState<Record<DashboardView, DashboardFilters>>(DEFAULT_DASHBOARD_FILTERS_BY_VIEW);
   const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
@@ -646,45 +656,48 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     };
   }, []);
 
-  const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
-  const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
+  const draftFilters = draftFiltersByView[dashboardView];
+  const requestAppliedFilters = appliedFiltersByView.requests;
+  const stockAppliedFilters = appliedFiltersByView.stock;
+  const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, requestAppliedFilters), [dashboard, requestAppliedFilters]);
+  const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, stockAppliedFilters), [dashboard, stockAppliedFilters]);
   const requestQuickFilter = quickFilter?.view === "requests" ? quickFilter as RequestQuickFilter : null;
   const stockQuickFilter = quickFilter?.view === "stock" ? quickFilter as StockQuickFilter : null;
   const quickFilteredOpenRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.openRequests, requestQuickFilter), [requestDashboard.openRequests, requestQuickFilter]);
   const quickFilteredStockItems = useMemo(() => applyStockQuickFilter(stockDashboard.stockItems, stockQuickFilter), [stockDashboard.stockItems, stockQuickFilter]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const requestStatusOptions = useMemo(() => {
-    const options = new Map<string, string>();
+    const labels = new Map<string, string>();
     for (const request of dashboard?.requests ?? dashboard?.openRequests ?? []) {
-      options.set(request.requestStatus, request.requestStatusLabel);
+      labels.set(request.requestStatus, request.requestStatusLabel);
     }
-    return Array.from(options.entries())
-      .map(([value, label]) => ({ value, label }))
-      .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+    return STATUS_CHART_ORDER.map((status) => ({
+      value: status,
+      label: labels.get(status) ?? getFallbackStatusLabel(status),
+    }));
   }, [dashboard]);
-  const recommendationOptions = useMemo(() => uniqueSorted((dashboard?.requests ?? dashboard?.openRequests ?? []).map((request) => request.stockRecommendation)), [dashboard]);
+  const recommendationOptions = REQUEST_RECOMMENDATION_OPTIONS;
   const isInitialLoading = state === "loading" && !dashboard;
   const hasDashboardData = dashboard ? (dashboard.requests?.length ?? dashboard.openRequests.length) > 0 || dashboard.stockItems.length > 0 : false;
 
   function openFilters() {
-    setDraftFilters(appliedFilters);
+    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: appliedFiltersByView[dashboardView] }));
     setFilterModalOpen(true);
   }
 
   function applyFilters() {
-    setAppliedFilters(draftFilters);
+    setAppliedFiltersByView((current) => ({ ...current, [dashboardView]: draftFiltersByView[dashboardView] }));
     setFilterModalOpen(false);
   }
 
   function clearFilters() {
-    setDraftFilters(DEFAULT_DASHBOARD_FILTERS);
-    setAppliedFilters(DEFAULT_DASHBOARD_FILTERS);
-    setQuickFilter(null);
+    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: DEFAULT_DASHBOARD_FILTERS }));
+    setAppliedFiltersByView((current) => ({ ...current, [dashboardView]: DEFAULT_DASHBOARD_FILTERS }));
     setFilterModalOpen(false);
   }
 
   function closeFilters() {
-    setDraftFilters(appliedFilters);
+    setDraftFiltersByView((current) => ({ ...current, [dashboardView]: appliedFiltersByView[dashboardView] }));
     setFilterModalOpen(false);
   }
 
@@ -750,7 +763,10 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         signals={dashboardView === "stock" ? STOCK_SIGNAL_OPTIONS : REQUEST_SIGNAL_OPTIONS}
         severities={STOCK_SEVERITY_OPTIONS}
         anchorId={DASHBOARD_FILTER_BUTTON_ID}
-        onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
+        onChange={(patch) => setDraftFiltersByView((current) => ({
+          ...current,
+          [dashboardView]: { ...current[dashboardView], ...patch },
+        }))}
         onApply={applyFilters}
         onClear={clearFilters}
         onClose={closeFilters}
@@ -760,8 +776,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredOpenRequests} quickFilter={requestQuickFilter} appliedFilters={appliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
-      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredOpenRequests} quickFilter={requestQuickFilter} appliedFilters={requestAppliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={stockAppliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
 }
