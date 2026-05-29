@@ -248,15 +248,17 @@ const styles = {
   tableShell: {
     width: "100%",
     minWidth: 0,
+    maxWidth: "100%",
     border: `1px solid ${uiTokens.colors.border}`,
     borderRadius: uiTokens.radius.md,
-    overflow: "hidden",
   } satisfies React.CSSProperties,
   tableScroller: {
+    width: "100%",
+    maxWidth: "100%",
     overflowX: "auto",
     overflowY: "auto",
     maxHeight: 570,
-    maxWidth: "100%",
+    scrollbarGutter: "stable",
   } satisfies React.CSSProperties,
   badgeStack: {
     display: "inline-flex",
@@ -871,8 +873,8 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
 }
 
 function StockAttentionTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
-  const columns = "80px 110px minmax(260px,1fr) 90px 140px 110px 90px 110px 90px 220px";
-  const minWidth = 1300;
+  const columns = "80px 120px 280px 90px 150px 110px 100px 120px 80px 340px";
+  const minWidth = 1470;
 
   return (
     <DashboardSection title="Estoque em atenção" count={props.items.length}>
@@ -1304,7 +1306,7 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
   return (
     <div style={styles.tableShell}>
       <div style={{ ...styles.tableScroller, maxHeight: props.maxHeight ?? styles.tableScroller.maxHeight }}>
-        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
           {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
         </div>
         {hasRows ? props.children : <div style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>{props.emptyMessage}</div>}
@@ -1315,14 +1317,14 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
 
 function TableRow(props: { columns: string; children: ReactNode; minWidth?: number }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
       {props.children}
     </div>
   );
 }
 
 function HeaderCell(props: { children: ReactNode }) {
-  return <div style={{ padding: "10px 8px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text }}>{props.children}</div>;
+  return <div style={{ padding: "10px 8px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text, whiteSpace: "nowrap" }}>{props.children}</div>;
 }
 
 function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) {
