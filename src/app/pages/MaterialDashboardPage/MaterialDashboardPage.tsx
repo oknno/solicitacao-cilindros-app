@@ -5,6 +5,7 @@ import type {
   DashboardAttentionMaterial,
   DashboardOpenRequest,
   DashboardStockRankingItem,
+  MaterialDashboardAttentionLabel,
   MaterialDashboardResult,
   MaterialDashboardSeverity,
 } from "../../../domain/materialDashboard";
@@ -16,8 +17,7 @@ import { StateMessage } from "../../components/ui/StateMessage";
 import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
-const ATTENTION_LIMIT = 20;
-const TOP_LIMIT = 10;
+const TABLE_LIMIT = 80;
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
@@ -45,27 +45,9 @@ const styles = {
     gap: uiTokens.spacing.md,
     alignContent: "start",
   } satisfies React.CSSProperties,
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: uiTokens.spacing.md,
-  } satisfies React.CSSProperties,
-  title: {
-    margin: 0,
-    fontSize: 22,
-    lineHeight: 1.25,
-    color: uiTokens.colors.textStrong,
-    fontWeight: uiTokens.typography.titleWeight,
-  } satisfies React.CSSProperties,
-  subtitle: {
-    margin: `${uiTokens.spacing.xs}px 0 0`,
-    color: uiTokens.colors.textMuted,
-    fontSize: uiTokens.typography.md,
-  } satisfies React.CSSProperties,
   filterGrid: {
     display: "grid",
-    gridTemplateColumns: "minmax(220px, 320px) auto auto 1fr",
+    gridTemplateColumns: "minmax(160px, 240px) minmax(160px, 220px) minmax(160px, 220px) auto auto 1fr",
     gap: uiTokens.spacing.sm,
     alignItems: "end",
   } satisfies React.CSSProperties,
@@ -79,12 +61,16 @@ const styles = {
   kpiGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: uiTokens.spacing.md,
+    gap: uiTokens.spacing.sm,
+  } satisfies React.CSSProperties,
+  kpiCard: {
+    padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
+    minHeight: 72,
   } satisfies React.CSSProperties,
   kpiValue: {
-    marginTop: uiTokens.spacing.sm,
+    marginTop: uiTokens.spacing.xs,
     color: uiTokens.colors.textStrong,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: uiTokens.typography.titleWeight,
     lineHeight: 1.1,
   } satisfies React.CSSProperties,
@@ -93,7 +79,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: uiTokens.spacing.sm,
-    marginBottom: uiTokens.spacing.md,
+    marginBottom: uiTokens.spacing.sm,
   } satisfies React.CSSProperties,
   sectionTitle: {
     margin: 0,
@@ -108,12 +94,7 @@ const styles = {
   } satisfies React.CSSProperties,
   tableScroller: {
     overflowX: "auto",
-    maxHeight: 420,
-  } satisfies React.CSSProperties,
-  rankingsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(460px, 1fr))",
-    gap: uiTokens.spacing.md,
+    maxHeight: 360,
   } satisfies React.CSSProperties,
 };
 
@@ -138,6 +119,10 @@ function filterByCenter<T extends { center: string }>(items: T[], center: string
   return items.filter((item) => item.center === center);
 }
 
+function getMaterialKey(item: { center: string; material: string }): string {
+  return `${item.center}::${item.material}`;
+}
+
 function isEmptyDashboard(data: MaterialDashboardResult): boolean {
   return data.openRequests.length === 0
     && data.attentionMaterials.length === 0
@@ -146,24 +131,107 @@ function isEmptyDashboard(data: MaterialDashboardResult): boolean {
     && data.topCoverageItems.length === 0;
 }
 
-function getFilteredDashboard(data: MaterialDashboardResult | null, center: string) {
-  const stockItems = filterByCenter(data?.stockItems ?? [], center);
-  const openRequests = filterByCenter(data?.openRequests ?? [], center);
-  const attentionMaterials = filterByCenter(data?.attentionMaterials ?? [], center)
-    .slice(0, ATTENTION_LIMIT);
-  const topStockValueItems = [...stockItems]
-    .sort((left, right) => right.totalStockValueBRL - left.totalStockValueBRL)
-    .slice(0, TOP_LIMIT);
-  const topCoverageItems = [...stockItems]
-    .filter((item) => item.coverageYears !== null)
-    .sort((left, right) => (right.coverageYears ?? 0) - (left.coverageYears ?? 0))
-    .slice(0, TOP_LIMIT);
+interface DashboardManagerialRow {
+  center: string;
+  material: string;
+  description: string;
+  evaluatedStockTotal: number | null;
+  totalStockValueBRL: number | null;
+  averageAnnualConsumption: number | null;
+  coverageYears: number | null;
+  openRequestsCount: number;
+  requestStatusLabels: string[];
+  attentionLabels: MaterialDashboardAttentionLabel[];
+  severity: MaterialDashboardSeverity | null;
+}
+
+interface DashboardFilters {
+  center: string;
+  signal: string;
+  requestStatus: string;
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, "pt-BR"));
+}
+
+function buildManagerialRows(input: {
+  stockItems: DashboardStockRankingItem[];
+  openRequests: DashboardOpenRequest[];
+  attentionMaterials: DashboardAttentionMaterial[];
+}): DashboardManagerialRow[] {
+  const requestsByMaterial = new Map<string, DashboardOpenRequest[]>();
+  input.openRequests.forEach((request) => {
+    const key = getMaterialKey(request);
+    requestsByMaterial.set(key, [...(requestsByMaterial.get(key) ?? []), request]);
+  });
+
+  const attentionByMaterial = new Map(input.attentionMaterials.map((item) => [getMaterialKey(item), item]));
+  const stockKeys = new Set(input.stockItems.map((item) => getMaterialKey(item)));
+  const addedRequestOnlyKeys = new Set<string>();
+  const rows = input.stockItems.map<DashboardManagerialRow>((item) => {
+    const relatedRequests = requestsByMaterial.get(getMaterialKey(item)) ?? [];
+    const attention = attentionByMaterial.get(getMaterialKey(item));
+
+    return {
+      center: item.center,
+      material: item.material,
+      description: item.description,
+      evaluatedStockTotal: item.evaluatedStockTotal,
+      totalStockValueBRL: item.totalStockValueBRL,
+      averageAnnualConsumption: item.averageAnnualConsumption,
+      coverageYears: item.coverageYears,
+      openRequestsCount: relatedRequests.length,
+      requestStatusLabels: uniqueSorted(relatedRequests.map((request) => request.requestStatusLabel)),
+      attentionLabels: attention?.attentionLabels ?? [],
+      severity: attention?.severity ?? null,
+    };
+  });
+
+  input.openRequests.forEach((request) => {
+    const key = getMaterialKey(request);
+    if (stockKeys.has(key) || addedRequestOnlyKeys.has(key)) return;
+
+    const relatedRequests = requestsByMaterial.get(key) ?? [];
+    rows.push({
+      center: request.center,
+      material: request.material,
+      description: request.description,
+      evaluatedStockTotal: request.evaluatedStockTotal,
+      totalStockValueBRL: null,
+      averageAnnualConsumption: null,
+      coverageYears: null,
+      openRequestsCount: relatedRequests.length,
+      requestStatusLabels: uniqueSorted(relatedRequests.map((relatedRequest) => relatedRequest.requestStatusLabel)),
+      attentionLabels: [],
+      severity: null,
+    });
+    addedRequestOnlyKeys.add(key);
+  });
+
+  return rows.sort((left, right) => {
+    const severityWeight: Record<MaterialDashboardSeverity, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+    const severityDiff = (severityWeight[right.severity ?? "LOW"] ?? 0) - (severityWeight[left.severity ?? "LOW"] ?? 0);
+    if (severityDiff !== 0) return severityDiff;
+    if (right.openRequestsCount !== left.openRequestsCount) return right.openRequestsCount - left.openRequestsCount;
+    return (right.totalStockValueBRL ?? 0) - (left.totalStockValueBRL ?? 0);
+  });
+}
+
+function getFilteredDashboard(data: MaterialDashboardResult | null, filters: DashboardFilters) {
+  const stockItems = filterByCenter(data?.stockItems ?? [], filters.center);
+  const openRequests = filterByCenter(data?.openRequests ?? [], filters.center);
+  const attentionMaterials = filterByCenter(data?.attentionMaterials ?? [], filters.center);
+  const allManagerialRows = buildManagerialRows({ stockItems, openRequests, attentionMaterials });
+  const managerialRows = allManagerialRows
+    .filter((row) => !filters.signal || row.attentionLabels.includes(filters.signal as MaterialDashboardAttentionLabel))
+    .filter((row) => !filters.requestStatus || row.requestStatusLabels.includes(filters.requestStatus))
+    .slice(0, TABLE_LIMIT);
 
   return {
     openRequests,
     attentionMaterials,
-    topStockValueItems,
-    topCoverageItems,
+    managerialRows,
     kpis: {
       openRequestsCount: openRequests.length,
       pendingLaminationManagerCount: openRequests.filter((request) => request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
@@ -178,8 +246,8 @@ function getFilteredDashboard(data: MaterialDashboardResult | null, center: stri
 export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
-  const [draftCenter, setDraftCenter] = useState("");
-  const [appliedCenter, setAppliedCenter] = useState("");
+  const [draftFilters, setDraftFilters] = useState<DashboardFilters>({ center: "", signal: "", requestStatus: "" });
+  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>({ center: "", signal: "", requestStatus: "" });
 
   const loadDashboard = useCallback(async () => {
     setState("loading");
@@ -214,18 +282,26 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     };
   }, []);
 
-  const filteredDashboard = useMemo(() => getFilteredDashboard(dashboard, appliedCenter), [dashboard, appliedCenter]);
+  const filteredDashboard = useMemo(() => getFilteredDashboard(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const centerOptions = dashboard?.centerOptions ?? [];
+  const signalOptions = useMemo(() => uniqueSorted((dashboard?.attentionMaterials ?? []).flatMap((item) => item.attentionLabels)), [dashboard]);
+  const requestStatusOptions = useMemo(() => uniqueSorted((dashboard?.openRequests ?? []).map((request) => request.requestStatusLabel)), [dashboard]);
   const isInitialLoading = state === "loading" && !dashboard;
   const isEmpty = dashboard ? isEmptyDashboard(dashboard) : false;
+  const activeFilters = [
+    appliedFilters.center ? `Centro: ${appliedFilters.center}` : "",
+    appliedFilters.signal ? `Sinalização: ${appliedFilters.signal}` : "",
+    appliedFilters.requestStatus ? `Status: ${appliedFilters.requestStatus}` : "",
+  ].filter(Boolean);
 
   function applyFilter() {
-    setAppliedCenter(draftCenter);
+    setAppliedFilters(draftFilters);
   }
 
   function clearFilter() {
-    setDraftCenter("");
-    setAppliedCenter("");
+    const emptyFilters = { center: "", signal: "", requestStatus: "" };
+    setDraftFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
   }
 
   return (
@@ -278,30 +354,35 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         }}
       />
 
-      <Card>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Dashboard Cilindros e Discos</h1>
-            <p style={styles.subtitle}>Acompanhe solicitações abertas, estoque atual e materiais que merecem atenção.</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
+      <Card style={{ padding: uiTokens.spacing.sm }}>
         <div style={styles.filterGrid}>
           <label style={styles.label}>
             Centro
-            <select value={draftCenter} onChange={(event) => setDraftCenter(event.target.value)} style={fieldControlStyles.select}>
+            <select value={draftFilters.center} onChange={(event) => setDraftFilters((current) => ({ ...current, center: event.target.value }))} style={fieldControlStyles.select}>
               <option value="">Todos os centros</option>
               {centerOptions.map((center) => <option key={center} value={center}>{center}</option>)}
             </select>
           </label>
+          <label style={styles.label}>
+            Sinalização
+            <select value={draftFilters.signal} onChange={(event) => setDraftFilters((current) => ({ ...current, signal: event.target.value }))} style={fieldControlStyles.select}>
+              <option value="">Todas</option>
+              {signalOptions.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
+            </select>
+          </label>
+          <label style={styles.label}>
+            Status solicitação
+            <select value={draftFilters.requestStatus} onChange={(event) => setDraftFilters((current) => ({ ...current, requestStatus: event.target.value }))} style={fieldControlStyles.select}>
+              <option value="">Todos</option>
+              {requestStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
           <Button tone="primary" onClick={applyFilter}>Aplicar</Button>
           <Button onClick={clearFilter}>Limpar</Button>
-          <div style={{ justifySelf: "end", alignSelf: "center" }}>
+          <div style={{ justifySelf: "end", alignSelf: "center", display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: uiTokens.spacing.xs }}>
             {state === "loading" && <StateMessage state="loading" message="Carregando dashboard..." />}
             {state === "error" && <StateMessage state="error" message="Não foi possível carregar o dashboard." />}
-            {state === "idle" && appliedCenter && <Badge text={`Centro: ${appliedCenter}`} tone="info" />}
+            {state === "idle" && activeFilters.map((filter) => <Badge key={filter} text={filter} tone="info" />)}
           </div>
         </div>
       </Card>
@@ -313,12 +394,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {dashboard && !isEmpty ? (
         <>
           <KpiGrid kpis={filteredDashboard.kpis} />
-          <OpenRequestsSection items={filteredDashboard.openRequests} />
-          <AttentionMaterialsSection items={filteredDashboard.attentionMaterials} />
-          <div style={styles.rankingsGrid}>
-            <StockValueRankingSection items={filteredDashboard.topStockValueItems} />
-            <CoverageRankingSection items={filteredDashboard.topCoverageItems} />
-          </div>
+          <MainAttentionSection items={filteredDashboard.attentionMaterials} />
+          <ManagerialTableSection items={filteredDashboard.managerialRows} totalCount={filteredDashboard.managerialRows.length} />
         </>
       ) : null}
     </div>
@@ -342,7 +419,7 @@ function KpiGrid(props: { kpis: ReturnType<typeof getFilteredDashboard>["kpis"] 
   return (
     <div style={styles.kpiGrid}>
       {cards.map((card) => (
-        <Card key={card.label}>
+        <Card key={card.label} style={styles.kpiCard}>
           <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
           <div style={styles.kpiValue}>{card.value}</div>
           <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
@@ -352,86 +429,59 @@ function KpiGrid(props: { kpis: ReturnType<typeof getFilteredDashboard>["kpis"] 
   );
 }
 
-function OpenRequestsSection(props: { items: DashboardOpenRequest[] }) {
+function MainAttentionSection(props: { items: DashboardAttentionMaterial[] }) {
+  const cards: { label: string; value: number }[] = [
+    { label: "Estoque zerado com consumo", value: countAttentionByLabel(props.items, "Estoque zerado com consumo") },
+    { label: "Valor alto parado", value: countAttentionByLabel(props.items, "Valor alto parado") },
+    { label: "Solicitação com estoque disponível", value: countAttentionByLabel(props.items, "Solicitação aberta com estoque disponível") },
+    { label: "Cobertura elevada", value: countAttentionByLabel(props.items, "Cobertura elevada") },
+  ];
+
   return (
-    <DashboardSection title="Solicitações abertas" count={props.items.length}>
-      <DashboardTable columns="60px 80px 105px minmax(180px,1.5fr) 96px 92px 150px 140px 150px 92px" headers={["ID", "Centro", "Material", "Descrição", "Qtde.", "Estoque", "Parecer", "Status", "Solicitante", "Dias"]} emptyMessage="Nenhuma solicitação aberta no momento.">
-        {props.items.map((item) => (
-          <TableRow key={item.id ?? `${item.center}-${item.material}-${item.requesterName}`} columns="60px 80px 105px minmax(180px,1.5fr) 96px 92px 150px 140px 150px 92px">
-            <Cell>{item.id ?? "-"}</Cell>
-            <Cell title={item.center}>{item.center}</Cell>
-            <Cell title={item.material}>{item.material}</Cell>
-            <Cell title={item.description}>{item.description}</Cell>
-            <Cell>{formatNumber(item.requestedQuantity)}</Cell>
-            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell title={item.stockRecommendationLabel}>{item.stockRecommendationLabel}</Cell>
-            <Cell title={item.requestStatusLabel}>{item.requestStatusLabel}</Cell>
-            <Cell title={item.requesterName || item.requesterEmail}>{item.requesterName || item.requesterEmail || "-"}</Cell>
-            <Cell>{item.daysOpen == null ? "-" : formatNumber(item.daysOpen)}</Cell>
-          </TableRow>
+    <DashboardSection title="Atenções principais" count={props.items.length}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: uiTokens.spacing.sm }}>
+        {cards.map((card) => (
+          <Card key={card.label} style={styles.kpiCard}>
+            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
+            <div style={styles.kpiValue}>{formatNumber(card.value)}</div>
+          </Card>
         ))}
-      </DashboardTable>
+      </div>
     </DashboardSection>
   );
 }
 
-function AttentionMaterialsSection(props: { items: DashboardAttentionMaterial[] }) {
+function countAttentionByLabel(items: DashboardAttentionMaterial[], label: MaterialDashboardAttentionLabel): number {
+  return items.filter((item) => item.attentionLabels.includes(label)).length;
+}
+
+function ManagerialTableSection(props: { items: DashboardManagerialRow[]; totalCount: number }) {
   return (
-    <DashboardSection title="Materiais em atenção" count={props.items.length}>
-      <DashboardTable columns="80px 110px minmax(190px,1.6fr) 92px 110px 128px 120px 100px minmax(220px,1fr)" headers={["Centro", "Material", "Descrição", "Estoque", "Preço médio", "Valor estoque", "Média anual", "Cobertura", "Sinalização"]} emptyMessage="Nenhum material em atenção no momento.">
+    <DashboardSection title="Tabela gerencial" count={props.totalCount}>
+      <DashboardTable
+        columns="70px 96px minmax(150px,1.4fr) 78px 116px 94px 86px 92px minmax(130px,1fr) minmax(160px,1.2fr)"
+        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Cobertura", "Solic. abertas", "Status solicitação", "Sinalização"]}
+        emptyMessage="Nenhum material encontrado para os filtros aplicados."
+      >
         {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns="80px 110px minmax(190px,1.6fr) 92px 110px 128px 120px 100px minmax(220px,1fr)">
+          <TableRow key={`${item.center}-${item.material}`} columns="70px 96px minmax(150px,1.4fr) 78px 116px 94px 86px 92px minmax(130px,1fr) minmax(160px,1.2fr)">
             <Cell title={item.center}>{item.center}</Cell>
             <Cell title={item.material}>{item.material}</Cell>
             <Cell title={item.description}>{item.description}</Cell>
             <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell>{formatCurrency(item.averagePrice)}</Cell>
             <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
             <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
             <Cell>{formatCoverage(item.coverageYears)}</Cell>
+            <Cell>{formatNumber(item.openRequestsCount)}</Cell>
+            <Cell title={item.requestStatusLabels.join(", ")}>{item.requestStatusLabels.length > 0 ? item.requestStatusLabels.join(", ") : "-"}</Cell>
             <Cell noWrap={false}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: uiTokens.spacing.xs }}>
-                <Badge text={severityLabel[item.severity]} tone={severityTone[item.severity]} />
-                {item.attentionLabels.map((label) => <Badge key={label} text={label} tone="neutral" />)}
+                {item.severity ? <Badge text={severityLabel[item.severity]} tone={severityTone[item.severity]} /> : null}
+                {item.attentionLabels.length > 0
+                  ? item.attentionLabels.map((label) => <Badge key={label} text={label} tone="neutral" />)
+                  : <Badge text="Sem sinalização" tone="neutral" />}
               </div>
             </Cell>
-          </TableRow>
-        ))}
-      </DashboardTable>
-    </DashboardSection>
-  );
-}
-
-function StockValueRankingSection(props: { items: DashboardStockRankingItem[] }) {
-  return (
-    <DashboardSection title="Top 10 por valor em estoque" count={props.items.length}>
-      <DashboardTable columns="78px 110px minmax(180px,1fr) 96px 130px" headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque"]} emptyMessage="Nenhum material para ranking de valor.">
-        {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns="78px 110px minmax(180px,1fr) 96px 130px">
-            <Cell title={item.center}>{item.center}</Cell>
-            <Cell title={item.material}>{item.material}</Cell>
-            <Cell title={item.description}>{item.description}</Cell>
-            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
-          </TableRow>
-        ))}
-      </DashboardTable>
-    </DashboardSection>
-  );
-}
-
-function CoverageRankingSection(props: { items: DashboardStockRankingItem[] }) {
-  return (
-    <DashboardSection title="Top 10 por cobertura elevada" count={props.items.length}>
-      <DashboardTable columns="78px 110px minmax(180px,1fr) 96px 120px 100px" headers={["Centro", "Material", "Descrição", "Estoque", "Média anual", "Cobertura"]} emptyMessage="Nenhum material para ranking de cobertura.">
-        {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns="78px 110px minmax(180px,1fr) 96px 120px 100px">
-            <Cell title={item.center}>{item.center}</Cell>
-            <Cell title={item.material}>{item.material}</Cell>
-            <Cell title={item.description}>{item.description}</Cell>
-            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
-            <Cell>{formatCoverage(item.coverageYears)}</Cell>
           </TableRow>
         ))}
       </DashboardTable>
