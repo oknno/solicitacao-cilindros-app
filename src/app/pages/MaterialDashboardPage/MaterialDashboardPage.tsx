@@ -176,7 +176,7 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "minmax(280px, 0.8fr) minmax(620px, 1.5fr)",
     gap: uiTokens.spacing.md,
-    alignItems: "stretch",
+    alignItems: "start",
   } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
@@ -185,7 +185,6 @@ const styles = {
   stockTableSection: {
     display: "flex",
     flexDirection: "column",
-    height: "100%",
     minHeight: 0,
   } satisfies React.CSSProperties,
   sectionHeader: {
@@ -902,7 +901,7 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
       <DashboardTable
         columns={columns}
         minWidth={minWidth}
-        fillHeight
+        maxHeight={260}
         headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
         emptyMessage={props.emptyMessage}
       >
