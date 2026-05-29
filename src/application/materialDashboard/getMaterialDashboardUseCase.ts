@@ -87,6 +87,13 @@ function buildOpenRequestViewModels(input: {
 }): DashboardOpenRequest[] {
   return input.openRequests.map((request) => {
     const stockMaterial = findStockMaterialByRequest(input.stockIndex, request);
+    const evaluatedStockTotal = stockMaterial?.evaluatedStockTotal ?? request.evaluatedStockTotalAtRequest;
+    const stockTotal = toDashboardNumber(evaluatedStockTotal);
+    const averagePrice = toDashboardNumber(stockMaterial?.averagePrice);
+    const averageAnnualConsumption = toDashboardNumber(stockMaterial?.averageAnnualConsumption);
+    const projectedStockTotal = stockTotal + toDashboardNumber(request.requestedQuantity);
+    const currentCoverageYears = averageAnnualConsumption > 0 ? stockTotal / averageAnnualConsumption : null;
+    const coverageAfterRequestYears = averageAnnualConsumption > 0 ? projectedStockTotal / averageAnnualConsumption : null;
 
     return {
       id: request.id ?? null,
@@ -94,7 +101,16 @@ function buildOpenRequestViewModels(input: {
       material: request.materialCode,
       description: request.materialDescription,
       requestedQuantity: request.requestedQuantity,
-      evaluatedStockTotal: stockMaterial?.evaluatedStockTotal ?? request.evaluatedStockTotalAtRequest,
+      evaluatedStockTotal,
+      averagePrice,
+      averageAnnualConsumption,
+      projectedStockTotal,
+      estimatedRequestedValueBRL: toDashboardNumber(request.requestedQuantity) * averagePrice,
+      requestedStockRatio: stockTotal > 0 ? toDashboardNumber(request.requestedQuantity) / stockTotal : null,
+      currentCoverageYears,
+      coverageAfterRequestYears,
+      coverageIncreaseYears: currentCoverageYears !== null && coverageAfterRequestYears !== null ? coverageAfterRequestYears - currentCoverageYears : null,
+      materialFound: Boolean(stockMaterial),
       stockRecommendation: request.stockRecommendation,
       stockRecommendationLabel: formatDashboardStockRecommendation(request.stockRecommendation),
       requestStatus: request.status,
