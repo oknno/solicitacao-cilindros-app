@@ -55,6 +55,7 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-md);
   overflow: hidden;
+  position: relative;
 }
 
 /* Container central do conteúdo */
