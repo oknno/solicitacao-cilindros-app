@@ -862,9 +862,8 @@ function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["
 }
 
 function StockAttentionDistributionChart(props: { items: { label: MaterialDashboardAttentionLabel; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
-  const total = props.items.reduce((sum, item) => sum + item.count, 0);
   return (
-    <DashboardSection title="Distribuição das sinalizações" count={total}>
+    <DashboardSection title="Distribuição das sinalizações" titleTooltip="Um material pode aparecer em mais de uma sinalização.">
       <SimpleBarChart
         emptyMessage="Sem dados para exibir."
         items={props.items}
@@ -1315,12 +1314,12 @@ function getFallbackRecommendationLabel(recommendation: StockRecommendation): st
   return labels[recommendation] ?? recommendation;
 }
 
-function DashboardSection(props: { title: string; count: number; children: ReactNode; style?: React.CSSProperties }) {
+function DashboardSection(props: { title: string; count?: number; children: ReactNode; style?: React.CSSProperties; titleTooltip?: string }) {
   return (
     <Card style={{ minWidth: 0, ...props.style }}>
       <div style={styles.sectionHeader}>
-        <h2 style={styles.sectionTitle}>{props.title}</h2>
-        <Badge text={`${formatNumber(props.count)} itens`} tone="neutral" />
+        <h2 style={styles.sectionTitle} title={props.titleTooltip}>{props.title}</h2>
+        {typeof props.count === "number" ? <Badge text={`${formatNumber(props.count)} itens`} tone="neutral" /> : null}
       </div>
       {props.children}
     </Card>
