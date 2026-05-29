@@ -44,6 +44,15 @@ const STOCK_SEVERITY_OPTIONS: { value: MaterialDashboardSeverity; label: string 
   { value: "MEDIUM", label: "Média" },
   { value: "LOW", label: "Baixa" },
 ];
+const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
+  "Uso frequente com estoque baixo",
+  "Estoque zerado com consumo",
+  "Valor alto parado",
+  "Cobertura elevada",
+  "Cobertura baixa",
+  "Sem consumo histórico",
+  "Solicitação aberta com estoque disponível",
+];
 
 type DashboardView = "requests" | "stock";
 type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
@@ -237,18 +246,38 @@ const styles = {
     fontWeight: uiTokens.typography.mediumWeight,
   } satisfies React.CSSProperties,
   tableShell: {
+    width: "100%",
+    minWidth: 0,
     border: `1px solid ${uiTokens.colors.border}`,
     borderRadius: uiTokens.radius.md,
     overflow: "hidden",
   } satisfies React.CSSProperties,
   tableScroller: {
     overflowX: "auto",
+    overflowY: "auto",
     maxHeight: 570,
+    maxWidth: "100%",
   } satisfies React.CSSProperties,
   badgeStack: {
-    display: "flex",
-    flexWrap: "wrap",
+    display: "inline-flex",
+    flexWrap: "nowrap",
+    alignItems: "center",
     gap: uiTokens.spacing.xs,
+    maxWidth: "100%",
+    whiteSpace: "nowrap",
+  } satisfies React.CSSProperties,
+  compactBadge: {
+    padding: "2px 7px",
+    fontSize: 11,
+    lineHeight: 1.25,
+  } satisfies React.CSSProperties,
+  compactSignalBadge: {
+    padding: "2px 7px",
+    fontSize: 11,
+    lineHeight: 1.25,
+    background: uiTokens.colors.surfaceMuted,
+    borderColor: uiTokens.colors.borderStrong,
+    color: uiTokens.colors.text,
   } satisfies React.CSSProperties,
 };
 
@@ -472,6 +501,24 @@ function getStockSignalTone(signal: MaterialDashboardAttentionLabel): "neutral" 
   if (signal === "Cobertura baixa" || signal === "Cobertura elevada") return "warning";
   if (signal === "Solicitação aberta com estoque disponível") return "info";
   return "neutral";
+}
+
+function getStockAttentionPriority(label: MaterialDashboardAttentionLabel): number {
+  const priority = STOCK_ATTENTION_LABEL_PRIORITY.indexOf(label);
+  return priority >= 0 ? priority : STOCK_ATTENTION_LABEL_PRIORITY.length;
+}
+
+function getCompactStockAttentionLabels(labels: MaterialDashboardAttentionLabel[]): { visible: MaterialDashboardAttentionLabel[]; hidden: MaterialDashboardAttentionLabel[] } {
+  const orderedLabels = [...labels].sort((left, right) => {
+    const priorityDiff = getStockAttentionPriority(left) - getStockAttentionPriority(right);
+    return priorityDiff !== 0 ? priorityDiff : left.localeCompare(right, "pt-BR");
+  });
+
+  if (orderedLabels.length <= 2) {
+    return { visible: orderedLabels, hidden: [] };
+  }
+
+  return { visible: orderedLabels.slice(0, 1), hidden: orderedLabels.slice(1) };
 }
 
 function getStockDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
@@ -824,36 +871,44 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
 }
 
 function StockAttentionTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
-  const columns = "52px 70px minmax(120px,1.1fr) 62px 92px 76px 70px 82px 68px minmax(150px,1.2fr)";
+  const columns = "80px 110px minmax(260px,1fr) 90px 140px 110px 90px 110px 90px 220px";
+  const minWidth = 1300;
+
   return (
     <DashboardSection title="Estoque em atenção" count={props.items.length}>
       <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
-        minWidth={1020}
+        minWidth={minWidth}
         maxHeight={650}
         headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
         emptyMessage={props.emptyMessage}
       >
-        {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={1020}>
-            <Cell title={item.center}>{item.center}</Cell>
-            <Cell title={item.material}>{item.material}</Cell>
-            <Cell title={item.description}>{item.description}</Cell>
-            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
-            <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
-            <Cell>{formatNumber(item.consumptionYearsCount)}</Cell>
-            <Cell>{formatCoverage(item.coverageYears)}</Cell>
-            <Cell>{formatNumber(item.openRequestsCount)}</Cell>
-            <Cell noWrap={false}>
-              <div style={styles.badgeStack}>
-                <Badge text={getStockSeverityLabel(item.severity)} tone={getStockSeverityTone(item.severity)} />
-                {item.attentionLabels.map((label) => <Badge key={label} text={label} tone={getStockSignalTone(label)} />)}
-              </div>
-            </Cell>
-          </TableRow>
-        ))}
+        {props.items.map((item) => {
+          const compactLabels = getCompactStockAttentionLabels(item.attentionLabels);
+          const hiddenLabelsTitle = compactLabels.hidden.join("; ");
+
+          return (
+            <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={minWidth}>
+              <Cell title={item.center}>{item.center}</Cell>
+              <Cell title={item.material}>{item.material}</Cell>
+              <Cell title={item.description}>{item.description}</Cell>
+              <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
+              <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
+              <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
+              <Cell>{formatNumber(item.consumptionYearsCount)}</Cell>
+              <Cell>{formatCoverage(item.coverageYears)}</Cell>
+              <Cell>{formatNumber(item.openRequestsCount)}</Cell>
+              <Cell>
+                <div style={styles.badgeStack}>
+                  <Badge text={getStockSeverityLabel(item.severity)} tone={getStockSeverityTone(item.severity)} style={styles.compactBadge} />
+                  {compactLabels.visible.map((label) => <Badge key={label} text={label} tone="neutral" style={styles.compactSignalBadge} />)}
+                  {compactLabels.hidden.length > 0 ? <Badge text={`+${compactLabels.hidden.length}`} tone="neutral" title={hiddenLabelsTitle} style={styles.compactSignalBadge} /> : null}
+                </div>
+              </Cell>
+            </TableRow>
+          );
+        })}
       </DashboardTable>
     </DashboardSection>
   );
@@ -1233,7 +1288,7 @@ function getFallbackRecommendationLabel(recommendation: StockRecommendation): st
 
 function DashboardSection(props: { title: string; count: number; children: ReactNode }) {
   return (
-    <Card>
+    <Card style={{ minWidth: 0 }}>
       <div style={styles.sectionHeader}>
         <h2 style={styles.sectionTitle}>{props.title}</h2>
         <Badge text={`${formatNumber(props.count)} itens`} tone="neutral" />

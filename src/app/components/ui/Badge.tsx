@@ -5,10 +5,11 @@ type Tone = "neutral" | "info" | "success" | "danger" | "warning";
 
 const toneMap: Record<Tone, { bg: string; fg: string; bd: string }> = uiTokens.stateTones;
 
-export function Badge(props: { text: string; tone?: Tone; style?: CSSProperties }) {
+export function Badge(props: { text: string; tone?: Tone; style?: CSSProperties; title?: string }) {
   const t = toneMap[props.tone ?? "neutral"];
   return (
     <span
+      title={props.title}
       style={{
         display: "inline-flex",
         alignItems: "center",
