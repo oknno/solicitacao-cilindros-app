@@ -47,6 +47,16 @@
   color: var(--ui-color-text);
 }
 
+
+.capex-appContent {
+  min-height: 0;
+}
+
+.capex-appContent--hiddenDuringSplash {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Uma “tela” do app, com fundo e espaçamento */
 #static-mirror .capex-app {
   width: 100%;
