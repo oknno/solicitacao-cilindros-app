@@ -49,6 +49,9 @@ type DashboardView = "requests" | "stock";
 type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
 type ImpactKey = "sufficient" | "partial" | "none" | "manual";
 type StockDashboardItem = DashboardStockRankingItem & { attentionLabels: MaterialDashboardAttentionLabel[]; severity: MaterialDashboardSeverity | null; openRequestsCount: number };
+type QuickFilter = { view: DashboardView; type: "status" | "signal" | "impact" | "severity"; value: string; label: string };
+type RequestQuickFilter = QuickFilter & { view: "requests" };
+type StockQuickFilter = QuickFilter & { view: "stock" };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -138,6 +141,15 @@ const styles = {
     padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.md}px`,
     minHeight: 72,
   } satisfies React.CSSProperties,
+  quickFilterCard: {
+    cursor: "pointer",
+    transition: "border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease",
+  } satisfies React.CSSProperties,
+  quickFilterCardHover: {
+    borderColor: uiTokens.colors.accent,
+    boxShadow: `0 6px 18px ${uiTokens.colors.shadowSoft}`,
+    transform: "translateY(-1px)",
+  } satisfies React.CSSProperties,
   kpiValue: {
     marginTop: uiTokens.spacing.xs,
     color: uiTokens.colors.textStrong,
@@ -191,6 +203,38 @@ const styles = {
     borderRadius: 999,
     background: uiTokens.colors.surfaceMuted,
     overflow: "hidden",
+  } satisfies React.CSSProperties,
+  clickableChartRow: {
+    cursor: "pointer",
+    borderRadius: uiTokens.radius.sm,
+    padding: "3px 4px",
+    margin: "-3px -4px",
+    transition: "background 120ms ease",
+  } satisfies React.CSSProperties,
+  clickableChartRowHover: {
+    background: uiTokens.colors.surfaceMuted,
+  } satisfies React.CSSProperties,
+  quickFilterNotice: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: uiTokens.spacing.sm,
+    padding: `${uiTokens.spacing.xs}px ${uiTokens.spacing.sm}px`,
+    marginBottom: uiTokens.spacing.sm,
+    border: `1px solid ${uiTokens.colors.borderMuted}`,
+    borderRadius: uiTokens.radius.sm,
+    background: uiTokens.colors.surfaceMuted,
+    color: uiTokens.colors.textMuted,
+    fontSize: uiTokens.typography.sm,
+  } satisfies React.CSSProperties,
+  quickFilterClearButton: {
+    border: 0,
+    background: "transparent",
+    color: uiTokens.colors.accent,
+    cursor: "pointer",
+    padding: 0,
+    fontSize: uiTokens.typography.sm,
+    fontWeight: uiTokens.typography.mediumWeight,
   } satisfies React.CSSProperties,
   tableShell: {
     border: `1px solid ${uiTokens.colors.border}`,
@@ -289,6 +333,45 @@ function filterRequests(requests: DashboardOpenRequest[], filters: DashboardFilt
     if (requestSignal && !getRequestSignals(request).includes(requestSignal)) return false;
     return true;
   });
+}
+
+
+function hasManualFilters(filters: DashboardFilters): boolean {
+  return Boolean(filters.center || filters.requestStatus || filters.recommendation || filters.signal || filters.severity);
+}
+
+function applyRequestQuickFilter(requests: DashboardOpenRequest[], quickFilter: RequestQuickFilter | null): DashboardOpenRequest[] {
+  if (!quickFilter) return requests;
+  if (quickFilter.type === "status") {
+    if (quickFilter.value === "OPEN_REQUESTS") return requests.filter(isOpenRequest);
+    return requests.filter((request) => request.requestStatus === quickFilter.value);
+  }
+  if (quickFilter.type === "impact") {
+    return requests.filter((request) => getImpactKey(request) === quickFilter.value);
+  }
+  if (quickFilter.type === "signal") {
+    return requests.filter((request) => getRequestSignals(request).includes(quickFilter.value as RequestSignal));
+  }
+  return requests;
+}
+
+function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQuickFilter | null): StockDashboardItem[] {
+  if (!quickFilter) return items;
+  if (quickFilter.type === "signal") {
+    return items.filter((item) => item.attentionLabels.includes(quickFilter.value as MaterialDashboardAttentionLabel));
+  }
+  if (quickFilter.type === "severity") {
+    return items.filter((item) => item.severity === quickFilter.value);
+  }
+  return items;
+}
+
+function getQuickFilterEmptyMessage(view: DashboardView, quickFilter: QuickFilter | null, filters: DashboardFilters): string {
+  if (!quickFilter) return view === "stock" ? "Nenhum material em atenção no momento." : "Nenhuma solicitação aberta no momento.";
+  if (hasManualFilters(filters)) return "Nenhum item encontrado para os filtros aplicados.";
+  return view === "stock"
+    ? `Nenhum material encontrado para o filtro ${quickFilter.label}.`
+    : `Nenhuma solicitação encontrada para o filtro ${quickFilter.label}.`;
 }
 
 function getRequestDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
@@ -453,6 +536,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboardView, setDashboardView] = useState<DashboardView>("requests");
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -490,6 +574,10 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
 
   const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
+  const requestQuickFilter = quickFilter?.view === "requests" ? quickFilter as RequestQuickFilter : null;
+  const stockQuickFilter = quickFilter?.view === "stock" ? quickFilter as StockQuickFilter : null;
+  const quickFilteredOpenRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.openRequests, requestQuickFilter), [requestDashboard.openRequests, requestQuickFilter]);
+  const quickFilteredAttentionItems = useMemo(() => applyStockQuickFilter(stockDashboard.attentionItems, stockQuickFilter), [stockDashboard.attentionItems, stockQuickFilter]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const requestStatusOptions = useMemo(() => {
     const options = new Map<string, string>();
@@ -517,6 +605,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   function clearFilters() {
     setDraftFilters(DEFAULT_DASHBOARD_FILTERS);
     setAppliedFilters(DEFAULT_DASHBOARD_FILTERS);
+    setQuickFilter(null);
     setFilterModalOpen(false);
   }
 
@@ -597,8 +686,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} /> : null}
-      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredOpenRequests} quickFilter={requestQuickFilter} appliedFilters={appliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredAttentionItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
 }
@@ -612,17 +701,24 @@ function DashboardViewActions(props: { value: DashboardView; onChange: (value: D
   );
 }
 
-function MaterialRequestsDashboardView(props: { model: ReturnType<typeof getRequestDashboardModel> }) {
+function MaterialRequestsDashboardView(props: {
+  model: ReturnType<typeof getRequestDashboardModel>;
+  tableItems: DashboardOpenRequest[];
+  quickFilter: RequestQuickFilter | null;
+  appliedFilters: DashboardFilters;
+  onApplyQuickFilter: (filter: QuickFilter) => void;
+  onClearQuickFilter: () => void;
+}) {
   return (
     <>
-      <KpiGrid kpis={props.model.kpis} />
+      <KpiGrid kpis={props.model.kpis} onApplyQuickFilter={props.onApplyQuickFilter} />
       <div style={styles.requestsLayout}>
         <div style={styles.analyticsColumn}>
-          <RequestsStatusChart items={props.model.statusCounts} />
-          <RequestsImpactChart items={props.model.impactCounts} />
+          <RequestsStatusChart items={props.model.statusCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
+          <RequestsImpactChart items={props.model.impactCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
           <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
         </div>
-        <OpenRequestsTable items={props.model.openRequests} />
+        <OpenRequestsTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
       </div>
     </>
   );
@@ -630,51 +726,76 @@ function MaterialRequestsDashboardView(props: { model: ReturnType<typeof getRequ
 
 
 
-function MaterialStockDashboardView(props: { model: ReturnType<typeof getStockDashboardModel>; hasAnyStock: boolean }) {
+function MaterialStockDashboardView(props: {
+  model: ReturnType<typeof getStockDashboardModel>;
+  tableItems: StockDashboardItem[];
+  quickFilter: StockQuickFilter | null;
+  appliedFilters: DashboardFilters;
+  hasAnyStock: boolean;
+  onApplyQuickFilter: (filter: QuickFilter) => void;
+  onClearQuickFilter: () => void;
+}) {
   if (!props.hasAnyStock) return <CenteredState state="empty" message="Nenhum item de estoque carregado." />;
 
   return (
     <>
-      <StockKpiGrid kpis={props.model.kpis} />
+      <StockKpiGrid kpis={props.model.kpis} onApplyQuickFilter={props.onApplyQuickFilter} />
       <div style={styles.stockLayout}>
         <div style={styles.analyticsColumn}>
-          <StockAttentionDistributionChart items={props.model.distribution} />
+          <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
-        <StockAttentionTable items={props.model.attentionItems} />
+        <StockAttentionTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("stock", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
       </div>
     </>
   );
 }
 
-function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["kpis"] }) {
+function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["kpis"]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   const cards = [
     { label: "Valor total em estoque", value: formatCurrency(props.kpis.totalStockValueBRL), helper: "Soma do valor avaliado" },
-    { label: "Cobertura elevada", value: formatNumber(props.kpis.highCoverageCount), helper: "Materiais acima de 5 anos" },
-    { label: "Uso frequente com estoque baixo", value: formatNumber(props.kpis.frequentUseLowStockCount), helper: "Consumo e cobertura até 1 ano" },
-    { label: "Estoque zerado com consumo", value: formatNumber(props.kpis.zeroStockWithConsumptionCount), helper: "Saldo zero e histórico > 0" },
-    { label: "Valor alto parado", value: formatNumber(props.kpis.highIdleValueCount), helper: "≥ R$ 500 mil com excesso/sem consumo" },
-    { label: "Sem consumo histórico", value: formatNumber(props.kpis.noHistoricalConsumptionCount), helper: "Histórico ou média zero" },
+    { label: "Cobertura elevada", value: formatNumber(props.kpis.highCoverageCount), helper: "Materiais acima de 5 anos", signal: "Cobertura elevada" as const },
+    { label: "Uso frequente com estoque baixo", value: formatNumber(props.kpis.frequentUseLowStockCount), helper: "Consumo e cobertura até 1 ano", signal: "Uso frequente com estoque baixo" as const },
+    { label: "Estoque zerado com consumo", value: formatNumber(props.kpis.zeroStockWithConsumptionCount), helper: "Saldo zero e histórico > 0", signal: "Estoque zerado com consumo" as const },
+    { label: "Valor alto parado", value: formatNumber(props.kpis.highIdleValueCount), helper: "≥ R$ 500 mil com excesso/sem consumo", signal: "Valor alto parado" as const },
+    { label: "Sem consumo histórico", value: formatNumber(props.kpis.noHistoricalConsumptionCount), helper: "Histórico ou média zero", signal: "Sem consumo histórico" as const },
   ];
 
   return (
     <div style={styles.kpiGrid}>
-      {cards.map((card) => (
-        <Card key={card.label} style={styles.kpiCard}>
-          <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
-          <div style={styles.kpiValue}>{card.value}</div>
-          <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
-        </Card>
-      ))}
+      {cards.map((card) => {
+        const cardContent = (
+          <>
+            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
+            <div style={styles.kpiValue}>{card.value}</div>
+            <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
+          </>
+        );
+        if (!card.signal) return <Card key={card.label} style={styles.kpiCard}>{cardContent}</Card>;
+        return (
+          <QuickFilterCard
+            key={card.label}
+            title={`Filtrar tabela por ${card.signal}`}
+            ariaLabel={`Filtrar tabela por ${card.signal}`}
+            onClick={() => props.onApplyQuickFilter({ view: "stock", type: "signal", value: card.signal, label: card.signal })}
+          >
+            {cardContent}
+          </QuickFilterCard>
+        );
+      })}
     </div>
   );
 }
 
-function StockAttentionDistributionChart(props: { items: { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[] }) {
+function StockAttentionDistributionChart(props: { items: { label: MaterialDashboardAttentionLabel; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   const total = props.items.reduce((sum, item) => sum + item.count, 0);
   return (
     <DashboardSection title="Distribuição das sinalizações" count={total}>
-      <SimpleBarChart emptyMessage="Sem dados para exibir." items={props.items} />
+      <SimpleBarChart
+        emptyMessage="Sem dados para exibir."
+        items={props.items}
+        onItemClick={(item) => props.onApplyQuickFilter({ view: "stock", type: "signal", value: item.label, label: item.label })}
+      />
     </DashboardSection>
   );
 }
@@ -702,16 +823,17 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
   );
 }
 
-function StockAttentionTable(props: { items: StockDashboardItem[] }) {
+function StockAttentionTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
   const columns = "52px 70px minmax(120px,1.1fr) 62px 92px 76px 70px 82px 68px minmax(150px,1.2fr)";
   return (
     <DashboardSection title="Estoque em atenção" count={props.items.length}>
+      <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
         minWidth={1020}
         maxHeight={650}
         headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
-        emptyMessage="Nenhum material em atenção no momento."
+        emptyMessage={props.emptyMessage}
       >
         {props.items.map((item) => (
           <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={1020}>
@@ -861,42 +983,129 @@ function CenteredState(props: { state: "loading" | "error" | "empty"; message: s
   return <Card style={{ textAlign: "center" }}><StateMessage state={props.state} message={props.message} /></Card>;
 }
 
-function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpis"] }) {
-  const cards = [
-    { label: "Solicitações abertas", value: formatNumber(props.kpis.openRequestsCount), helper: "Em aprovação ou ajuste" },
-    { label: "Pendentes Gerente", value: formatNumber(props.kpis.pendingLaminationManagerCount), helper: "Gerente Laminação" },
-    { label: "Pendentes CTO", value: formatNumber(props.kpis.pendingCtoCount), helper: "Aguardando CTO" },
-    { label: "Valor estimado solicitado", value: formatCurrency(props.kpis.estimatedRequestedValueBRL), helper: "Qtde. x preço médio" },
-    { label: "Estoque projetado após aprovação", value: formatNumber(props.kpis.projectedStockTotal), helper: "Estoque atual + solicitado" },
-    { label: "Solicitações com estoque suficiente", value: formatNumber(props.kpis.sufficientStockRequestsCount), helper: "Estoque cobre a solicitação" },
-  ];
-
+function QuickFilterCard(props: { title: string; ariaLabel: string; onClick: () => void; children: ReactNode }) {
+  const [isHovered, setIsHovered] = useState(false);
   return (
-    <div style={styles.kpiGrid}>
-      {cards.map((card) => (
-        <Card key={card.label} style={styles.kpiCard}>
-          <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
-          <div style={styles.kpiValue}>{card.value}</div>
-          <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
-        </Card>
-      ))}
+    <div
+      role="button"
+      tabIndex={0}
+      title={props.title}
+      aria-label={props.ariaLabel}
+      onClick={props.onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onClick();
+        }
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      style={{
+        background: uiTokens.colors.surface,
+        border: `1px solid ${uiTokens.colors.border}`,
+        borderRadius: uiTokens.radius.lg,
+        ...styles.kpiCard,
+        ...styles.quickFilterCard,
+        ...(isHovered ? styles.quickFilterCardHover : null),
+        outline: "none",
+      }}
+    >
+      {props.children}
     </div>
   );
 }
 
-function RequestsStatusChart(props: { items: { status: MaterialRequestStatus; label: string; count: number }[] }) {
+function ClickableChartRow(props: { label: string; onClick: () => void; children: ReactNode }) {
+  const [isHovered, setIsHovered] = useState(false);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      title={`Filtrar tabela por ${props.label}`}
+      aria-label={`Filtrar tabela por ${props.label}`}
+      onClick={props.onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onClick();
+        }
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      style={{
+        ...styles.clickableChartRow,
+        ...(isHovered ? styles.clickableChartRowHover : null),
+      }}
+    >
+      {props.children}
+    </div>
+  );
+}
+
+function QuickFilterNotice(props: { quickFilter: QuickFilter | null; onClear: () => void }) {
+  if (!props.quickFilter) return null;
+  return (
+    <div style={styles.quickFilterNotice}>
+      <span><strong>Filtro aplicado:</strong> {props.quickFilter.label}</span>
+      <button type="button" onClick={props.onClear} style={styles.quickFilterClearButton}>Limpar filtro</button>
+    </div>
+  );
+}
+
+function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpis"]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
+  const cards = [
+    { label: "Solicitações abertas", value: formatNumber(props.kpis.openRequestsCount), helper: "Em aprovação ou ajuste", quickFilter: { view: "requests", type: "status", value: "OPEN_REQUESTS", label: "Solicitações abertas" } as QuickFilter },
+    { label: "Pendentes Gerente", value: formatNumber(props.kpis.pendingLaminationManagerCount), helper: "Gerente Laminação", quickFilter: { view: "requests", type: "status", value: "PENDING_LAMINATION_MANAGER_APPROVAL", label: "Pendente Gerente" } as QuickFilter },
+    { label: "Pendentes CTO", value: formatNumber(props.kpis.pendingCtoCount), helper: "Aguardando CTO", quickFilter: { view: "requests", type: "status", value: "PENDING_CTO_APPROVAL", label: "Pendente CTO" } as QuickFilter },
+    { label: "Valor estimado solicitado", value: formatCurrency(props.kpis.estimatedRequestedValueBRL), helper: "Qtde. x preço médio" },
+    { label: "Estoque projetado após aprovação", value: formatNumber(props.kpis.projectedStockTotal), helper: "Estoque atual + solicitado" },
+    { label: "Solicitações com estoque suficiente", value: formatNumber(props.kpis.sufficientStockRequestsCount), helper: "Estoque cobre a solicitação", quickFilter: { view: "requests", type: "impact", value: "sufficient", label: "Com estoque suficiente" } as QuickFilter },
+  ];
+
+  return (
+    <div style={styles.kpiGrid}>
+      {cards.map((card) => {
+        const cardContent = (
+          <>
+            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
+            <div style={styles.kpiValue}>{card.value}</div>
+            <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
+          </>
+        );
+        if (!card.quickFilter) return <Card key={card.label} style={styles.kpiCard}>{cardContent}</Card>;
+        return (
+          <QuickFilterCard
+            key={card.label}
+            title={`Filtrar tabela por ${card.quickFilter.label}`}
+            ariaLabel={`Filtrar tabela por ${card.quickFilter.label}`}
+            onClick={() => props.onApplyQuickFilter(card.quickFilter)}
+          >
+            {cardContent}
+          </QuickFilterCard>
+        );
+      })}
+    </div>
+  );
+}
+
+function RequestsStatusChart(props: { items: { status: MaterialRequestStatus; label: string; count: number }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   const total = props.items.reduce((sum, item) => sum + item.count, 0);
   return (
     <DashboardSection title="Status das solicitações" count={total}>
       <SimpleBarChart
         emptyMessage="Sem dados para exibir."
-        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: statusTone[item.status] ?? "neutral" }))}
+        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: statusTone[item.status] ?? "neutral", filterValue: item.status }))}
+        onItemClick={(item) => props.onApplyQuickFilter({ view: "requests", type: "status", value: item.filterValue, label: item.label })}
       />
     </DashboardSection>
   );
 }
 
-function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; count: number }[] }) {
+function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; count: number }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   const total = props.items.reduce((sum, item) => sum + item.count, 0);
   const toneByImpact: Record<ImpactKey, "neutral" | "info" | "success" | "danger" | "warning"> = {
     sufficient: "success",
@@ -908,7 +1117,8 @@ function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; co
     <DashboardSection title="Impacto para aprovação" count={total}>
       <SimpleBarChart
         emptyMessage="Sem dados para exibir."
-        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: toneByImpact[item.key] }))}
+        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: toneByImpact[item.key], filterValue: item.key }))}
+        onItemClick={(item) => props.onApplyQuickFilter({ view: "requests", type: "impact", value: item.filterValue, label: item.label })}
       />
     </DashboardSection>
   );
@@ -944,7 +1154,7 @@ function EstimatedValueByStatusChart(props: { items: { status: MaterialRequestSt
   );
 }
 
-function SimpleBarChart(props: { items: { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[]; emptyMessage: string }) {
+function SimpleBarChart<TItem extends { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }>(props: { items: TItem[]; emptyMessage: string; onItemClick?: (item: TItem) => void }) {
   const visibleItems = props.items.filter((item) => item.count > 0);
   const max = Math.max(...visibleItems.map((item) => item.count), 0);
   if (visibleItems.length === 0) return <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{props.emptyMessage}</div>;
@@ -953,8 +1163,8 @@ function SimpleBarChart(props: { items: { label: string; count: number; tone: "n
     <div style={styles.chartRows}>
       {visibleItems.map((item) => {
         const tone = uiTokens.stateTones[item.tone];
-        return (
-          <div key={item.label}>
+        const content = (
+          <>
             <div style={styles.chartLabelRow}>
               <span>{item.label}</span>
               <strong>{formatNumber(item.count)}</strong>
@@ -962,22 +1172,28 @@ function SimpleBarChart(props: { items: { label: string; count: number; tone: "n
             <div style={styles.chartTrack} aria-hidden="true">
               <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
             </div>
-          </div>
+          </>
         );
+        return props.onItemClick ? (
+          <ClickableChartRow key={item.label} label={item.label} onClick={() => props.onItemClick?.(item)}>
+            {content}
+          </ClickableChartRow>
+        ) : <div key={item.label}>{content}</div>;
       })}
     </div>
   );
 }
 
-function OpenRequestsTable(props: { items: DashboardOpenRequest[] }) {
+function OpenRequestsTable(props: { items: DashboardOpenRequest[]; quickFilter: RequestQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
   const columns = "48px 62px 78px 54px 68px 74px 96px 104px minmax(92px,1fr) minmax(140px,1.2fr)";
   return (
     <DashboardSection title="Solicitações abertas" count={props.items.length}>
+      <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
         minWidth={880}
         headers={["ID", "Centro", "Material", "Qtde.", "Estoque atual", "Estoque proj.", "Valor estimado", "Cobertura após", "Status", "Sinalização"]}
-        emptyMessage="Nenhuma solicitação aberta no momento."
+        emptyMessage={props.emptyMessage}
       >
         {props.items.map((item) => {
           const signals = getRequestSignals(item);
