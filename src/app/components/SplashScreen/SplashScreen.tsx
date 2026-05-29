@@ -1,15 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import arcelorMittalLogo from "../../../assets/branding/arcelormittal-logo.svg";
 import splashBuilding from "../../../assets/splash/splash-building.webp";
 import "./SplashScreen.css";
 
 type SplashScreenProps = {
-  isExiting?: boolean;
+  onFinish: () => void;
 };
 
-export function SplashScreen({ isExiting = false }: SplashScreenProps) {
+const splashDurationInMs = 3000;
+const splashExitDurationInMs = 500;
+
+export function SplashScreen({ onFinish }: SplashScreenProps) {
+  const [isExiting, setIsExiting] = useState(false);
   const [hasLogoError, setHasLogoError] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
+
+  useEffect(() => {
+    const exitTimer = window.setTimeout(() => {
+      setIsExiting(true);
+    }, splashDurationInMs);
+
+    const finishTimer = window.setTimeout(() => {
+      onFinish();
+    }, splashDurationInMs + splashExitDurationInMs);
+
+    return () => {
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [onFinish]);
 
   return (
     <section
