@@ -198,6 +198,7 @@ export function CommandBar(props: {
     icon: ReactNode;
     onClick: () => void;
   };
+  viewActions?: ReactNode;
 }) {
   const hasSelection = props.selectedId != null;
   const unitOptions = props.availableUnits ?? ALL_UNIT_OPTIONS;
@@ -228,6 +229,7 @@ export function CommandBar(props: {
 
       <div style={styles.actionsWrap}>
         <Button onClick={props.onRefresh}>Atualizar</Button>
+        {props.viewActions}
         {props.onUpdateStock ? <Button onClick={props.onUpdateStock}>Atualizar Estoque</Button> : null}
         {showNewButton && (
           <Button

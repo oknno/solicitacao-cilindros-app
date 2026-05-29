@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
-import { isHighCoverage } from "../../../domain/materialDashboard";
-import type {
-  DashboardAttentionMaterial,
-  DashboardOpenRequest,
-  DashboardStockRankingItem,
-  MaterialDashboardAttentionLabel,
-  MaterialDashboardResult,
-  MaterialDashboardSeverity,
-} from "../../../domain/materialDashboard";
+import type { DashboardOpenRequest, MaterialDashboardResult } from "../../../domain/materialDashboard";
+import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
+import type { StockRecommendation } from "../../../domain/materialRequest/stockTypes";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -17,24 +11,47 @@ import { StateMessage } from "../../components/ui/StateMessage";
 import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
-const TABLE_LIMIT = 80;
 const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
-const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", signal: "", requestStatus: "" };
+const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", requestStatus: "", recommendation: "", signal: "" };
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
+const OPEN_REQUEST_STATUSES = new Set<MaterialRequestStatus>([
+  "PENDING_LAMINATION_MANAGER_APPROVAL",
+  "PENDING_CTO_APPROVAL",
+  "RETURNED_FOR_ADJUSTMENT",
+]);
+const STATUS_CHART_ORDER: MaterialRequestStatus[] = [
+  "PENDING_LAMINATION_MANAGER_APPROVAL",
+  "PENDING_CTO_APPROVAL",
+  "RETURNED_FOR_ADJUSTMENT",
+  "APPROVED",
+  "REJECTED",
+  "DRAFT",
+];
+const REQUEST_SIGNAL_OPTIONS = ["Estoque disponível", "Estoque parcial", "Sem estoque", "Análise manual", "Pendente Gerente", "Pendente CTO", "Devolvida"];
+
+type DashboardView = "requests" | "stock";
+type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
+type ImpactKey = "sufficient" | "partial" | "none" | "manual";
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
-const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-const severityLabel: Record<MaterialDashboardSeverity, string> = {
-  HIGH: "Alta",
-  MEDIUM: "Média",
-  LOW: "Baixa",
+const statusTone: Partial<Record<MaterialRequestStatus, "neutral" | "info" | "success" | "danger" | "warning">> = {
+  DRAFT: "neutral",
+  PENDING_LAMINATION_MANAGER_APPROVAL: "warning",
+  PENDING_CTO_APPROVAL: "info",
+  RETURNED_FOR_ADJUSTMENT: "warning",
+  APPROVED: "success",
+  REJECTED: "danger",
 };
 
-const severityTone: Record<MaterialDashboardSeverity, "danger" | "warning" | "info"> = {
-  HIGH: "danger",
-  MEDIUM: "warning",
-  LOW: "info",
+const signalTone: Record<RequestSignal, "neutral" | "info" | "success" | "danger" | "warning"> = {
+  "Estoque disponível": "success",
+  "Estoque parcial": "warning",
+  "Sem estoque": "danger",
+  "Análise manual": "info",
+  "Pendente Gerente": "warning",
+  "Pendente CTO": "info",
+  Devolvida: "warning",
 };
 
 const styles = {
@@ -80,6 +97,18 @@ const styles = {
     fontSize: uiTokens.typography.xs,
     fontWeight: uiTokens.typography.mediumWeight,
   } satisfies React.CSSProperties,
+  viewActions: {
+    display: "inline-flex",
+    gap: uiTokens.spacing.xs,
+    padding: 3,
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.sm,
+    background: uiTokens.colors.surfaceMuted,
+  } satisfies React.CSSProperties,
+  viewButton: {
+    padding: "7px 10px",
+    borderRadius: uiTokens.radius.sm - 2,
+  } satisfies React.CSSProperties,
   kpiGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -96,6 +125,16 @@ const styles = {
     fontWeight: uiTokens.typography.titleWeight,
     lineHeight: 1.1,
   } satisfies React.CSSProperties,
+  requestsLayout: {
+    display: "grid",
+    gridTemplateColumns: "minmax(280px, 0.9fr) minmax(520px, 1.6fr)",
+    gap: uiTokens.spacing.md,
+    alignItems: "start",
+  } satisfies React.CSSProperties,
+  analyticsColumn: {
+    display: "grid",
+    gap: uiTokens.spacing.md,
+  } satisfies React.CSSProperties,
   sectionHeader: {
     display: "flex",
     alignItems: "center",
@@ -109,6 +148,24 @@ const styles = {
     fontSize: uiTokens.typography.lg,
     fontWeight: uiTokens.typography.titleWeight,
   } satisfies React.CSSProperties,
+  chartRows: {
+    display: "grid",
+    gap: uiTokens.spacing.sm,
+  } satisfies React.CSSProperties,
+  chartLabelRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(120px, 1fr) auto",
+    gap: uiTokens.spacing.sm,
+    alignItems: "center",
+    color: uiTokens.colors.textStrong,
+    fontSize: uiTokens.typography.sm,
+  } satisfies React.CSSProperties,
+  chartTrack: {
+    height: 9,
+    borderRadius: 999,
+    background: uiTokens.colors.surfaceMuted,
+    overflow: "hidden",
+  } satisfies React.CSSProperties,
   tableShell: {
     border: `1px solid ${uiTokens.colors.border}`,
     borderRadius: uiTokens.radius.md,
@@ -116,7 +173,7 @@ const styles = {
   } satisfies React.CSSProperties,
   tableScroller: {
     overflowX: "auto",
-    maxHeight: 360,
+    maxHeight: 570,
   } satisfies React.CSSProperties,
 };
 
@@ -125,159 +182,109 @@ function formatNumber(value: number | null | undefined): string {
   return numberFormatter.format(value);
 }
 
-function formatCurrency(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "-";
-  return currencyFormatter.format(value);
+function isOpenRequest(request: DashboardOpenRequest): boolean {
+  return OPEN_REQUEST_STATUSES.has(request.requestStatus);
 }
 
-function formatCoverage(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "-";
-  const rounded = Math.round(value);
-  return `${numberFormatter.format(rounded)} ${rounded === 1 ? "ano" : "anos"}`;
+function getRequestSignal(request: DashboardOpenRequest): RequestSignal {
+  if (request.stockRecommendation === "MANUAL_REVIEW_REQUIRED" || request.evaluatedStockTotal == null) return "Análise manual";
+  if (request.evaluatedStockTotal >= request.requestedQuantity) return "Estoque disponível";
+  if (request.evaluatedStockTotal > 0) return "Estoque parcial";
+  return "Sem estoque";
 }
 
-function filterByCenter<T extends { center: string }>(items: T[], center: string): T[] {
-  if (!center) return items;
-  return items.filter((item) => item.center === center);
+function getWorkflowSignal(request: DashboardOpenRequest): RequestSignal | null {
+  if (request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL") return "Pendente Gerente";
+  if (request.requestStatus === "PENDING_CTO_APPROVAL") return "Pendente CTO";
+  if (request.requestStatus === "RETURNED_FOR_ADJUSTMENT") return "Devolvida";
+  return null;
 }
 
-function getMaterialKey(item: { center: string; material: string }): string {
-  return `${item.center}::${item.material}`;
+function getRequestSignals(request: DashboardOpenRequest): RequestSignal[] {
+  const signals = [getRequestSignal(request)];
+  const workflowSignal = getWorkflowSignal(request);
+  if (workflowSignal) signals.push(workflowSignal);
+  return signals;
 }
 
-function isEmptyDashboard(data: MaterialDashboardResult): boolean {
-  return data.openRequests.length === 0
-    && data.attentionMaterials.length === 0
-    && data.stockItems.length === 0
-    && data.topStockValueItems.length === 0
-    && data.topCoverageItems.length === 0;
-}
-
-interface DashboardManagerialRow {
-  center: string;
-  material: string;
-  description: string;
-  evaluatedStockTotal: number | null;
-  totalStockValueBRL: number | null;
-  averageAnnualConsumption: number | null;
-  coverageYears: number | null;
-  openRequestsCount: number;
-  requestStatusLabels: string[];
-  attentionLabels: MaterialDashboardAttentionLabel[];
-  severity: MaterialDashboardSeverity | null;
-}
-
-interface DashboardFilters {
-  center: string;
-  signal: string;
-  requestStatus: string;
+function getImpactKey(request: DashboardOpenRequest): ImpactKey {
+  const signal = getRequestSignal(request);
+  if (signal === "Estoque disponível") return "sufficient";
+  if (signal === "Estoque parcial") return "partial";
+  if (signal === "Sem estoque") return "none";
+  return "manual";
 }
 
 function uniqueSorted(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, "pt-BR"));
 }
 
-function buildManagerialRows(input: {
-  stockItems: DashboardStockRankingItem[];
-  openRequests: DashboardOpenRequest[];
-  attentionMaterials: DashboardAttentionMaterial[];
-}): DashboardManagerialRow[] {
-  const requestsByMaterial = new Map<string, DashboardOpenRequest[]>();
-  input.openRequests.forEach((request) => {
-    const key = getMaterialKey(request);
-    requestsByMaterial.set(key, [...(requestsByMaterial.get(key) ?? []), request]);
-  });
+interface DashboardFilters {
+  center: string;
+  requestStatus: string;
+  recommendation: string;
+  signal: string;
+}
 
-  const attentionByMaterial = new Map(input.attentionMaterials.map((item) => [getMaterialKey(item), item]));
-  const stockKeys = new Set(input.stockItems.map((item) => getMaterialKey(item)));
-  const addedRequestOnlyKeys = new Set<string>();
-  const rows = input.stockItems.map<DashboardManagerialRow>((item) => {
-    const relatedRequests = requestsByMaterial.get(getMaterialKey(item)) ?? [];
-    const attention = attentionByMaterial.get(getMaterialKey(item));
-
-    return {
-      center: item.center,
-      material: item.material,
-      description: item.description,
-      evaluatedStockTotal: item.evaluatedStockTotal,
-      totalStockValueBRL: item.totalStockValueBRL,
-      averageAnnualConsumption: item.averageAnnualConsumption,
-      coverageYears: item.coverageYears,
-      openRequestsCount: relatedRequests.length,
-      requestStatusLabels: uniqueSorted(relatedRequests.map((request) => request.requestStatusLabel)),
-      attentionLabels: attention?.attentionLabels ?? [],
-      severity: attention?.severity ?? null,
-    };
-  });
-
-  input.openRequests.forEach((request) => {
-    const key = getMaterialKey(request);
-    if (stockKeys.has(key) || addedRequestOnlyKeys.has(key)) return;
-
-    const relatedRequests = requestsByMaterial.get(key) ?? [];
-    rows.push({
-      center: request.center,
-      material: request.material,
-      description: request.description,
-      evaluatedStockTotal: request.evaluatedStockTotal,
-      totalStockValueBRL: null,
-      averageAnnualConsumption: null,
-      coverageYears: null,
-      openRequestsCount: relatedRequests.length,
-      requestStatusLabels: uniqueSorted(relatedRequests.map((relatedRequest) => relatedRequest.requestStatusLabel)),
-      attentionLabels: [],
-      severity: null,
-    });
-    addedRequestOnlyKeys.add(key);
-  });
-
-  return rows.sort((left, right) => {
-    const severityWeight: Record<MaterialDashboardSeverity, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-    const severityDiff = (severityWeight[right.severity ?? "LOW"] ?? 0) - (severityWeight[left.severity ?? "LOW"] ?? 0);
-    if (severityDiff !== 0) return severityDiff;
-    if (right.openRequestsCount !== left.openRequestsCount) return right.openRequestsCount - left.openRequestsCount;
-    return (right.totalStockValueBRL ?? 0) - (left.totalStockValueBRL ?? 0);
+function filterRequests(requests: DashboardOpenRequest[], filters: DashboardFilters): DashboardOpenRequest[] {
+  return requests.filter((request) => {
+    if (filters.center && request.center !== filters.center) return false;
+    if (filters.requestStatus && request.requestStatus !== filters.requestStatus) return false;
+    if (filters.recommendation && request.stockRecommendation !== filters.recommendation) return false;
+    if (filters.signal && !getRequestSignals(request).includes(filters.signal as RequestSignal)) return false;
+    return true;
   });
 }
 
-function getFilteredDashboard(data: MaterialDashboardResult | null, filters: DashboardFilters) {
-  const centerStockItems = filterByCenter(data?.stockItems ?? [], filters.center);
-  const centerOpenRequests = filterByCenter(data?.openRequests ?? [], filters.center);
-  const centerAttentionMaterials = filterByCenter(data?.attentionMaterials ?? [], filters.center);
-  const openRequestsByStatus = filters.requestStatus
-    ? centerOpenRequests.filter((request) => request.requestStatusLabel === filters.requestStatus)
-    : centerOpenRequests;
-  const allManagerialRows = buildManagerialRows({
-    stockItems: centerStockItems,
-    openRequests: openRequestsByStatus,
-    attentionMaterials: centerAttentionMaterials,
-  });
-  const allFilteredManagerialRows = allManagerialRows
-    .filter((row) => !filters.signal || row.attentionLabels.includes(filters.signal as MaterialDashboardAttentionLabel))
-    .filter((row) => !filters.requestStatus || row.requestStatusLabels.includes(filters.requestStatus));
-  const visibleMaterialKeys = new Set(allFilteredManagerialRows.map(getMaterialKey));
-  const stockItems = centerStockItems.filter((item) => visibleMaterialKeys.has(getMaterialKey(item)));
-  const openRequests = openRequestsByStatus.filter((request) => visibleMaterialKeys.has(getMaterialKey(request)));
-  const attentionMaterials = centerAttentionMaterials.filter((item) => visibleMaterialKeys.has(getMaterialKey(item)));
+function getRequestDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
+  const allRequests = data?.requests ?? data?.openRequests ?? [];
+  const requests = filterRequests(allRequests, filters);
+  const openRequests = requests.filter(isOpenRequest);
+  const statusCounts = STATUS_CHART_ORDER.map((status) => ({
+    status,
+    label: allRequests.find((request) => request.requestStatus === status)?.requestStatusLabel ?? getFallbackStatusLabel(status),
+    count: requests.filter((request) => request.requestStatus === status).length,
+  })).filter((item) => item.count > 0 || item.status !== "DRAFT");
+  const impactCounts = [
+    { key: "sufficient" as const, label: "Com estoque suficiente", count: openRequests.filter((request) => getImpactKey(request) === "sufficient").length },
+    { key: "partial" as const, label: "Estoque parcial", count: openRequests.filter((request) => getImpactKey(request) === "partial").length },
+    { key: "none" as const, label: "Sem estoque", count: openRequests.filter((request) => getImpactKey(request) === "none").length },
+    { key: "manual" as const, label: "Análise manual", count: openRequests.filter((request) => getImpactKey(request) === "manual").length },
+  ];
 
   return {
+    requests,
     openRequests,
-    attentionMaterials,
-    managerialRows: allFilteredManagerialRows.slice(0, TABLE_LIMIT),
+    statusCounts,
+    impactCounts,
     kpis: {
       openRequestsCount: openRequests.length,
       pendingLaminationManagerCount: openRequests.filter((request) => request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
       pendingCtoCount: openRequests.filter((request) => request.requestStatus === "PENDING_CTO_APPROVAL").length,
-      zeroStockMaterialsCount: stockItems.filter((item) => item.evaluatedStockTotal <= 0).length,
-      totalStockValueBRL: stockItems.reduce((total, item) => total + item.totalStockValueBRL, 0),
-      highCoverageMaterialsCount: stockItems.filter((item) => isHighCoverage(item.coverageYears)).length,
+      returnedForAdjustmentCount: openRequests.filter((request) => request.requestStatus === "RETURNED_FOR_ADJUSTMENT").length,
+      availableStockRequestsCount: openRequests.filter((request) => getRequestSignal(request) === "Estoque disponível").length,
+      totalRequestedQuantity: openRequests.reduce((total, request) => total + request.requestedQuantity, 0),
     },
   };
+}
+
+function getFallbackStatusLabel(status: MaterialRequestStatus): string {
+  const labels: Record<MaterialRequestStatus, string> = {
+    DRAFT: "Rascunho",
+    PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
+    PENDING_CTO_APPROVAL: "Pendente CTO",
+    RETURNED_FOR_ADJUSTMENT: "Devolvida",
+    APPROVED: "Aprovada",
+    REJECTED: "Reprovada",
+    CANCELLED: "Cancelada",
+  };
+  return labels[status];
 }
 
 export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
+  const [dashboardView, setDashboardView] = useState<DashboardView>("requests");
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
@@ -315,12 +322,20 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     };
   }, []);
 
-  const filteredDashboard = useMemo(() => getFilteredDashboard(dashboard, appliedFilters), [dashboard, appliedFilters]);
+  const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const centerOptions = dashboard?.centerOptions ?? [];
-  const signalOptions = useMemo(() => uniqueSorted((dashboard?.attentionMaterials ?? []).flatMap((item) => item.attentionLabels)), [dashboard]);
-  const requestStatusOptions = useMemo(() => uniqueSorted((dashboard?.openRequests ?? []).map((request) => request.requestStatusLabel)), [dashboard]);
+  const requestStatusOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    for (const request of dashboard?.requests ?? dashboard?.openRequests ?? []) {
+      options.set(request.requestStatus, request.requestStatusLabel);
+    }
+    return Array.from(options.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+  }, [dashboard]);
+  const recommendationOptions = useMemo(() => uniqueSorted((dashboard?.requests ?? dashboard?.openRequests ?? []).map((request) => request.stockRecommendation)), [dashboard]);
   const isInitialLoading = state === "loading" && !dashboard;
-  const isEmpty = dashboard ? isEmptyDashboard(dashboard) : false;
+  const hasDashboardData = dashboard ? (dashboard.requests?.length ?? dashboard.openRequests.length) > 0 || dashboard.stockItems.length > 0 : false;
 
   function openFilters() {
     setDraftFilters(appliedFilters);
@@ -349,7 +364,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         title="Dashboard Cilindros e Discos"
         isAdmin={false}
         selectedId={null}
-        totalLoaded={dashboard?.openRequests.length ?? 0}
+        totalLoaded={requestDashboard.openRequests.length}
         canEdit={false}
         canDelete={false}
         canSend={false}
@@ -388,6 +403,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         onExportTable={() => undefined}
         onExportProject={() => undefined}
         availableUnits={[]}
+        viewActions={<DashboardViewActions value={dashboardView} onChange={setDashboardView} />}
         navigationAction={{
           label: "Voltar para Solicitações",
           icon: <RequestsIcon />,
@@ -398,8 +414,9 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {filterModalOpen && <DashboardFilterPopover
         value={draftFilters}
         centers={centerOptions}
-        signals={signalOptions}
         requestStatuses={requestStatusOptions}
+        recommendations={recommendationOptions}
+        signals={REQUEST_SIGNAL_OPTIONS}
         anchorId={DASHBOARD_FILTER_BUTTON_ID}
         onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
         onApply={applyFilters}
@@ -409,25 +426,52 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
 
       {isInitialLoading ? <CenteredState state="loading" message="Carregando dashboard..." /> : null}
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
-      {state !== "error" && dashboard && isEmpty ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
+      {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && !isEmpty ? (
-        <>
-          <KpiGrid kpis={filteredDashboard.kpis} />
-          <MainAttentionSection items={filteredDashboard.attentionMaterials} />
-          <ManagerialTableSection items={filteredDashboard.managerialRows} totalCount={filteredDashboard.managerialRows.length} />
-        </>
-      ) : null}
+      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "stock" ? <StockPlaceholder /> : null}
     </div>
   );
 }
 
+function DashboardViewActions(props: { value: DashboardView; onChange: (value: DashboardView) => void }) {
+  return (
+    <div style={styles.viewActions} aria-label="Visão do dashboard">
+      <Button type="button" tone={props.value === "requests" ? "primary" : "default"} onClick={() => props.onChange("requests")} style={styles.viewButton}>Solicitações</Button>
+      <Button type="button" tone={props.value === "stock" ? "primary" : "default"} onClick={() => props.onChange("stock")} style={styles.viewButton}>Estoque</Button>
+    </div>
+  );
+}
+
+function MaterialRequestsDashboardView(props: { model: ReturnType<typeof getRequestDashboardModel> }) {
+  return (
+    <>
+      <KpiGrid kpis={props.model.kpis} />
+      <div style={styles.requestsLayout}>
+        <div style={styles.analyticsColumn}>
+          <RequestsStatusChart items={props.model.statusCounts} />
+          <RequestsImpactChart items={props.model.impactCounts} />
+        </div>
+        <OpenRequestsTable items={props.model.openRequests} />
+      </div>
+    </>
+  );
+}
+
+function StockPlaceholder() {
+  return (
+    <Card style={{ textAlign: "center", color: uiTokens.colors.textMuted }}>
+      Visão de estoque será implementada na próxima etapa.
+    </Card>
+  );
+}
 
 function DashboardFilterPopover(props: {
   value: DashboardFilters;
   centers: string[];
-  signals: string[];
-  requestStatuses: string[];
+  requestStatuses: { value: string; label: string }[];
+  recommendations: string[];
+  signals: readonly string[];
   anchorId: string;
   onChange: (patch: Partial<DashboardFilters>) => void;
   onApply: () => void;
@@ -495,18 +539,26 @@ function DashboardFilterPopover(props: {
           </label>
 
           <label style={styles.label}>
-            Sinalização
-            <select value={props.value.signal} onChange={(event) => props.onChange({ signal: event.target.value })} style={fieldControlStyles.select}>
-              <option value="">Todas</option>
-              {props.signals.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
+            Status solicitação
+            <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todos</option>
+              {props.requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </label>
 
           <label style={styles.label}>
-            Status solicitação
-            <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
+            Parecer
+            <select value={props.value.recommendation} onChange={(event) => props.onChange({ recommendation: event.target.value })} style={fieldControlStyles.select}>
               <option value="">Todos</option>
-              {props.requestStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+              {props.recommendations.map((recommendation) => <option key={recommendation} value={recommendation}>{getFallbackRecommendationLabel(recommendation as StockRecommendation)}</option>)}
+            </select>
+          </label>
+
+          <label style={styles.label}>
+            Sinalização
+            <select value={props.value.signal} onChange={(event) => props.onChange({ signal: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todas</option>
+              {props.signals.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
             </select>
           </label>
 
@@ -524,14 +576,14 @@ function CenteredState(props: { state: "loading" | "error" | "empty"; message: s
   return <Card style={{ textAlign: "center" }}><StateMessage state={props.state} message={props.message} /></Card>;
 }
 
-function KpiGrid(props: { kpis: ReturnType<typeof getFilteredDashboard>["kpis"] }) {
+function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpis"] }) {
   const cards = [
     { label: "Solicitações abertas", value: formatNumber(props.kpis.openRequestsCount), helper: "Em aprovação ou ajuste" },
     { label: "Pendentes Gerente", value: formatNumber(props.kpis.pendingLaminationManagerCount), helper: "Gerente Laminação" },
     { label: "Pendentes CTO", value: formatNumber(props.kpis.pendingCtoCount), helper: "Aguardando CTO" },
-    { label: "Materiais com estoque zerado", value: formatNumber(props.kpis.zeroStockMaterialsCount), helper: "Estoque atual igual a zero" },
-    { label: "Valor total em estoque", value: formatCurrency(props.kpis.totalStockValueBRL), helper: "Base carregada" },
-    { label: "Materiais com cobertura alta", value: formatNumber(props.kpis.highCoverageMaterialsCount), helper: "Cobertura acima do limite" },
+    { label: "Devolvidas / em ajuste", value: formatNumber(props.kpis.returnedForAdjustmentCount), helper: "Aguardando correção" },
+    { label: "Com estoque disponível", value: formatNumber(props.kpis.availableStockRequestsCount), helper: "Estoque cobre a solicitação" },
+    { label: "Qtde. total solicitada", value: formatNumber(props.kpis.totalRequestedQuantity), helper: "Soma das abertas" },
   ];
 
   return (
@@ -547,64 +599,105 @@ function KpiGrid(props: { kpis: ReturnType<typeof getFilteredDashboard>["kpis"] 
   );
 }
 
-function MainAttentionSection(props: { items: DashboardAttentionMaterial[] }) {
-  const cards: { label: string; value: number }[] = [
-    { label: "Estoque zerado com consumo", value: countAttentionByLabel(props.items, "Estoque zerado com consumo") },
-    { label: "Valor alto parado", value: countAttentionByLabel(props.items, "Valor alto parado") },
-    { label: "Solicitação com estoque disponível", value: countAttentionByLabel(props.items, "Solicitação aberta com estoque disponível") },
-    { label: "Cobertura elevada", value: countAttentionByLabel(props.items, "Cobertura elevada") },
-  ];
-
+function RequestsStatusChart(props: { items: { status: MaterialRequestStatus; label: string; count: number }[] }) {
+  const total = props.items.reduce((sum, item) => sum + item.count, 0);
   return (
-    <DashboardSection title="Atenções principais" count={props.items.length}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: uiTokens.spacing.sm }}>
-        {cards.map((card) => (
-          <Card key={card.label} style={styles.kpiCard}>
-            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
-            <div style={styles.kpiValue}>{formatNumber(card.value)}</div>
-          </Card>
-        ))}
-      </div>
+    <DashboardSection title="Status das solicitações" count={total}>
+      <SimpleBarChart
+        emptyMessage="Sem dados para exibir."
+        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: statusTone[item.status] ?? "neutral" }))}
+      />
     </DashboardSection>
   );
 }
 
-function countAttentionByLabel(items: DashboardAttentionMaterial[], label: MaterialDashboardAttentionLabel): number {
-  return items.filter((item) => item.attentionLabels.includes(label)).length;
+function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; count: number }[] }) {
+  const total = props.items.reduce((sum, item) => sum + item.count, 0);
+  const toneByImpact: Record<ImpactKey, "neutral" | "info" | "success" | "danger" | "warning"> = {
+    sufficient: "success",
+    partial: "warning",
+    none: "danger",
+    manual: "info",
+  };
+  return (
+    <DashboardSection title="Impacto das solicitações" count={total}>
+      <SimpleBarChart
+        emptyMessage="Sem dados para exibir."
+        items={props.items.map((item) => ({ label: item.label, count: item.count, tone: toneByImpact[item.key] }))}
+      />
+    </DashboardSection>
+  );
 }
 
-function ManagerialTableSection(props: { items: DashboardManagerialRow[]; totalCount: number }) {
+function SimpleBarChart(props: { items: { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[]; emptyMessage: string }) {
+  const visibleItems = props.items.filter((item) => item.count > 0);
+  const max = Math.max(...visibleItems.map((item) => item.count), 0);
+  if (visibleItems.length === 0) return <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{props.emptyMessage}</div>;
+
   return (
-    <DashboardSection title="Tabela gerencial" count={props.totalCount}>
+    <div style={styles.chartRows}>
+      {visibleItems.map((item) => {
+        const tone = uiTokens.stateTones[item.tone];
+        return (
+          <div key={item.label}>
+            <div style={styles.chartLabelRow}>
+              <span>{item.label}</span>
+              <strong>{formatNumber(item.count)}</strong>
+            </div>
+            <div style={styles.chartTrack} aria-hidden="true">
+              <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OpenRequestsTable(props: { items: DashboardOpenRequest[] }) {
+  const columns = "48px 64px 86px minmax(140px,1.2fr) 58px 62px minmax(118px,1fr) minmax(112px,1fr) minmax(106px,1fr) 72px minmax(120px,1fr)";
+  return (
+    <DashboardSection title="Solicitações abertas" count={props.items.length}>
       <DashboardTable
-        columns="70px 96px minmax(150px,1.4fr) 78px 116px 94px 86px 92px minmax(130px,1fr) minmax(160px,1.2fr)"
-        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Cobertura", "Solic. abertas", "Status solicitação", "Sinalização"]}
-        emptyMessage="Nenhum material encontrado para os filtros aplicados."
+        columns={columns}
+        headers={["ID", "Centro", "Material", "Descrição", "Qtde.", "Estoque", "Parecer", "Status", "Solicitante", "Dias", "Sinalização"]}
+        emptyMessage="Nenhuma solicitação aberta no momento."
       >
-        {props.items.map((item) => (
-          <TableRow key={`${item.center}-${item.material}`} columns="70px 96px minmax(150px,1.4fr) 78px 116px 94px 86px 92px minmax(130px,1fr) minmax(160px,1.2fr)">
-            <Cell title={item.center}>{item.center}</Cell>
-            <Cell title={item.material}>{item.material}</Cell>
-            <Cell title={item.description}>{item.description}</Cell>
-            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-            <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
-            <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
-            <Cell>{formatCoverage(item.coverageYears)}</Cell>
-            <Cell>{formatNumber(item.openRequestsCount)}</Cell>
-            <Cell title={item.requestStatusLabels.join(", ")}>{item.requestStatusLabels.length > 0 ? item.requestStatusLabels.join(", ") : "-"}</Cell>
-            <Cell noWrap={false}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: uiTokens.spacing.xs }}>
-                {item.severity ? <Badge text={severityLabel[item.severity]} tone={severityTone[item.severity]} /> : null}
-                {item.attentionLabels.length > 0
-                  ? item.attentionLabels.map((label) => <Badge key={label} text={label} tone="neutral" />)
-                  : <Badge text="Sem sinalização" tone="neutral" />}
-              </div>
-            </Cell>
-          </TableRow>
-        ))}
+        {props.items.map((item) => {
+          const signals = getRequestSignals(item);
+          return (
+            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns}>
+              <Cell>{item.id ?? "-"}</Cell>
+              <Cell title={item.center}>{item.center}</Cell>
+              <Cell title={item.material}>{item.material}</Cell>
+              <Cell title={item.description}>{item.description}</Cell>
+              <Cell>{formatNumber(item.requestedQuantity)}</Cell>
+              <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
+              <Cell title={item.stockRecommendationLabel}>{item.stockRecommendationLabel}</Cell>
+              <Cell><Badge text={item.requestStatusLabel} tone={statusTone[item.requestStatus] ?? "neutral"} /></Cell>
+              <Cell title={item.requesterName}>{item.requesterName || "-"}</Cell>
+              <Cell>{item.daysOpen == null ? "-" : formatNumber(item.daysOpen)}</Cell>
+              <Cell noWrap={false}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: uiTokens.spacing.xs }}>
+                  {signals.map((signal) => <Badge key={signal} text={signal} tone={signalTone[signal]} />)}
+                </div>
+              </Cell>
+            </TableRow>
+          );
+        })}
       </DashboardTable>
     </DashboardSection>
   );
+}
+
+function getFallbackRecommendationLabel(recommendation: StockRecommendation): string {
+  const labels: Record<StockRecommendation, string> = {
+    PURCHASE_RECOMMENDED: "Compra recomendada",
+    PURCHASE_RECOMMENDED_PARTIAL_STOCK: "Compra recomendada com estoque parcial",
+    PURCHASE_NOT_RECOMMENDED: "Compra não recomendada",
+    MANUAL_REVIEW_REQUIRED: "Requer análise manual",
+  };
+  return labels[recommendation] ?? recommendation;
 }
 
 function DashboardSection(props: { title: string; count: number; children: ReactNode }) {
@@ -625,7 +718,7 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
   return (
     <div style={styles.tableShell}>
       <div style={styles.tableScroller}>
-        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 720, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 1040, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
           {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
         </div>
         {hasRows ? props.children : <div style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>{props.emptyMessage}</div>}
@@ -636,14 +729,14 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
 
 function TableRow(props: { columns: string; children: ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 720, background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 1040, background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
       {props.children}
     </div>
   );
 }
 
 function HeaderCell(props: { children: ReactNode }) {
-  return <div style={{ padding: "10px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text }}>{props.children}</div>;
+  return <div style={{ padding: "10px 8px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight, color: uiTokens.colors.text }}>{props.children}</div>;
 }
 
 function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) {
@@ -651,7 +744,7 @@ function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) 
     <div
       title={props.title}
       style={{
-        padding: "10px",
+        padding: "10px 8px",
         fontSize: uiTokens.typography.sm,
         color: uiTokens.colors.textStrong,
         overflow: "hidden",
@@ -663,7 +756,6 @@ function Cell(props: { children: ReactNode; title?: string; noWrap?: boolean }) 
     </div>
   );
 }
-
 
 function RequestsIcon() {
   return (
