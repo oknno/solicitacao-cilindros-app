@@ -213,7 +213,7 @@ const styles = {
   requestTableSection: {
     display: "flex",
     flexDirection: "column",
-    height: "100%",
+    alignSelf: "stretch",
     minHeight: 0,
     overflow: "hidden",
   } satisfies React.CSSProperties,
