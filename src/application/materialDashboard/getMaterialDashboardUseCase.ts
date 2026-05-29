@@ -168,6 +168,7 @@ export async function getMaterialDashboardUseCase(): Promise<MaterialDashboardRe
 
   return {
     kpis: calculateKpis({ stockItems, rankingItems, openRequests: openMaterialRequests }),
+    requests: buildOpenRequestViewModels({ openRequests: materialRequests, stockIndex }),
     openRequests: buildOpenRequestViewModels({ openRequests: openMaterialRequests, stockIndex }),
     attentionMaterials: buildAttentionMaterials({ stockItems, openRequestsByMaterial }),
     stockItems: rankingItems,

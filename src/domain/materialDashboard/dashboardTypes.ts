@@ -55,6 +55,7 @@ export interface DashboardAttentionMaterial extends DashboardStockRankingItem {
 
 export interface MaterialDashboardResult {
   kpis: MaterialDashboardKpis;
+  requests: DashboardOpenRequest[];
   openRequests: DashboardOpenRequest[];
   attentionMaterials: DashboardAttentionMaterial[];
   stockItems: DashboardStockRankingItem[];
