@@ -78,6 +78,7 @@ function toRankingItem(material: StockMaterial): DashboardStockRankingItem {
     averageAnnualConsumption: toDashboardNumber(material.averageAnnualConsumption),
     coverageYears,
     historicalTotal: toDashboardNumber(material.historicalTotal),
+    consumptionYearsCount: toDashboardNumber(material.consumptionYearsCount),
   };
 }
 
@@ -157,7 +158,11 @@ function buildAttentionMaterials(input: {
     .sort((left, right) => {
       const severityComparison = SEVERITY_ORDER[left.severity] - SEVERITY_ORDER[right.severity];
       if (severityComparison !== 0) return severityComparison;
-      return right.totalStockValueBRL - left.totalStockValueBRL;
+      const lowStockComparison = Number(right.attentionLabels.includes("Uso frequente com estoque baixo")) - Number(left.attentionLabels.includes("Uso frequente com estoque baixo"));
+      if (lowStockComparison !== 0) return lowStockComparison;
+      const valueComparison = right.totalStockValueBRL - left.totalStockValueBRL;
+      if (valueComparison !== 0) return valueComparison;
+      return (right.coverageYears ?? -1) - (left.coverageYears ?? -1);
     });
 }
 

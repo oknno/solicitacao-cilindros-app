@@ -7,8 +7,9 @@ import {
   hasNoHistoricalConsumption,
   hasOpenRequestWithAvailableStock,
   isHighCoverage,
+  isFrequentUseWithLowStock,
   isHighIdleStock,
-  isLowStock,
+  isLowCoverage,
   isZeroStockWithConsumption,
   materialDashboardMetricThresholds,
 } from "./dashboardMetrics";
@@ -36,15 +37,15 @@ function calculateSeverity(input: {
 
   if (
     input.labels.includes("Estoque zerado com consumo") ||
-    input.labels.includes("Solicitação aberta com estoque disponível") ||
-    (input.labels.includes("Valor alto parado") && input.totalStockValueBRL > HIGH_IDLE_STOCK_VALUE_FOR_HIGH_SEVERITY_BRL) ||
+    input.labels.includes("Uso frequente com estoque baixo") ||
+    (input.labels.includes("Valor alto parado") && input.totalStockValueBRL >= HIGH_IDLE_STOCK_VALUE_FOR_HIGH_SEVERITY_BRL) ||
     (input.coverageYears !== null && input.coverageYears > VERY_HIGH_COVERAGE_YEARS && input.totalStockValueBRL >= RELEVANT_STOCK_VALUE_BRL)
   ) {
     return "HIGH";
   }
 
   if (
-    input.labels.includes("Estoque baixo") ||
+    input.labels.includes("Cobertura baixa") ||
     (input.coverageYears !== null && input.coverageYears > materialDashboardMetricThresholds.HIGH_COVERAGE_YEARS) ||
     (input.labels.includes("Sem consumo histórico") && input.totalStockValueBRL >= RELEVANT_STOCK_VALUE_BRL)
   ) {
@@ -61,7 +62,8 @@ export function evaluateStockAttention(input: EvaluateStockAttentionInput): Stoc
   const labels: MaterialDashboardAttentionLabel[] = [];
 
   if (isZeroStockWithConsumption(material)) labels.push("Estoque zerado com consumo");
-  if (isLowStock(material)) labels.push("Estoque baixo");
+  if (isFrequentUseWithLowStock(material)) labels.push("Uso frequente com estoque baixo");
+  if (isLowCoverage(material)) labels.push("Cobertura baixa");
   if (isHighCoverage(coverageYears)) labels.push("Cobertura elevada");
   if (isHighIdleStock({ ...material, coverageYears })) labels.push("Valor alto parado");
   if (hasNoHistoricalConsumption(material)) labels.push("Sem consumo histórico");
