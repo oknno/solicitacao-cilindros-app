@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
 import { isHighCoverage } from "../../../domain/materialDashboard";
 import type {
@@ -18,6 +18,8 @@ import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const TABLE_LIMIT = 80;
+const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
+const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", signal: "", requestStatus: "" };
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
@@ -45,11 +47,31 @@ const styles = {
     gap: uiTokens.spacing.md,
     alignContent: "start",
   } satisfies React.CSSProperties,
-  filterGrid: {
+  filterPopoverOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000,
+  } satisfies React.CSSProperties,
+  filterPopover: {
+    position: "absolute",
+    width: 360,
+    maxWidth: "calc(100vw - 32px)",
+    background: uiTokens.colors.surface,
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.md,
+    padding: uiTokens.spacing.md,
+    boxShadow: `0 10px 30px ${uiTokens.colors.shadowSoft}`,
+    overflow: "hidden",
+  } satisfies React.CSSProperties,
+  filterPopoverContent: {
     display: "grid",
-    gridTemplateColumns: "minmax(160px, 240px) minmax(160px, 220px) minmax(160px, 220px) auto auto 1fr",
+    gap: uiTokens.spacing.sm + uiTokens.spacing.xxs,
+  } satisfies React.CSSProperties,
+  filterFooterActions: {
+    display: "flex",
     gap: uiTokens.spacing.sm,
-    alignItems: "end",
+    justifyContent: "flex-end",
+    marginTop: uiTokens.spacing.xs,
   } satisfies React.CSSProperties,
   label: {
     display: "grid",
@@ -219,19 +241,29 @@ function buildManagerialRows(input: {
 }
 
 function getFilteredDashboard(data: MaterialDashboardResult | null, filters: DashboardFilters) {
-  const stockItems = filterByCenter(data?.stockItems ?? [], filters.center);
-  const openRequests = filterByCenter(data?.openRequests ?? [], filters.center);
-  const attentionMaterials = filterByCenter(data?.attentionMaterials ?? [], filters.center);
-  const allManagerialRows = buildManagerialRows({ stockItems, openRequests, attentionMaterials });
-  const managerialRows = allManagerialRows
+  const centerStockItems = filterByCenter(data?.stockItems ?? [], filters.center);
+  const centerOpenRequests = filterByCenter(data?.openRequests ?? [], filters.center);
+  const centerAttentionMaterials = filterByCenter(data?.attentionMaterials ?? [], filters.center);
+  const openRequestsByStatus = filters.requestStatus
+    ? centerOpenRequests.filter((request) => request.requestStatusLabel === filters.requestStatus)
+    : centerOpenRequests;
+  const allManagerialRows = buildManagerialRows({
+    stockItems: centerStockItems,
+    openRequests: openRequestsByStatus,
+    attentionMaterials: centerAttentionMaterials,
+  });
+  const allFilteredManagerialRows = allManagerialRows
     .filter((row) => !filters.signal || row.attentionLabels.includes(filters.signal as MaterialDashboardAttentionLabel))
-    .filter((row) => !filters.requestStatus || row.requestStatusLabels.includes(filters.requestStatus))
-    .slice(0, TABLE_LIMIT);
+    .filter((row) => !filters.requestStatus || row.requestStatusLabels.includes(filters.requestStatus));
+  const visibleMaterialKeys = new Set(allFilteredManagerialRows.map(getMaterialKey));
+  const stockItems = centerStockItems.filter((item) => visibleMaterialKeys.has(getMaterialKey(item)));
+  const openRequests = openRequestsByStatus.filter((request) => visibleMaterialKeys.has(getMaterialKey(request)));
+  const attentionMaterials = centerAttentionMaterials.filter((item) => visibleMaterialKeys.has(getMaterialKey(item)));
 
   return {
     openRequests,
     attentionMaterials,
-    managerialRows,
+    managerialRows: allFilteredManagerialRows.slice(0, TABLE_LIMIT),
     kpis: {
       openRequestsCount: openRequests.length,
       pendingLaminationManagerCount: openRequests.filter((request) => request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
@@ -246,8 +278,9 @@ function getFilteredDashboard(data: MaterialDashboardResult | null, filters: Das
 export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
-  const [draftFilters, setDraftFilters] = useState<DashboardFilters>({ center: "", signal: "", requestStatus: "" });
-  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>({ center: "", signal: "", requestStatus: "" });
+  const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setState("loading");
@@ -288,20 +321,26 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const requestStatusOptions = useMemo(() => uniqueSorted((dashboard?.openRequests ?? []).map((request) => request.requestStatusLabel)), [dashboard]);
   const isInitialLoading = state === "loading" && !dashboard;
   const isEmpty = dashboard ? isEmptyDashboard(dashboard) : false;
-  const activeFilters = [
-    appliedFilters.center ? `Centro: ${appliedFilters.center}` : "",
-    appliedFilters.signal ? `Sinalização: ${appliedFilters.signal}` : "",
-    appliedFilters.requestStatus ? `Status: ${appliedFilters.requestStatus}` : "",
-  ].filter(Boolean);
 
-  function applyFilter() {
-    setAppliedFilters(draftFilters);
+  function openFilters() {
+    setDraftFilters(appliedFilters);
+    setFilterModalOpen(true);
   }
 
-  function clearFilter() {
-    const emptyFilters = { center: "", signal: "", requestStatus: "" };
-    setDraftFilters(emptyFilters);
-    setAppliedFilters(emptyFilters);
+  function applyFilters() {
+    setAppliedFilters(draftFilters);
+    setFilterModalOpen(false);
+  }
+
+  function clearFilters() {
+    setDraftFilters(DEFAULT_DASHBOARD_FILTERS);
+    setAppliedFilters(DEFAULT_DASHBOARD_FILTERS);
+    setFilterModalOpen(false);
+  }
+
+  function closeFilters() {
+    setDraftFilters(appliedFilters);
+    setFilterModalOpen(false);
   }
 
   return (
@@ -319,8 +358,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         canReject={false}
         filters={EMPTY_COMMAND_FILTERS}
         onChangeFilters={() => undefined}
-        onApply={() => undefined}
-        onClear={() => undefined}
+        onApply={openFilters}
+        onClear={clearFilters}
         onRefresh={() => void loadDashboard()}
         onNew={() => undefined}
         canCreate={false}
@@ -342,7 +381,9 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         showBackButton={false}
         showApproveButton={false}
         showRejectButton={false}
-        showFilterButton={false}
+        showFilterButton
+        filterButtonMode="triggerOnly"
+        filterButtonId={DASHBOARD_FILTER_BUTTON_ID}
         showExportButton={false}
         onExportTable={() => undefined}
         onExportProject={() => undefined}
@@ -354,38 +395,17 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         }}
       />
 
-      <Card style={{ padding: uiTokens.spacing.sm }}>
-        <div style={styles.filterGrid}>
-          <label style={styles.label}>
-            Centro
-            <select value={draftFilters.center} onChange={(event) => setDraftFilters((current) => ({ ...current, center: event.target.value }))} style={fieldControlStyles.select}>
-              <option value="">Todos os centros</option>
-              {centerOptions.map((center) => <option key={center} value={center}>{center}</option>)}
-            </select>
-          </label>
-          <label style={styles.label}>
-            Sinalização
-            <select value={draftFilters.signal} onChange={(event) => setDraftFilters((current) => ({ ...current, signal: event.target.value }))} style={fieldControlStyles.select}>
-              <option value="">Todas</option>
-              {signalOptions.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
-            </select>
-          </label>
-          <label style={styles.label}>
-            Status solicitação
-            <select value={draftFilters.requestStatus} onChange={(event) => setDraftFilters((current) => ({ ...current, requestStatus: event.target.value }))} style={fieldControlStyles.select}>
-              <option value="">Todos</option>
-              {requestStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
-            </select>
-          </label>
-          <Button tone="primary" onClick={applyFilter}>Aplicar</Button>
-          <Button onClick={clearFilter}>Limpar</Button>
-          <div style={{ justifySelf: "end", alignSelf: "center", display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: uiTokens.spacing.xs }}>
-            {state === "loading" && <StateMessage state="loading" message="Carregando dashboard..." />}
-            {state === "error" && <StateMessage state="error" message="Não foi possível carregar o dashboard." />}
-            {state === "idle" && activeFilters.map((filter) => <Badge key={filter} text={filter} tone="info" />)}
-          </div>
-        </div>
-      </Card>
+      {filterModalOpen && <DashboardFilterPopover
+        value={draftFilters}
+        centers={centerOptions}
+        signals={signalOptions}
+        requestStatuses={requestStatusOptions}
+        anchorId={DASHBOARD_FILTER_BUTTON_ID}
+        onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
+        onApply={applyFilters}
+        onClear={clearFilters}
+        onClose={closeFilters}
+      />}
 
       {isInitialLoading ? <CenteredState state="loading" message="Carregando dashboard..." /> : null}
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
@@ -398,6 +418,104 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
           <ManagerialTableSection items={filteredDashboard.managerialRows} totalCount={filteredDashboard.managerialRows.length} />
         </>
       ) : null}
+    </div>
+  );
+}
+
+
+function DashboardFilterPopover(props: {
+  value: DashboardFilters;
+  centers: string[];
+  signals: string[];
+  requestStatuses: string[];
+  anchorId: string;
+  onChange: (patch: Partial<DashboardFilters>) => void;
+  onApply: () => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    function updatePosition() {
+      const anchor = document.getElementById(props.anchorId);
+      if (!anchor) {
+        setPosition({ top: 84, right: uiTokens.spacing.md });
+        return;
+      }
+
+      const rect = anchor.getBoundingClientRect();
+      setPosition({
+        top: Math.round(rect.bottom + 8),
+        right: Math.max(uiTokens.spacing.md, Math.round(window.innerWidth - rect.right)),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [props.anchorId]);
+
+  useEffect(() => {
+    function onDocMouseDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (panelRef.current && !panelRef.current.contains(target)) props.onClose();
+    }
+
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [props]);
+
+  return (
+    <div style={styles.filterPopoverOverlay}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-label="Filtro do dashboard"
+        style={{
+          ...styles.filterPopover,
+          top: position?.top ?? 84,
+          right: position?.right ?? uiTokens.spacing.md,
+          visibility: position ? "visible" : "hidden",
+        }}
+      >
+        <div style={styles.filterPopoverContent}>
+          <label style={styles.label}>
+            Centro
+            <select value={props.value.center} onChange={(event) => props.onChange({ center: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todos os centros</option>
+              {props.centers.map((center) => <option key={center} value={center}>{center}</option>)}
+            </select>
+          </label>
+
+          <label style={styles.label}>
+            Sinalização
+            <select value={props.value.signal} onChange={(event) => props.onChange({ signal: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todas</option>
+              {props.signals.map((signal) => <option key={signal} value={signal}>{signal}</option>)}
+            </select>
+          </label>
+
+          <label style={styles.label}>
+            Status solicitação
+            <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
+              <option value="">Todos</option>
+              {props.requestStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+
+          <div style={styles.filterFooterActions}>
+            <Button type="button" onClick={props.onClear}>Limpar</Button>
+            <Button tone="primary" type="button" onClick={props.onApply}>Aplicar</Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
