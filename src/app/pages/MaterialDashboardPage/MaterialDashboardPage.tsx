@@ -35,9 +35,27 @@ const STOCK_ATTENTION_LABEL_PRIORITY: MaterialDashboardAttentionLabel[] = [
   "Sem consumo histórico",
   "Solicitação aberta com estoque disponível",
 ];
+const STOCK_SIGNAL_PALETTE: Record<MaterialDashboardAttentionLabel, { bar: string; bg: string; fg: string; bd: string }> = {
+  "Sem consumo histórico": { bar: "#64748b", bg: "#f1f5f9", fg: "#334155", bd: "#cbd5e1" },
+  "Valor alto parado": { bar: "#c0564a", bg: "#fff1f2", fg: "#9f3a35", bd: "#fecdd3" },
+  "Uso frequente com estoque baixo": { bar: "#b76e18", bg: "#fff7ed", fg: "#9a5a12", bd: "#fed7aa" },
+  "Cobertura elevada": { bar: "#b08900", bg: "#fefce8", fg: "#854d0e", bd: "#fde68a" },
+  "Cobertura baixa": { bar: "#c47f16", bg: "#fffbeb", fg: "#92400e", bd: "#fcd34d" },
+  "Estoque zerado com consumo": { bar: "#b4534a", bg: "#fef2f2", fg: "#991b1b", bd: "#fecaca" },
+  "Solicitação aberta com estoque disponível": { bar: "#6366a6", bg: "#eef2ff", fg: "#3730a3", bd: "#c7d2fe" },
+};
+const CONSUMPTION_YEARS = [
+  { label: "2021", key: "consumption2021" },
+  { label: "2022", key: "consumption2022" },
+  { label: "2023", key: "consumption2023" },
+  { label: "2024", key: "consumption2024" },
+  { label: "2025", key: "consumption2025" },
+  { label: "2026", key: "consumption2026" },
+] as const;
 type StockDashboardItem = DashboardStockRankingItem & { attentionLabels: MaterialDashboardAttentionLabel[]; severity: MaterialDashboardSeverity | null; openRequestsCount: number };
 type QuickFilter = { view: "stock"; type: "signal" | "severity"; value: string; label: string };
 type StockQuickFilter = QuickFilter;
+type StockSignalDistributionItem = { label: MaterialDashboardAttentionLabel; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning"; color: string };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -238,6 +256,66 @@ const styles = {
     borderColor: uiTokens.colors.borderStrong,
     color: uiTokens.colors.text,
   } satisfies React.CSSProperties,
+  materialModalOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1100,
+    background: uiTokens.colors.overlay,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: uiTokens.spacing.xl,
+  } satisfies React.CSSProperties,
+  materialModal: {
+    width: "min(1120px, calc(100vw - 32px))",
+    maxHeight: "calc(100vh - 32px)",
+    overflow: "auto",
+    background: uiTokens.colors.surface,
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.lg,
+    boxShadow: `0 24px 60px ${uiTokens.colors.shadowSoft}`,
+  } satisfies React.CSSProperties,
+  materialModalHeader: {
+    position: "sticky",
+    top: 0,
+    zIndex: 1,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: uiTokens.spacing.md,
+    padding: uiTokens.spacing.xl,
+    borderBottom: `1px solid ${uiTokens.colors.border}`,
+    background: uiTokens.colors.surface,
+  } satisfies React.CSSProperties,
+  materialModalContent: {
+    padding: uiTokens.spacing.xl,
+    display: "grid",
+    gap: uiTokens.spacing.md,
+  } satisfies React.CSSProperties,
+  detailGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: uiTokens.spacing.sm,
+  } satisfies React.CSSProperties,
+  detailCard: {
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.md,
+    background: uiTokens.colors.surface,
+    padding: uiTokens.spacing.md,
+    minHeight: 78,
+  } satisfies React.CSSProperties,
+  detailSection: {
+    border: `1px solid ${uiTokens.colors.borderMuted}`,
+    borderRadius: uiTokens.radius.md,
+    background: uiTokens.colors.surfaceMuted,
+    padding: uiTokens.spacing.md,
+    display: "grid",
+    gap: uiTokens.spacing.sm,
+  } satisfies React.CSSProperties,
+  tableRowInteractive: {
+    cursor: "default",
+    userSelect: "none",
+  } satisfies React.CSSProperties,
 };
 
 function formatNumber(value: number | null | undefined): string {
@@ -339,6 +417,15 @@ function getStockSignalTone(signal: MaterialDashboardAttentionLabel): "neutral" 
   return "neutral";
 }
 
+function getStockSignalPalette(signal: MaterialDashboardAttentionLabel) {
+  return STOCK_SIGNAL_PALETTE[signal];
+}
+
+function formatCoverageForText(value: number | null | undefined): string {
+  const formatted = formatCoverage(value);
+  return formatted === "-" ? "não estimada" : formatted;
+}
+
 function getStockAttentionPriority(label: MaterialDashboardAttentionLabel): number {
   const priority = STOCK_ATTENTION_LABEL_PRIORITY.indexOf(label);
   return priority >= 0 ? priority : STOCK_ATTENTION_LABEL_PRIORITY.length;
@@ -379,7 +466,7 @@ function sortStockItemsForManagement(left: StockDashboardItem, right: StockDashb
 function getStockDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
   const stockItems = filterStockItems(getStockDashboardItems(data), filters).sort(sortStockItemsForManagement);
   const distribution = STOCK_SIGNAL_OPTIONS
-    .map((signal) => ({ label: signal, count: stockItems.filter((item) => item.attentionLabels.includes(signal)).length, tone: getStockSignalTone(signal) }))
+    .map((signal) => ({ label: signal, count: stockItems.filter((item) => item.attentionLabels.includes(signal)).length, tone: getStockSignalTone(signal), color: getStockSignalPalette(signal).bar }))
     .filter((item) => item.count > 0)
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "pt-BR"));
   const stockValueByCenter = Array.from(stockItems.reduce((map, item) => {
@@ -543,7 +630,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && hasDashboardData ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={dashboard.stockItems.length > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} openRequests={dashboard.openRequests} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={dashboard.stockItems.length > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
 }
@@ -551,13 +638,20 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
 function MaterialStockDashboardView(props: {
   model: ReturnType<typeof getStockDashboardModel>;
   tableItems: StockDashboardItem[];
+  openRequests: MaterialDashboardResult["openRequests"];
   quickFilter: StockQuickFilter | null;
   appliedFilters: DashboardFilters;
   hasAnyStock: boolean;
   onApplyQuickFilter: (filter: QuickFilter) => void;
   onClearQuickFilter: () => void;
 }) {
+  const [selectedMaterial, setSelectedMaterial] = useState<StockDashboardItem | null>(null);
+
   if (!props.hasAnyStock) return <CenteredState state="empty" message="Nenhum item de estoque carregado." />;
+
+  const selectedMaterialRequests = selectedMaterial
+    ? props.openRequests.filter((request) => buildMaterialKey(request.center, request.material) === buildMaterialKey(selectedMaterial.center, selectedMaterial.material))
+    : [];
 
   return (
     <>
@@ -567,8 +661,9 @@ function MaterialStockDashboardView(props: {
           <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
-        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage(props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
+        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage(props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} onOpenMaterial={setSelectedMaterial} />
       </div>
+      {selectedMaterial ? <MaterialDetailModal material={selectedMaterial} openRequests={selectedMaterialRequests} onClose={() => setSelectedMaterial(null)} /> : null}
     </>
   );
 }
@@ -609,7 +704,7 @@ function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["
   );
 }
 
-function StockAttentionDistributionChart(props: { items: { label: MaterialDashboardAttentionLabel; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
+function StockAttentionDistributionChart(props: { items: StockSignalDistributionItem[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   return (
     <DashboardSection title="Distribuição das sinalizações" titleTooltip="Um material pode aparecer em mais de uma sinalização.">
       <SimpleBarChart
@@ -644,7 +739,7 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
   );
 }
 
-function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
+function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void; onOpenMaterial: (item: StockDashboardItem) => void }) {
   const columns = "80px 120px 280px 90px 150px 110px 100px 120px 80px 340px";
   const minWidth = 1470;
 
@@ -663,7 +758,7 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
           const hiddenLabelsTitle = compactLabels.hidden.join("; ");
 
           return (
-            <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={minWidth}>
+            <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={minWidth} title="Duplo clique para ver detalhes do material" onDoubleClick={() => props.onOpenMaterial(item)}>
               <Cell title={item.center}>{item.center}</Cell>
               <Cell title={item.material}>{item.material}</Cell>
               <Cell title={item.description}>{item.description}</Cell>
@@ -688,6 +783,140 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
       </DashboardTable>
     </DashboardSection>
   );
+}
+
+function MaterialDetailModal(props: { material: StockDashboardItem; openRequests: MaterialDashboardResult["openRequests"]; onClose: () => void }) {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") props.onClose();
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [props.onClose]);
+
+  const totalRequested = props.openRequests.reduce((total, request) => total + request.requestedQuantity, 0);
+  const hasOpenRequests = props.openRequests.length > 0;
+  const projectedStock = props.material.evaluatedStockTotal + totalRequested;
+  const projectedCoverage = props.material.averageAnnualConsumption > 0 ? projectedStock / props.material.averageAnnualConsumption : null;
+  const yearConsumptions = CONSUMPTION_YEARS.map((year) => ({ label: year.label, value: props.material[year.key] }));
+  const maxConsumption = Math.max(...yearConsumptions.map((item) => item.value), 1);
+  const primarySignal = props.material.attentionLabels.length > 0 ? props.material.attentionLabels[0] : null;
+  const primaryPalette = primarySignal ? getStockSignalPalette(primarySignal) : null;
+  const stockSummaryCards = [
+    { label: "Estoque atual", value: formatNumber(props.material.evaluatedStockTotal), helper: "Quantidade disponível na base de estoque" },
+    { label: "Preço médio", value: formatCurrency(props.material.averagePrice), helper: "Referência financeira do item" },
+    { label: "Estoque total (R$)", value: formatCurrency(props.material.totalStockValueBRL), helper: "Valor atual em estoque" },
+    { label: "Consumo total histórico", value: formatNumber(props.material.historicalTotal), helper: "Somatório do histórico importado" },
+    { label: "Anos com movimentação", value: formatNumber(props.material.consumptionYearsCount), helper: "Anos com consumo registrado" },
+    { label: "Média anual de consumo", value: formatNumber(props.material.averageAnnualConsumption), helper: "Base para cálculo de cobertura" },
+  ];
+  const coverageCards = hasOpenRequests
+    ? [
+        { label: "Cobertura atual", value: formatCoverage(props.material.coverageYears), helper: "Com base no estoque e consumo médio" },
+        { label: "Solicitações abertas", value: formatNumber(props.openRequests.length), helper: `${formatNumber(totalRequested)} unidades solicitadas` },
+        { label: "Estoque projetado", value: formatNumber(projectedStock), helper: "Estoque atual + solicitações abertas" },
+        { label: "Cobertura projetada", value: formatCoverage(projectedCoverage), helper: "Considera as solicitações abertas" },
+      ]
+    : [
+        { label: "Cobertura atual", value: formatCoverage(props.material.coverageYears), helper: "Com base no estoque e consumo médio" },
+        { label: "Solicitações abertas", value: "0", helper: "Sem solicitações abertas para este material" },
+      ];
+  const stockObservations = [
+    props.material.historicalTotal > 0 ? `Há consumo histórico registrado: ${formatNumber(props.material.historicalTotal)} unidades no período.` : "Não há consumo histórico registrado para o material.",
+    `A média anual de consumo é ${formatNumber(props.material.averageAnnualConsumption)} unidade(s).`,
+    `O valor atual em estoque é ${formatCurrency(props.material.totalStockValueBRL)}.`,
+    `A cobertura atual é de aproximadamente ${formatCoverageForText(props.material.coverageYears)}.`,
+  ];
+  const managementObservations = [
+    hasOpenRequests ? `O material possui ${formatNumber(props.openRequests.length)} solicitação(ões) aberta(s), totalizando ${formatNumber(totalRequested)} unidade(s).` : "O material não possui solicitações abertas.",
+    hasOpenRequests ? `Se todas forem aprovadas, o estoque projetado será ${formatNumber(projectedStock)} unidade(s), com cobertura de ${formatCoverageForText(projectedCoverage)}.` : "Não há bloco projetado adicional porque não existem solicitações abertas.",
+    props.material.attentionLabels.length > 0 ? `Sinalizações ativas: ${props.material.attentionLabels.join(", ")}.` : "Não há sinalizações ativas para este material.",
+    primarySignal ? `Prioridade gerencial: ${primarySignal}.` : "Item sem alerta de atenção no dashboard atual.",
+  ];
+
+  return (
+    <div style={styles.materialModalOverlay} onMouseDown={props.onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Informações do material" style={styles.materialModal} onMouseDown={(event) => event.stopPropagation()}>
+        <div style={styles.materialModalHeader}>
+          <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
+            <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>Informações do material</div>
+            <h2 style={{ margin: 0, color: uiTokens.colors.textStrong, fontSize: 22, fontWeight: uiTokens.typography.titleWeight }}>{props.material.material}</h2>
+            <div style={{ color: uiTokens.colors.text, fontSize: uiTokens.typography.md }}>{props.material.description || "Descrição não informada"}</div>
+            <div style={{ display: "flex", gap: uiTokens.spacing.xs, flexWrap: "wrap", alignItems: "center", marginTop: uiTokens.spacing.xs }}>
+              <Badge text={`Centro ${props.material.center || "-"}`} tone="neutral" />
+              {props.material.severity ? <Badge text={`Severidade ${getStockSeverityLabel(props.material.severity)}`} tone={getStockSeverityTone(props.material.severity)} /> : null}
+              {hasOpenRequests ? <Badge text={`${formatNumber(props.openRequests.length)} solicitação(ões) aberta(s)`} tone="info" /> : null}
+              {props.material.attentionLabels.map((label) => {
+                const palette = getStockSignalPalette(label);
+                return <span key={label} style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${palette.bd}`, background: palette.bg, color: palette.fg, borderRadius: uiTokens.radius.pill, padding: "4px 10px", fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.mediumWeight }}>{label}</span>;
+              })}
+            </div>
+          </div>
+          <Button type="button" onClick={props.onClose}>Fechar</Button>
+        </div>
+
+        <div style={styles.materialModalContent}>
+          <div style={styles.detailGrid}>
+            {stockSummaryCards.map((card) => <DetailMetricCard key={card.label} {...card} accentColor={primaryPalette?.bar} />)}
+          </div>
+
+          <div style={styles.detailSection}>
+            <SectionMiniTitle title="Cobertura / visão gerencial" />
+            <div style={styles.detailGrid}>{coverageCards.map((card) => <DetailMetricCard key={card.label} {...card} accentColor={primaryPalette?.bar} />)}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: uiTokens.spacing.md, alignItems: "stretch" }}>
+            <div style={styles.detailSection}>
+              <SectionMiniTitle title="Consumo histórico por ano" />
+              <div style={{ height: 210, display: "grid", gridTemplateColumns: `repeat(${yearConsumptions.length}, minmax(0, 1fr))`, alignItems: "stretch", gap: uiTokens.spacing.sm, paddingTop: uiTokens.spacing.xs, borderBottom: `1px solid ${uiTokens.colors.border}` }}>
+                {yearConsumptions.map((item) => {
+                  const heightPercent = Math.max((item.value / maxConsumption) * 100, item.value > 0 ? 8 : 2);
+                  return (
+                    <div key={item.label} style={{ height: "100%", display: "grid", gridTemplateRows: "24px minmax(0, 1fr) 20px", alignItems: "end", justifyItems: "center", gap: uiTokens.spacing.xs }}>
+                      <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{formatNumber(item.value)}</span>
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "end", justifyContent: "center" }}>
+                        <div title={`${item.label}: ${formatNumber(item.value)}`} style={{ width: "66%", maxWidth: 46, minWidth: 22, height: `${heightPercent}%`, minHeight: item.value > 0 ? 8 : 2, borderRadius: `${uiTokens.radius.sm}px ${uiTokens.radius.sm}px 3px 3px`, background: item.value > 0 ? primaryPalette?.bar ?? uiTokens.colors.accent : uiTokens.colors.borderStrong }} />
+                      </div>
+                      <span style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={styles.detailSection}>
+              <SectionMiniTitle title="Leitura analítica" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: uiTokens.spacing.sm }}>
+                {[{ title: "Estoque e consumo", items: stockObservations }, { title: "Solicitações e sinais", items: managementObservations }].map((group) => (
+                  <div key={group.title} style={{ display: "grid", gap: uiTokens.spacing.xs, alignContent: "start" }}>
+                    <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{group.title}</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: uiTokens.spacing.xs, color: uiTokens.colors.text, fontSize: uiTokens.typography.sm, lineHeight: 1.45 }}>
+                      {group.items.map((observation) => <li key={observation}>{observation}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailMetricCard(props: { label: string; value: string; helper: string; accentColor?: string }) {
+  return (
+    <div style={{ ...styles.detailCard, borderTop: `3px solid ${props.accentColor ?? uiTokens.colors.borderStrong}` }}>
+      <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{props.label}</div>
+      <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight }}>{props.value}</div>
+      <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, lineHeight: 1.35 }}>{props.helper}</div>
+    </div>
+  );
+}
+
+function SectionMiniTitle(props: { title: string }) {
+  return <div style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight }}>{props.title}</div>;
 }
 
 function DashboardFilterPopover(props: {
@@ -787,7 +1016,7 @@ function DashboardFilterPopover(props: {
   );
 }
 
-function SimpleBarChart<TItem extends { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }>(props: { items: TItem[]; emptyMessage: string; onItemClick?: (item: TItem) => void }) {
+function SimpleBarChart<TItem extends { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning"; color?: string }>(props: { items: TItem[]; emptyMessage: string; onItemClick?: (item: TItem) => void }) {
   const visibleItems = props.items.filter((item) => item.count > 0);
   const max = Math.max(...visibleItems.map((item) => item.count), 0);
   if (visibleItems.length === 0) return <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{props.emptyMessage}</div>;
@@ -796,6 +1025,7 @@ function SimpleBarChart<TItem extends { label: string; count: number; tone: "neu
     <div style={styles.chartRows}>
       {visibleItems.map((item) => {
         const tone = uiTokens.stateTones[item.tone];
+        const barColor = item.color ?? tone.bd;
         const content = (
           <>
             <div style={styles.chartLabelRow}>
@@ -803,7 +1033,7 @@ function SimpleBarChart<TItem extends { label: string; count: number; tone: "neu
               <strong>{formatNumber(item.count)}</strong>
             </div>
             <div style={styles.chartTrack} aria-hidden="true">
-              <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
+              <div style={{ width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`, height: "100%", background: barColor, borderRadius: 999 }} />
             </div>
           </>
         );
@@ -924,9 +1154,9 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
   );
 }
 
-function TableRow(props: { columns: string; children: ReactNode; minWidth?: number }) {
+function TableRow(props: { columns: string; children: ReactNode; minWidth?: number; title?: string; onDoubleClick?: () => void }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
+    <div title={props.title} onDoubleClick={props.onDoubleClick} style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}`, ...(props.onDoubleClick ? styles.tableRowInteractive : null) }}>
       {props.children}
     </div>
   );
