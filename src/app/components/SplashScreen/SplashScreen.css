@@ -19,7 +19,7 @@
 
 .capex-splash--exit {
   pointer-events: none;
-  animation: capexSplashExit 400ms ease-in forwards;
+  animation: capexSplashExit 500ms ease-in forwards;
 }
 
 .capex-splash__content {
@@ -44,8 +44,8 @@
 
 .capex-splash__logo {
   display: block;
-  width: clamp(148px, 16vw, 214px);
-  max-height: 42px;
+  width: clamp(184px, 18vw, 260px);
+  max-height: 52px;
   object-fit: contain;
   object-position: left center;
   filter: grayscale(1) contrast(1.08);
@@ -66,7 +66,8 @@
 }
 
 .capex-splash__titleBlock {
-  max-width: 560px;
+  width: min(100%, 680px);
+  max-width: 680px;
   padding-bottom: clamp(18px, 3vw, 34px);
   animation: capexSplashLift 700ms ease-out 120ms both;
 }
@@ -83,10 +84,11 @@
 .capex-splash__titleBlock h1 {
   margin: 0;
   color: #111111;
-  font-size: clamp(38px, 6.2vw, 76px);
+  font-size: clamp(34px, 4.7vw, 64px);
   font-weight: 200;
   letter-spacing: -0.055em;
   line-height: 0.98;
+  white-space: nowrap;
 }
 
 .capex-splash__titleBlock p:not(.capex-splash__eyebrow) {
@@ -111,7 +113,7 @@
   height: 100%;
   background: #111111;
   transform: translateX(-100%);
-  animation: capexSplashProgress 1600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: capexSplashProgress 3000ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .capex-splash__visual {
@@ -251,7 +253,7 @@
   z-index: 3;
   margin: 0;
   color: #4b4f54;
-  font-size: clamp(11px, 1.1vw, 13px);
+  font-size: clamp(13px, 1.15vw, 15px);
   font-weight: 300;
   letter-spacing: 0.04em;
 }
@@ -305,6 +307,12 @@
   .capex-splash__credits {
     left: clamp(28px, 5vw, 56px);
     right: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .capex-splash__titleBlock h1 {
+    font-size: clamp(28px, 8vw, 34px);
   }
 }
 

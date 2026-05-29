@@ -13,8 +13,8 @@ export default function App() {
   const [isSplashExiting, setIsSplashExiting] = useState(false);
 
   useEffect(() => {
-    const splashDurationInMs = 1600;
-    const splashExitDurationInMs = 400;
+    const splashDurationInMs = 3000;
+    const splashExitDurationInMs = 500;
 
     const exitTimer = window.setTimeout(() => {
       setIsSplashExiting(true);
