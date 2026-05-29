@@ -176,11 +176,17 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "minmax(280px, 0.8fr) minmax(620px, 1.5fr)",
     gap: uiTokens.spacing.md,
-    alignItems: "start",
+    alignItems: "stretch",
   } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
     gap: uiTokens.spacing.md,
+  } satisfies React.CSSProperties,
+  stockTableSection: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
   } satisfies React.CSSProperties,
   sectionHeader: {
     display: "flex",
@@ -252,6 +258,10 @@ const styles = {
     border: `1px solid ${uiTokens.colors.border}`,
     borderRadius: uiTokens.radius.md,
   } satisfies React.CSSProperties,
+  tableShellFill: {
+    flex: "1 1 auto",
+    minHeight: 0,
+  } satisfies React.CSSProperties,
   tableScroller: {
     width: "100%",
     maxWidth: "100%",
@@ -259,6 +269,10 @@ const styles = {
     overflowY: "auto",
     maxHeight: 570,
     scrollbarGutter: "stable",
+  } satisfies React.CSSProperties,
+  tableScrollerFill: {
+    height: "100%",
+    maxHeight: 520,
   } satisfies React.CSSProperties,
   badgeStack: {
     display: "inline-flex",
@@ -398,7 +412,7 @@ function applyStockQuickFilter(items: StockDashboardItem[], quickFilter: StockQu
 }
 
 function getQuickFilterEmptyMessage(view: DashboardView, quickFilter: QuickFilter | null, filters: DashboardFilters): string {
-  if (!quickFilter) return view === "stock" ? "Nenhum material em atenção no momento." : "Nenhuma solicitação aberta no momento.";
+  if (!quickFilter) return view === "stock" ? "Nenhum item de estoque encontrado." : "Nenhuma solicitação aberta no momento.";
   if (hasManualFilters(filters)) return "Nenhum item encontrado para os filtros aplicados.";
   return view === "stock"
     ? `Nenhum material encontrado para o filtro ${quickFilter.label}.`
@@ -523,20 +537,27 @@ function getCompactStockAttentionLabels(labels: MaterialDashboardAttentionLabel[
   return { visible: orderedLabels.slice(0, 1), hidden: orderedLabels.slice(1) };
 }
 
+function sortStockItemsForManagement(left: StockDashboardItem, right: StockDashboardItem): number {
+  const severityOrder: Record<MaterialDashboardSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const leftSeverityOrder = left.severity ? severityOrder[left.severity] : 3;
+  const rightSeverityOrder = right.severity ? severityOrder[right.severity] : 3;
+  const severityComparison = leftSeverityOrder - rightSeverityOrder;
+  if (severityComparison !== 0) return severityComparison;
+
+  const attentionComparison = Number(right.attentionLabels.length > 0) - Number(left.attentionLabels.length > 0);
+  if (attentionComparison !== 0) return attentionComparison;
+
+  const valueComparison = right.totalStockValueBRL - left.totalStockValueBRL;
+  if (valueComparison !== 0) return valueComparison;
+
+  const coverageComparison = (right.coverageYears ?? -1) - (left.coverageYears ?? -1);
+  if (coverageComparison !== 0) return coverageComparison;
+
+  return `${left.center}-${left.material}`.localeCompare(`${right.center}-${right.material}`, "pt-BR", { numeric: true });
+}
+
 function getStockDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
-  const stockItems = filterStockItems(getStockDashboardItems(data), filters);
-  const attentionItems = stockItems
-    .filter((item) => item.attentionLabels.length > 0)
-    .sort((left, right) => {
-      const severityOrder: Record<MaterialDashboardSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-      const severityComparison = (left.severity ? severityOrder[left.severity] : 3) - (right.severity ? severityOrder[right.severity] : 3);
-      if (severityComparison !== 0) return severityComparison;
-      const lowStockComparison = Number(right.attentionLabels.includes("Uso frequente com estoque baixo")) - Number(left.attentionLabels.includes("Uso frequente com estoque baixo"));
-      if (lowStockComparison !== 0) return lowStockComparison;
-      const valueComparison = right.totalStockValueBRL - left.totalStockValueBRL;
-      if (valueComparison !== 0) return valueComparison;
-      return (right.coverageYears ?? -1) - (left.coverageYears ?? -1);
-    });
+  const stockItems = filterStockItems(getStockDashboardItems(data), filters).sort(sortStockItemsForManagement);
   const distribution = STOCK_SIGNAL_OPTIONS
     .map((signal) => ({ label: signal, count: stockItems.filter((item) => item.attentionLabels.includes(signal)).length, tone: getStockSignalTone(signal) }))
     .filter((item) => item.count > 0)
@@ -552,7 +573,6 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
 
   return {
     stockItems,
-    attentionItems,
     distribution,
     stockValueByCenter,
     kpis: {
@@ -626,7 +646,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const requestQuickFilter = quickFilter?.view === "requests" ? quickFilter as RequestQuickFilter : null;
   const stockQuickFilter = quickFilter?.view === "stock" ? quickFilter as StockQuickFilter : null;
   const quickFilteredOpenRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.openRequests, requestQuickFilter), [requestDashboard.openRequests, requestQuickFilter]);
-  const quickFilteredAttentionItems = useMemo(() => applyStockQuickFilter(stockDashboard.attentionItems, stockQuickFilter), [stockDashboard.attentionItems, stockQuickFilter]);
+  const quickFilteredStockItems = useMemo(() => applyStockQuickFilter(stockDashboard.stockItems, stockQuickFilter), [stockDashboard.stockItems, stockQuickFilter]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const requestStatusOptions = useMemo(() => {
     const options = new Map<string, string>();
@@ -736,7 +756,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
       {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredOpenRequests} quickFilter={requestQuickFilter} appliedFilters={appliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
-      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredAttentionItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={appliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
 }
@@ -794,7 +814,7 @@ function MaterialStockDashboardView(props: {
           <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
-        <StockAttentionTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("stock", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
+        <StockManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("stock", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
       </div>
     </>
   );
@@ -872,17 +892,17 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
   );
 }
 
-function StockAttentionTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
+function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter: StockQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
   const columns = "80px 120px 280px 90px 150px 110px 100px 120px 80px 340px";
   const minWidth = 1470;
 
   return (
-    <DashboardSection title="Estoque em atenção" count={props.items.length}>
+    <DashboardSection title="Tabela gerencial de estoque" count={props.items.length} style={styles.stockTableSection}>
       <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
         minWidth={minWidth}
-        maxHeight={650}
+        fillHeight
         headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
         emptyMessage={props.emptyMessage}
       >
@@ -902,11 +922,13 @@ function StockAttentionTable(props: { items: StockDashboardItem[]; quickFilter: 
               <Cell>{formatCoverage(item.coverageYears)}</Cell>
               <Cell>{formatNumber(item.openRequestsCount)}</Cell>
               <Cell>
-                <div style={styles.badgeStack}>
-                  <Badge text={getStockSeverityLabel(item.severity)} tone={getStockSeverityTone(item.severity)} style={styles.compactBadge} />
-                  {compactLabels.visible.map((label) => <Badge key={label} text={label} tone="neutral" style={styles.compactSignalBadge} />)}
-                  {compactLabels.hidden.length > 0 ? <Badge text={`+${compactLabels.hidden.length}`} tone="neutral" title={hiddenLabelsTitle} style={styles.compactSignalBadge} /> : null}
-                </div>
+                {item.attentionLabels.length === 0 ? "-" : (
+                  <div style={styles.badgeStack}>
+                    <Badge text={getStockSeverityLabel(item.severity)} tone={getStockSeverityTone(item.severity)} style={styles.compactBadge} />
+                    {compactLabels.visible.map((label) => <Badge key={label} text={label} tone="neutral" style={styles.compactSignalBadge} />)}
+                    {compactLabels.hidden.length > 0 ? <Badge text={`+${compactLabels.hidden.length}`} tone="neutral" title={hiddenLabelsTitle} style={styles.compactSignalBadge} /> : null}
+                  </div>
+                )}
               </Cell>
             </TableRow>
           );
@@ -1288,9 +1310,9 @@ function getFallbackRecommendationLabel(recommendation: StockRecommendation): st
   return labels[recommendation] ?? recommendation;
 }
 
-function DashboardSection(props: { title: string; count: number; children: ReactNode }) {
+function DashboardSection(props: { title: string; count: number; children: ReactNode; style?: React.CSSProperties }) {
   return (
-    <Card style={{ minWidth: 0 }}>
+    <Card style={{ minWidth: 0, ...props.style }}>
       <div style={styles.sectionHeader}>
         <h2 style={styles.sectionTitle}>{props.title}</h2>
         <Badge text={`${formatNumber(props.count)} itens`} tone="neutral" />
@@ -1300,12 +1322,12 @@ function DashboardSection(props: { title: string; count: number; children: React
   );
 }
 
-function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode; minWidth?: number; maxHeight?: number }) {
+function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode; minWidth?: number; maxHeight?: number; fillHeight?: boolean }) {
   const hasRows = Array.isArray(props.children) ? props.children.length > 0 : Boolean(props.children);
 
   return (
-    <div style={styles.tableShell}>
-      <div style={{ ...styles.tableScroller, maxHeight: props.maxHeight ?? styles.tableScroller.maxHeight }}>
+    <div style={{ ...styles.tableShell, ...(props.fillHeight ? styles.tableShellFill : null) }}>
+      <div style={{ ...styles.tableScroller, ...(props.fillHeight ? styles.tableScrollerFill : null), maxHeight: props.fillHeight ? styles.tableScrollerFill.maxHeight : props.maxHeight ?? styles.tableScroller.maxHeight }}>
         <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
           {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
         </div>
