@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
-import type { DashboardOpenRequest, MaterialDashboardResult } from "../../../domain/materialDashboard";
+import type { DashboardOpenRequest, DashboardStockRankingItem, MaterialDashboardAttentionLabel, MaterialDashboardResult, MaterialDashboardSeverity } from "../../../domain/materialDashboard";
 import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
 import type { StockRecommendation } from "../../../domain/materialRequest/stockTypes";
 import { Badge } from "../../components/ui/Badge";
@@ -12,7 +12,7 @@ import { uiTokens } from "../../components/ui/tokens";
 import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 
 const DASHBOARD_FILTER_BUTTON_ID = "material-dashboard-filter-button";
-const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", requestStatus: "", recommendation: "", signal: "" };
+const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { center: "", requestStatus: "", recommendation: "", signal: "", severity: "" };
 const EMPTY_COMMAND_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const OPEN_REQUEST_STATUSES = new Set<MaterialRequestStatus>([
   "PENDING_LAMINATION_MANAGER_APPROVAL",
@@ -28,12 +28,27 @@ const STATUS_CHART_ORDER: MaterialRequestStatus[] = [
   "DRAFT",
 ];
 const REQUEST_SIGNAL_OPTIONS = ["Estoque disponível", "Estoque parcial", "Sem estoque", "Análise manual", "Pendente Gerente", "Pendente CTO", "Devolvida"];
+const STOCK_SIGNAL_OPTIONS: MaterialDashboardAttentionLabel[] = [
+  "Estoque zerado com consumo",
+  "Estoque baixo",
+  "Cobertura elevada",
+  "Valor alto parado",
+  "Sem consumo histórico",
+  "Solicitação aberta com estoque disponível",
+];
+const STOCK_SEVERITY_OPTIONS: { value: MaterialDashboardSeverity; label: string }[] = [
+  { value: "HIGH", label: "Alta" },
+  { value: "MEDIUM", label: "Média" },
+  { value: "LOW", label: "Baixa" },
+];
 
 type DashboardView = "requests" | "stock";
 type RequestSignal = typeof REQUEST_SIGNAL_OPTIONS[number];
 type ImpactKey = "sufficient" | "partial" | "none" | "manual";
+type StockDashboardItem = DashboardStockRankingItem & { attentionLabels: MaterialDashboardAttentionLabel[]; severity: MaterialDashboardSeverity | null; openRequestsCount: number };
 
 const numberFormatter = new Intl.NumberFormat("pt-BR");
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const statusTone: Partial<Record<MaterialRequestStatus, "neutral" | "info" | "success" | "danger" | "warning">> = {
   DRAFT: "neutral",
@@ -131,6 +146,12 @@ const styles = {
     gap: uiTokens.spacing.md,
     alignItems: "start",
   } satisfies React.CSSProperties,
+  stockLayout: {
+    display: "grid",
+    gridTemplateColumns: "minmax(280px, 0.8fr) minmax(620px, 1.5fr)",
+    gap: uiTokens.spacing.md,
+    alignItems: "start",
+  } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
     gap: uiTokens.spacing.md,
@@ -175,11 +196,27 @@ const styles = {
     overflowX: "auto",
     maxHeight: 570,
   } satisfies React.CSSProperties,
+  badgeStack: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: uiTokens.spacing.xs,
+  } satisfies React.CSSProperties,
 };
 
 function formatNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "-";
   return numberFormatter.format(value);
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return currencyFormatter.format(value);
+}
+
+function formatCoverage(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  const rounded = Math.round(value * 10) / 10;
+  return `${numberFormatter.format(rounded)} ${rounded === 1 ? "ano" : "anos"}`;
 }
 
 function isOpenRequest(request: DashboardOpenRequest): boolean {
@@ -224,14 +261,16 @@ interface DashboardFilters {
   requestStatus: string;
   recommendation: string;
   signal: string;
+  severity: string;
 }
 
 function filterRequests(requests: DashboardOpenRequest[], filters: DashboardFilters): DashboardOpenRequest[] {
+  const requestSignal = REQUEST_SIGNAL_OPTIONS.includes(filters.signal as RequestSignal) ? filters.signal as RequestSignal : "";
   return requests.filter((request) => {
     if (filters.center && request.center !== filters.center) return false;
     if (filters.requestStatus && request.requestStatus !== filters.requestStatus) return false;
     if (filters.recommendation && request.stockRecommendation !== filters.recommendation) return false;
-    if (filters.signal && !getRequestSignals(request).includes(filters.signal as RequestSignal)) return false;
+    if (requestSignal && !getRequestSignals(request).includes(requestSignal)) return false;
     return true;
   });
 }
@@ -264,6 +303,102 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
       returnedForAdjustmentCount: openRequests.filter((request) => request.requestStatus === "RETURNED_FOR_ADJUSTMENT").length,
       availableStockRequestsCount: openRequests.filter((request) => getRequestSignal(request) === "Estoque disponível").length,
       totalRequestedQuantity: openRequests.reduce((total, request) => total + request.requestedQuantity, 0),
+    },
+  };
+}
+
+
+function buildMaterialKey(center: string, material: string): string {
+  return `${center.trim().toLocaleUpperCase("pt-BR")}::${material.trim().toLocaleUpperCase("pt-BR")}`;
+}
+
+function getStockDashboardItems(data: MaterialDashboardResult | null): StockDashboardItem[] {
+  if (!data) return [];
+
+  const attentionByMaterial = new Map(data.attentionMaterials.map((item) => [buildMaterialKey(item.center, item.material), item]));
+  const openRequestsCountByMaterial = new Map<string, number>();
+
+  for (const request of data.openRequests) {
+    const key = buildMaterialKey(request.center, request.material);
+    openRequestsCountByMaterial.set(key, (openRequestsCountByMaterial.get(key) ?? 0) + 1);
+  }
+
+  return data.stockItems.map((item) => {
+    const key = buildMaterialKey(item.center, item.material);
+    const attention = attentionByMaterial.get(key);
+    return {
+      ...item,
+      attentionLabels: attention?.attentionLabels ?? [],
+      severity: attention?.severity ?? null,
+      openRequestsCount: openRequestsCountByMaterial.get(key) ?? 0,
+    };
+  });
+}
+
+function filterStockItems(items: StockDashboardItem[], filters: DashboardFilters): StockDashboardItem[] {
+  const stockSignal = STOCK_SIGNAL_OPTIONS.includes(filters.signal as MaterialDashboardAttentionLabel) ? filters.signal as MaterialDashboardAttentionLabel : "";
+  return items.filter((item) => {
+    if (filters.center && item.center !== filters.center) return false;
+    if (stockSignal && !item.attentionLabels.includes(stockSignal)) return false;
+    if (filters.severity && item.severity !== filters.severity) return false;
+    return true;
+  });
+}
+
+function getStockSeverityLabel(severity: MaterialDashboardSeverity | null): string {
+  if (!severity) return "-";
+  return STOCK_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ?? severity;
+}
+
+function getStockSeverityTone(severity: MaterialDashboardSeverity | null): "neutral" | "info" | "success" | "danger" | "warning" {
+  if (severity === "HIGH") return "danger";
+  if (severity === "MEDIUM") return "warning";
+  if (severity === "LOW") return "info";
+  return "neutral";
+}
+
+function getStockSignalTone(signal: MaterialDashboardAttentionLabel): "neutral" | "info" | "success" | "danger" | "warning" {
+  if (signal === "Estoque zerado com consumo" || signal === "Valor alto parado") return "danger";
+  if (signal === "Estoque baixo" || signal === "Cobertura elevada") return "warning";
+  if (signal === "Solicitação aberta com estoque disponível") return "info";
+  return "neutral";
+}
+
+function getStockDashboardModel(data: MaterialDashboardResult | null, filters: DashboardFilters) {
+  const stockItems = filterStockItems(getStockDashboardItems(data), filters);
+  const attentionItems = stockItems
+    .filter((item) => item.attentionLabels.length > 0)
+    .sort((left, right) => {
+      const severityOrder: Record<MaterialDashboardSeverity, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const severityComparison = (left.severity ? severityOrder[left.severity] : 3) - (right.severity ? severityOrder[right.severity] : 3);
+      if (severityComparison !== 0) return severityComparison;
+      return right.totalStockValueBRL - left.totalStockValueBRL;
+    });
+  const distribution = STOCK_SIGNAL_OPTIONS
+    .map((signal) => ({ label: signal, count: stockItems.filter((item) => item.attentionLabels.includes(signal)).length, tone: getStockSignalTone(signal) }))
+    .filter((item) => item.count > 0)
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "pt-BR"));
+  const stockValueByCenter = Array.from(stockItems.reduce((map, item) => {
+    map.set(item.center, (map.get(item.center) ?? 0) + item.totalStockValueBRL);
+    return map;
+  }, new Map<string, number>()).entries())
+    .map(([center, value]) => ({ center, value }))
+    .filter((item) => item.value > 0)
+    .sort((left, right) => right.value - left.value)
+    .slice(0, 5);
+
+  return {
+    stockItems,
+    attentionItems,
+    distribution,
+    stockValueByCenter,
+    kpis: {
+      materialsCount: stockItems.length,
+      zeroStockCount: stockItems.filter((item) => item.evaluatedStockTotal === 0).length,
+      totalStockValueBRL: stockItems.reduce((total, item) => total + item.totalStockValueBRL, 0),
+      highCoverageCount: stockItems.filter((item) => item.coverageYears !== null && item.coverageYears > 5).length,
+      highIdleValueCount: stockItems.filter((item) => item.attentionLabels.includes("Valor alto parado")).length,
+      noHistoricalConsumptionCount: stockItems.filter((item) => item.historicalTotal === 0 || item.averageAnnualConsumption === 0).length,
     },
   };
 }
@@ -323,6 +458,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   }, []);
 
   const requestDashboard = useMemo(() => getRequestDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
+  const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const requestStatusOptions = useMemo(() => {
     const options = new Map<string, string>();
@@ -364,7 +500,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         title="Dashboard Cilindros e Discos"
         isAdmin={false}
         selectedId={null}
-        totalLoaded={requestDashboard.openRequests.length}
+        totalLoaded={dashboardView === "stock" ? stockDashboard.stockItems.length : requestDashboard.openRequests.length}
         canEdit={false}
         canDelete={false}
         canSend={false}
@@ -414,9 +550,11 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {filterModalOpen && <DashboardFilterPopover
         value={draftFilters}
         centers={centerOptions}
+        view={dashboardView}
         requestStatuses={requestStatusOptions}
         recommendations={recommendationOptions}
-        signals={REQUEST_SIGNAL_OPTIONS}
+        signals={dashboardView === "stock" ? STOCK_SIGNAL_OPTIONS : REQUEST_SIGNAL_OPTIONS}
+        severities={STOCK_SEVERITY_OPTIONS}
         anchorId={DASHBOARD_FILTER_BUTTON_ID}
         onChange={(patch) => setDraftFilters((current) => ({ ...current, ...patch }))}
         onApply={applyFilters}
@@ -429,7 +567,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
       {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} /> : null}
-      {dashboard && hasDashboardData && dashboardView === "stock" ? <StockPlaceholder /> : null}
+      {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} /> : null}
     </div>
   );
 }
@@ -458,20 +596,122 @@ function MaterialRequestsDashboardView(props: { model: ReturnType<typeof getRequ
   );
 }
 
-function StockPlaceholder() {
+
+
+function MaterialStockDashboardView(props: { model: ReturnType<typeof getStockDashboardModel>; hasAnyStock: boolean }) {
+  if (!props.hasAnyStock) return <CenteredState state="empty" message="Nenhum item de estoque carregado." />;
+
   return (
-    <Card style={{ textAlign: "center", color: uiTokens.colors.textMuted }}>
-      Visão de estoque será implementada na próxima etapa.
-    </Card>
+    <>
+      <StockKpiGrid kpis={props.model.kpis} />
+      <div style={styles.stockLayout}>
+        <div style={styles.analyticsColumn}>
+          <StockAttentionDistributionChart items={props.model.distribution} />
+          <StockValueByCenterChart items={props.model.stockValueByCenter} />
+        </div>
+        <StockAttentionTable items={props.model.attentionItems} />
+      </div>
+    </>
+  );
+}
+
+function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["kpis"] }) {
+  const cards = [
+    { label: "Materiais cadastrados", value: formatNumber(props.kpis.materialsCount), helper: "Itens de estoque" },
+    { label: "Estoque zerado", value: formatNumber(props.kpis.zeroStockCount), helper: "Saldo avaliado zero" },
+    { label: "Valor em estoque", value: formatCurrency(props.kpis.totalStockValueBRL), helper: "Valor total avaliado" },
+    { label: "Cobertura elevada", value: formatNumber(props.kpis.highCoverageCount), helper: "Acima de 5 anos" },
+    { label: "Valor alto parado", value: formatNumber(props.kpis.highIdleValueCount), helper: "Risco financeiro" },
+    { label: "Sem consumo histórico", value: formatNumber(props.kpis.noHistoricalConsumptionCount), helper: "Histórico ou média zero" },
+  ];
+
+  return (
+    <div style={styles.kpiGrid}>
+      {cards.map((card) => (
+        <Card key={card.label} style={styles.kpiCard}>
+          <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs, fontWeight: uiTokens.typography.labelWeight }}>{card.label}</div>
+          <div style={styles.kpiValue}>{card.value}</div>
+          <div style={{ marginTop: uiTokens.spacing.xs, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>{card.helper}</div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function StockAttentionDistributionChart(props: { items: { label: string; count: number; tone: "neutral" | "info" | "success" | "danger" | "warning" }[] }) {
+  const total = props.items.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <DashboardSection title="Distribuição das sinalizações" count={total}>
+      <SimpleBarChart emptyMessage="Sem dados para exibir." items={props.items} />
+    </DashboardSection>
+  );
+}
+
+function StockValueByCenterChart(props: { items: { center: string; value: number }[] }) {
+  const max = Math.max(...props.items.map((item) => item.value), 0);
+  return (
+    <DashboardSection title="Valor em estoque por centro" count={props.items.length}>
+      {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
+        <div style={styles.chartRows}>
+          {props.items.map((item) => (
+            <div key={item.center}>
+              <div style={styles.chartLabelRow}>
+                <span>Centro {item.center}</span>
+                <strong>{formatCurrency(item.value)}</strong>
+              </div>
+              <div style={styles.chartTrack} aria-hidden="true">
+                <div style={{ width: `${max > 0 ? Math.max((item.value / max) * 100, 4) : 0}%`, height: "100%", background: uiTokens.colors.accent, borderRadius: 999 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </DashboardSection>
+  );
+}
+
+function StockAttentionTable(props: { items: StockDashboardItem[] }) {
+  const columns = "58px 76px minmax(132px,1.3fr) 72px 104px 82px 86px 78px minmax(160px,1.4fr)";
+  return (
+    <DashboardSection title="Estoque em atenção" count={props.items.length}>
+      <DashboardTable
+        columns={columns}
+        minWidth={900}
+        maxHeight={650}
+        headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Cobertura", "Solic. abertas", "Sinalização"]}
+        emptyMessage="Nenhum material em atenção no momento."
+      >
+        {props.items.map((item) => (
+          <TableRow key={`${item.center}-${item.material}`} columns={columns} minWidth={900}>
+            <Cell title={item.center}>{item.center}</Cell>
+            <Cell title={item.material}>{item.material}</Cell>
+            <Cell title={item.description}>{item.description}</Cell>
+            <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
+            <Cell>{formatCurrency(item.totalStockValueBRL)}</Cell>
+            <Cell>{formatNumber(item.averageAnnualConsumption)}</Cell>
+            <Cell>{formatCoverage(item.coverageYears)}</Cell>
+            <Cell>{formatNumber(item.openRequestsCount)}</Cell>
+            <Cell noWrap={false}>
+              <div style={styles.badgeStack}>
+                <Badge text={getStockSeverityLabel(item.severity)} tone={getStockSeverityTone(item.severity)} />
+                {item.attentionLabels.map((label) => <Badge key={label} text={label} tone={getStockSignalTone(label)} />)}
+              </div>
+            </Cell>
+          </TableRow>
+        ))}
+      </DashboardTable>
+    </DashboardSection>
   );
 }
 
 function DashboardFilterPopover(props: {
   value: DashboardFilters;
+  view: DashboardView;
   centers: string[];
   requestStatuses: { value: string; label: string }[];
   recommendations: string[];
   signals: readonly string[];
+  severities: readonly { value: MaterialDashboardSeverity; label: string }[];
   anchorId: string;
   onChange: (patch: Partial<DashboardFilters>) => void;
   onApply: () => void;
@@ -538,21 +778,33 @@ function DashboardFilterPopover(props: {
             </select>
           </label>
 
-          <label style={styles.label}>
-            Status solicitação
-            <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
-              <option value="">Todos</option>
-              {props.requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-            </select>
-          </label>
+          {props.view === "requests" ? (
+            <>
+              <label style={styles.label}>
+                Status solicitação
+                <select value={props.value.requestStatus} onChange={(event) => props.onChange({ requestStatus: event.target.value })} style={fieldControlStyles.select}>
+                  <option value="">Todos</option>
+                  {props.requestStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                </select>
+              </label>
 
-          <label style={styles.label}>
-            Parecer
-            <select value={props.value.recommendation} onChange={(event) => props.onChange({ recommendation: event.target.value })} style={fieldControlStyles.select}>
-              <option value="">Todos</option>
-              {props.recommendations.map((recommendation) => <option key={recommendation} value={recommendation}>{getFallbackRecommendationLabel(recommendation as StockRecommendation)}</option>)}
-            </select>
-          </label>
+              <label style={styles.label}>
+                Parecer
+                <select value={props.value.recommendation} onChange={(event) => props.onChange({ recommendation: event.target.value })} style={fieldControlStyles.select}>
+                  <option value="">Todos</option>
+                  {props.recommendations.map((recommendation) => <option key={recommendation} value={recommendation}>{getFallbackRecommendationLabel(recommendation as StockRecommendation)}</option>)}
+                </select>
+              </label>
+            </>
+          ) : (
+            <label style={styles.label}>
+              Severidade
+              <select value={props.value.severity} onChange={(event) => props.onChange({ severity: event.target.value })} style={fieldControlStyles.select}>
+                <option value="">Todas</option>
+                {props.severities.map((severity) => <option key={severity.value} value={severity.value}>{severity.label}</option>)}
+              </select>
+            </label>
+          )}
 
           <label style={styles.label}>
             Sinalização
@@ -712,13 +964,13 @@ function DashboardSection(props: { title: string; count: number; children: React
   );
 }
 
-function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode }) {
+function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode; minWidth?: number; maxHeight?: number }) {
   const hasRows = Array.isArray(props.children) ? props.children.length > 0 : Boolean(props.children);
 
   return (
     <div style={styles.tableShell}>
-      <div style={styles.tableScroller}>
-        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 1040, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
+      <div style={{ ...styles.tableScroller, maxHeight: props.maxHeight ?? styles.tableScroller.maxHeight }}>
+        <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
           {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
         </div>
         {hasRows ? props.children : <div style={{ padding: "20px 12px", textAlign: "center", color: uiTokens.colors.textMuted }}>{props.emptyMessage}</div>}
@@ -727,9 +979,9 @@ function DashboardTable(props: { columns: string; headers: string[]; emptyMessag
   );
 }
 
-function TableRow(props: { columns: string; children: ReactNode }) {
+function TableRow(props: { columns: string; children: ReactNode; minWidth?: number }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: 1040, background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, background: uiTokens.colors.surface, borderBottom: `1px solid ${uiTokens.colors.borderMuted}` }}>
       {props.children}
     </div>
   );
