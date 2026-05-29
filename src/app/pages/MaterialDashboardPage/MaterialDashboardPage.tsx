@@ -444,7 +444,7 @@ function getQuickFilterEmptyMessage(view: DashboardView, quickFilter: QuickFilte
   if (view === "requests") {
     if (quickFilter) return "Nenhuma solicitação encontrada para o filtro aplicado.";
     if (hasManualFilters(filters)) return "Nenhuma solicitação encontrada para os filtros aplicados.";
-    return "Nenhuma solicitação aberta no momento.";
+    return "Nenhuma solicitação encontrada.";
   }
 
   if (!quickFilter) return "Nenhum item de estoque encontrado.";
@@ -692,7 +692,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, stockAppliedFilters), [dashboard, stockAppliedFilters]);
   const requestQuickFilter = quickFilter?.view === "requests" ? quickFilter as RequestQuickFilter : null;
   const stockQuickFilter = quickFilter?.view === "stock" ? quickFilter as StockQuickFilter : null;
-  const quickFilteredOpenRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.openRequests, requestQuickFilter), [requestDashboard.openRequests, requestQuickFilter]);
+  const quickFilteredRequests = useMemo(() => applyRequestQuickFilter(requestDashboard.requests, requestQuickFilter), [requestDashboard.requests, requestQuickFilter]);
   const quickFilteredStockItems = useMemo(() => applyStockQuickFilter(stockDashboard.stockItems, stockQuickFilter), [stockDashboard.stockItems, stockQuickFilter]);
   const centerOptions = dashboard?.centerOptions ?? [];
   const requestStatusOptions = useMemo(() => {
@@ -736,7 +736,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
         title="Dashboard Cilindros e Discos"
         isAdmin={false}
         selectedId={null}
-        totalLoaded={dashboardView === "stock" ? stockDashboard.stockItems.length : requestDashboard.openRequests.length}
+        totalLoaded={dashboardView === "stock" ? stockDashboard.stockItems.length : requestDashboard.requests.length}
         canEdit={false}
         canDelete={false}
         canSend={false}
@@ -805,7 +805,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
       {state === "error" && !dashboard ? <CenteredState state="error" message="Não foi possível carregar o dashboard." /> : null}
       {state !== "error" && dashboard && !hasDashboardData ? <CenteredState state="empty" message="Nenhum dado disponível para o dashboard." /> : null}
 
-      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredOpenRequests} quickFilter={requestQuickFilter} appliedFilters={requestAppliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
+      {dashboard && hasDashboardData && dashboardView === "requests" ? <MaterialRequestsDashboardView model={requestDashboard} tableItems={quickFilteredRequests} quickFilter={requestQuickFilter} appliedFilters={requestAppliedFilters} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
       {dashboard && hasDashboardData && dashboardView === "stock" ? <MaterialStockDashboardView model={stockDashboard} tableItems={quickFilteredStockItems} quickFilter={stockQuickFilter} appliedFilters={stockAppliedFilters} hasAnyStock={(dashboard.stockItems.length ?? 0) > 0} onApplyQuickFilter={setQuickFilter} onClearQuickFilter={() => setQuickFilter(null)} /> : null}
     </div>
   );
@@ -836,7 +836,7 @@ function MaterialRequestsDashboardView(props: {
           <RequestsStatusChart items={props.model.statusCounts} onApplyQuickFilter={props.onApplyQuickFilter} />
           <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
         </div>
-        <OpenRequestsTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
+        <RequestsManagementTable items={props.tableItems} quickFilter={props.quickFilter} emptyMessage={getQuickFilterEmptyMessage("requests", props.quickFilter, props.appliedFilters)} onClearQuickFilter={props.onClearQuickFilter} />
       </div>
     </>
   );
@@ -1292,12 +1292,12 @@ function SimpleBarChart<TItem extends { label: string; count: number; tone: "neu
   );
 }
 
-function OpenRequestsTable(props: { items: DashboardOpenRequest[]; quickFilter: RequestQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
+function RequestsManagementTable(props: { items: DashboardOpenRequest[]; quickFilter: RequestQuickFilter | null; emptyMessage: string; onClearQuickFilter: () => void }) {
   const columns = "56px 84px 120px 72px 110px 110px 130px 130px 150px 220px";
   const minWidth = 1182;
 
   return (
-    <DashboardSection title="Solicitações abertas" count={props.items.length} style={styles.requestTableSection}>
+    <DashboardSection title="Tabela gerencial de solicitações" count={props.items.length} style={styles.requestTableSection}>
       <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
