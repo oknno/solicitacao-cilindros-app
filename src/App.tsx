@@ -16,8 +16,8 @@ export default function App() {
   }, []);
 
   return (
-    <>
-      <ToastProvider>
+    <ToastProvider>
+      <div className={`capex-appContent${showSplash ? " capex-appContent--hiddenDuringSplash" : ""}`}>
         <div className="capex-app">
           <main className="capex-container" style={{ minHeight: 0 }}>
             <div style={{ minHeight: 0, overflow: "hidden" }}>
@@ -29,9 +29,9 @@ export default function App() {
             </div>
           </main>
         </div>
-      </ToastProvider>
+      </div>
 
       {showSplash ? <SplashScreen onFinish={handleSplashFinish} /> : null}
-    </>
+    </ToastProvider>
   );
 }
