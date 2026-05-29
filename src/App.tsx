@@ -10,6 +10,11 @@ type CurrentView = "requests" | "dashboard";
 export default function App() {
   const [currentView, setCurrentView] = useState<CurrentView>("requests");
   const [showSplash, setShowSplash] = useState(true);
+  const [isAppVisible, setIsAppVisible] = useState(false);
+
+  const handleSplashExitStart = useCallback(() => {
+    setIsAppVisible(true);
+  }, []);
 
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false);
@@ -17,7 +22,7 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className={`capex-appContent${showSplash ? " capex-appContent--hiddenDuringSplash" : ""}`}>
+      <div className={`capex-appContent${isAppVisible ? "" : " capex-appContent--hiddenDuringSplash"}`}>
         <div className="capex-app">
           <main className="capex-container" style={{ minHeight: 0 }}>
             <div style={{ minHeight: 0, overflow: "hidden" }}>
@@ -31,7 +36,7 @@ export default function App() {
         </div>
       </div>
 
-      {showSplash ? <SplashScreen onFinish={handleSplashFinish} /> : null}
+      {showSplash ? <SplashScreen onExitStart={handleSplashExitStart} onFinish={handleSplashFinish} /> : null}
     </ToastProvider>
   );
 }
