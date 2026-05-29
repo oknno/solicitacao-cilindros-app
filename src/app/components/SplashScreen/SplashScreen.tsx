@@ -4,13 +4,14 @@ import splashBuilding from "../../../assets/splash/splash-building.webp";
 import "./SplashScreen.css";
 
 type SplashScreenProps = {
+  onExitStart: () => void;
   onFinish: () => void;
 };
 
 const splashDurationInMs = 3000;
-const splashExitDurationInMs = 500;
+const splashExitDurationInMs = 560;
 
-export function SplashScreen({ onFinish }: SplashScreenProps) {
+export function SplashScreen({ onExitStart, onFinish }: SplashScreenProps) {
   const [isExiting, setIsExiting] = useState(false);
   const [hasLogoError, setHasLogoError] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
@@ -18,6 +19,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
     const exitTimer = window.setTimeout(() => {
       setIsExiting(true);
+      onExitStart();
     }, splashDurationInMs);
 
     const finishTimer = window.setTimeout(() => {
@@ -28,7 +30,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       window.clearTimeout(exitTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [onFinish]);
+  }, [onExitStart, onFinish]);
 
   return (
     <section

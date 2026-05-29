@@ -19,7 +19,7 @@
 
 .capex-splash--exit {
   pointer-events: none;
-  animation: capexSplashExit 500ms ease-in forwards;
+  animation: capexSplashExit 560ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .capex-splash__content {
