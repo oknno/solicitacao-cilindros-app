@@ -27,6 +27,15 @@ export interface DashboardOpenRequest {
   description: string;
   requestedQuantity: number;
   evaluatedStockTotal: number | null;
+  averagePrice: number;
+  averageAnnualConsumption: number;
+  projectedStockTotal: number;
+  estimatedRequestedValueBRL: number;
+  requestedStockRatio: number | null;
+  currentCoverageYears: number | null;
+  coverageAfterRequestYears: number | null;
+  coverageIncreaseYears: number | null;
+  materialFound: boolean;
   stockRecommendation: StockRecommendation;
   stockRecommendationLabel: string;
   requestStatus: MaterialRequestStatus;

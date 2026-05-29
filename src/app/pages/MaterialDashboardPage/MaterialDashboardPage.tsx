@@ -27,7 +27,9 @@ const STATUS_CHART_ORDER: MaterialRequestStatus[] = [
   "REJECTED",
   "DRAFT",
 ];
-const REQUEST_SIGNAL_OPTIONS = ["Estoque disponível", "Estoque parcial", "Sem estoque", "Análise manual", "Pendente Gerente", "Pendente CTO", "Devolvida"];
+const HIGH_REQUEST_VALUE_BRL = 100_000;
+const HIGH_COVERAGE_YEARS = 5;
+const REQUEST_SIGNAL_OPTIONS = ["Estoque suficiente", "Estoque parcial", "Sem estoque", "Análise manual", "Aumenta cobertura", "Impacto financeiro alto", "Pendente Gerente", "Pendente CTO", "Devolvida"];
 const STOCK_SIGNAL_OPTIONS: MaterialDashboardAttentionLabel[] = [
   "Estoque zerado com consumo",
   "Estoque baixo",
@@ -60,10 +62,12 @@ const statusTone: Partial<Record<MaterialRequestStatus, "neutral" | "info" | "su
 };
 
 const signalTone: Record<RequestSignal, "neutral" | "info" | "success" | "danger" | "warning"> = {
-  "Estoque disponível": "success",
+  "Estoque suficiente": "success",
   "Estoque parcial": "warning",
   "Sem estoque": "danger",
   "Análise manual": "info",
+  "Aumenta cobertura": "warning",
+  "Impacto financeiro alto": "danger",
   "Pendente Gerente": "warning",
   "Pendente CTO": "info",
   Devolvida: "warning",
@@ -219,13 +223,18 @@ function formatCoverage(value: number | null | undefined): string {
   return `${numberFormatter.format(rounded)} ${rounded === 1 ? "ano" : "anos"}`;
 }
 
+function formatRequestCoverage(request: DashboardOpenRequest): string {
+  if (request.averageAnnualConsumption === 0) return "Sem consumo médio";
+  return formatCoverage(request.coverageAfterRequestYears);
+}
+
 function isOpenRequest(request: DashboardOpenRequest): boolean {
   return OPEN_REQUEST_STATUSES.has(request.requestStatus);
 }
 
 function getRequestSignal(request: DashboardOpenRequest): RequestSignal {
-  if (request.stockRecommendation === "MANUAL_REVIEW_REQUIRED" || request.evaluatedStockTotal == null) return "Análise manual";
-  if (request.evaluatedStockTotal >= request.requestedQuantity) return "Estoque disponível";
+  if (request.stockRecommendation === "MANUAL_REVIEW_REQUIRED" || !request.materialFound || request.evaluatedStockTotal == null) return "Análise manual";
+  if (request.evaluatedStockTotal >= request.requestedQuantity) return "Estoque suficiente";
   if (request.evaluatedStockTotal > 0) return "Estoque parcial";
   return "Sem estoque";
 }
@@ -239,6 +248,12 @@ function getWorkflowSignal(request: DashboardOpenRequest): RequestSignal | null 
 
 function getRequestSignals(request: DashboardOpenRequest): RequestSignal[] {
   const signals = [getRequestSignal(request)];
+  if (request.coverageAfterRequestYears !== null && request.currentCoverageYears !== null && request.coverageAfterRequestYears > request.currentCoverageYears && request.coverageAfterRequestYears > HIGH_COVERAGE_YEARS) {
+    signals.push("Aumenta cobertura");
+  }
+  if (request.estimatedRequestedValueBRL >= HIGH_REQUEST_VALUE_BRL) {
+    signals.push("Impacto financeiro alto");
+  }
   const workflowSignal = getWorkflowSignal(request);
   if (workflowSignal) signals.push(workflowSignal);
   return signals;
@@ -246,7 +261,7 @@ function getRequestSignals(request: DashboardOpenRequest): RequestSignal[] {
 
 function getImpactKey(request: DashboardOpenRequest): ImpactKey {
   const signal = getRequestSignal(request);
-  if (signal === "Estoque disponível") return "sufficient";
+  if (signal === "Estoque suficiente") return "sufficient";
   if (signal === "Estoque parcial") return "partial";
   if (signal === "Sem estoque") return "none";
   return "manual";
@@ -290,19 +305,30 @@ function getRequestDashboardModel(data: MaterialDashboardResult | null, filters:
     { key: "none" as const, label: "Sem estoque", count: openRequests.filter((request) => getImpactKey(request) === "none").length },
     { key: "manual" as const, label: "Análise manual", count: openRequests.filter((request) => getImpactKey(request) === "manual").length },
   ];
+  const estimatedValueByStatus = STATUS_CHART_ORDER
+    .map((status) => ({
+      status,
+      label: allRequests.find((request) => request.requestStatus === status)?.requestStatusLabel ?? getFallbackStatusLabel(status),
+      value: requests
+        .filter((request) => request.requestStatus === status)
+        .reduce((total, request) => total + request.estimatedRequestedValueBRL, 0),
+    }))
+    .filter((item) => item.value > 0);
 
   return {
     requests,
     openRequests,
     statusCounts,
     impactCounts,
+    estimatedValueByStatus,
     kpis: {
       openRequestsCount: openRequests.length,
       pendingLaminationManagerCount: openRequests.filter((request) => request.requestStatus === "PENDING_LAMINATION_MANAGER_APPROVAL").length,
       pendingCtoCount: openRequests.filter((request) => request.requestStatus === "PENDING_CTO_APPROVAL").length,
       returnedForAdjustmentCount: openRequests.filter((request) => request.requestStatus === "RETURNED_FOR_ADJUSTMENT").length,
-      availableStockRequestsCount: openRequests.filter((request) => getRequestSignal(request) === "Estoque disponível").length,
-      totalRequestedQuantity: openRequests.reduce((total, request) => total + request.requestedQuantity, 0),
+      sufficientStockRequestsCount: openRequests.filter((request) => getRequestSignal(request) === "Estoque suficiente").length,
+      estimatedRequestedValueBRL: openRequests.reduce((total, request) => total + request.estimatedRequestedValueBRL, 0),
+      projectedStockTotal: openRequests.reduce((total, request) => total + request.projectedStockTotal, 0),
     },
   };
 }
@@ -589,6 +615,7 @@ function MaterialRequestsDashboardView(props: { model: ReturnType<typeof getRequ
         <div style={styles.analyticsColumn}>
           <RequestsStatusChart items={props.model.statusCounts} />
           <RequestsImpactChart items={props.model.impactCounts} />
+          <EstimatedValueByStatusChart items={props.model.estimatedValueByStatus} />
         </div>
         <OpenRequestsTable items={props.model.openRequests} />
       </div>
@@ -833,9 +860,9 @@ function KpiGrid(props: { kpis: ReturnType<typeof getRequestDashboardModel>["kpi
     { label: "Solicitações abertas", value: formatNumber(props.kpis.openRequestsCount), helper: "Em aprovação ou ajuste" },
     { label: "Pendentes Gerente", value: formatNumber(props.kpis.pendingLaminationManagerCount), helper: "Gerente Laminação" },
     { label: "Pendentes CTO", value: formatNumber(props.kpis.pendingCtoCount), helper: "Aguardando CTO" },
-    { label: "Devolvidas / em ajuste", value: formatNumber(props.kpis.returnedForAdjustmentCount), helper: "Aguardando correção" },
-    { label: "Com estoque disponível", value: formatNumber(props.kpis.availableStockRequestsCount), helper: "Estoque cobre a solicitação" },
-    { label: "Qtde. total solicitada", value: formatNumber(props.kpis.totalRequestedQuantity), helper: "Soma das abertas" },
+    { label: "Valor estimado solicitado", value: formatCurrency(props.kpis.estimatedRequestedValueBRL), helper: "Qtde. x preço médio" },
+    { label: "Estoque projetado após aprovação", value: formatNumber(props.kpis.projectedStockTotal), helper: "Estoque atual + solicitado" },
+    { label: "Solicitações com estoque suficiente", value: formatNumber(props.kpis.sufficientStockRequestsCount), helper: "Estoque cobre a solicitação" },
   ];
 
   return (
@@ -872,11 +899,41 @@ function RequestsImpactChart(props: { items: { key: ImpactKey; label: string; co
     manual: "info",
   };
   return (
-    <DashboardSection title="Impacto das solicitações" count={total}>
+    <DashboardSection title="Impacto para aprovação" count={total}>
       <SimpleBarChart
         emptyMessage="Sem dados para exibir."
         items={props.items.map((item) => ({ label: item.label, count: item.count, tone: toneByImpact[item.key] }))}
       />
+    </DashboardSection>
+  );
+}
+
+function EstimatedValueByStatusChart(props: { items: { status: MaterialRequestStatus; label: string; value: number }[] }) {
+  const total = props.items.reduce((sum, item) => sum + item.value, 0);
+  const visibleItems = props.items.filter((item) => item.value > 0);
+  const max = Math.max(...visibleItems.map((item) => item.value), 0);
+
+  return (
+    <DashboardSection title="Valor estimado por status" count={visibleItems.length}>
+      {visibleItems.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
+        <div style={styles.chartRows}>
+          {visibleItems.map((item) => {
+            const tone = uiTokens.stateTones[statusTone[item.status] ?? "neutral"];
+            return (
+              <div key={item.status}>
+                <div style={styles.chartLabelRow}>
+                  <span>{item.label}</span>
+                  <strong>{formatCurrency(item.value)}</strong>
+                </div>
+                <div style={styles.chartTrack} aria-hidden="true">
+                  <div style={{ width: `${max > 0 ? Math.max((item.value / max) * 100, 4) : 0}%`, height: "100%", background: tone.bd, borderRadius: 999 }} />
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.xs }}>Total filtrado: {formatCurrency(total)}</div>
+        </div>
+      )}
     </DashboardSection>
   );
 }
@@ -907,28 +964,28 @@ function SimpleBarChart(props: { items: { label: string; count: number; tone: "n
 }
 
 function OpenRequestsTable(props: { items: DashboardOpenRequest[] }) {
-  const columns = "48px 64px 86px minmax(140px,1.2fr) 58px 62px minmax(118px,1fr) minmax(112px,1fr) minmax(106px,1fr) 72px minmax(120px,1fr)";
+  const columns = "48px 62px 78px 54px 68px 74px 96px 104px minmax(92px,1fr) minmax(140px,1.2fr)";
   return (
     <DashboardSection title="Solicitações abertas" count={props.items.length}>
       <DashboardTable
         columns={columns}
-        headers={["ID", "Centro", "Material", "Descrição", "Qtde.", "Estoque", "Parecer", "Status", "Solicitante", "Dias", "Sinalização"]}
+        minWidth={880}
+        headers={["ID", "Centro", "Material", "Qtde.", "Estoque atual", "Estoque proj.", "Valor estimado", "Cobertura após", "Status", "Sinalização"]}
         emptyMessage="Nenhuma solicitação aberta no momento."
       >
         {props.items.map((item) => {
           const signals = getRequestSignals(item);
           return (
-            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns}>
+            <TableRow key={`${item.id ?? "sem-id"}-${item.center}-${item.material}`} columns={columns} minWidth={880}>
               <Cell>{item.id ?? "-"}</Cell>
               <Cell title={item.center}>{item.center}</Cell>
-              <Cell title={item.material}>{item.material}</Cell>
-              <Cell title={item.description}>{item.description}</Cell>
+              <Cell title={`${item.material} - ${item.description}`}>{item.material}</Cell>
               <Cell>{formatNumber(item.requestedQuantity)}</Cell>
-              <Cell>{formatNumber(item.evaluatedStockTotal)}</Cell>
-              <Cell title={item.stockRecommendationLabel}>{item.stockRecommendationLabel}</Cell>
+              <Cell>{item.evaluatedStockTotal === 0 ? "Sem estoque" : formatNumber(item.evaluatedStockTotal)}</Cell>
+              <Cell>{formatNumber(item.projectedStockTotal)}</Cell>
+              <Cell>{formatCurrency(item.estimatedRequestedValueBRL)}</Cell>
+              <Cell title={item.averageAnnualConsumption === 0 ? "Sem consumo médio" : undefined}>{formatRequestCoverage(item)}</Cell>
               <Cell><Badge text={item.requestStatusLabel} tone={statusTone[item.requestStatus] ?? "neutral"} /></Cell>
-              <Cell title={item.requesterName}>{item.requesterName || "-"}</Cell>
-              <Cell>{item.daysOpen == null ? "-" : formatNumber(item.daysOpen)}</Cell>
               <Cell noWrap={false}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: uiTokens.spacing.xs }}>
                   {signals.map((signal) => <Badge key={signal} text={signal} tone={signalTone[signal]} />)}
