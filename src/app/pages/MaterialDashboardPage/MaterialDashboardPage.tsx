@@ -174,9 +174,9 @@ const styles = {
   } satisfies React.CSSProperties,
   stockLayout: {
     display: "grid",
-    gridTemplateColumns: "minmax(280px, 0.8fr) minmax(620px, 1.5fr)",
+    gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
     gap: uiTokens.spacing.md,
-    alignItems: "start",
+    alignItems: "stretch",
   } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
@@ -185,7 +185,9 @@ const styles = {
   stockTableSection: {
     display: "flex",
     flexDirection: "column",
+    height: "100%",
     minHeight: 0,
+    overflow: "hidden",
   } satisfies React.CSSProperties,
   sectionHeader: {
     display: "flex",
@@ -258,8 +260,11 @@ const styles = {
     borderRadius: uiTokens.radius.md,
   } satisfies React.CSSProperties,
   tableShellFill: {
-    flex: "1 1 auto",
+    display: "flex",
+    flex: "1 1 0",
+    flexDirection: "column",
     minHeight: 0,
+    overflow: "hidden",
   } satisfies React.CSSProperties,
   tableScroller: {
     width: "100%",
@@ -270,8 +275,9 @@ const styles = {
     scrollbarGutter: "stable",
   } satisfies React.CSSProperties,
   tableScrollerFill: {
-    height: "100%",
-    maxHeight: 520,
+    flex: "1 1 auto",
+    minHeight: 0,
+    maxHeight: "none",
   } satisfies React.CSSProperties,
   badgeStack: {
     display: "inline-flex",
@@ -901,7 +907,7 @@ function StockManagementTable(props: { items: StockDashboardItem[]; quickFilter:
       <DashboardTable
         columns={columns}
         minWidth={minWidth}
-        maxHeight={260}
+        fillHeight
         headers={["Centro", "Material", "Descrição", "Estoque", "Valor estoque", "Média anual", "Anos mov.", "Cobertura", "Solic.", "Sinalização"]}
         emptyMessage={props.emptyMessage}
       >
@@ -1323,10 +1329,13 @@ function DashboardSection(props: { title: string; count: number; children: React
 
 function DashboardTable(props: { columns: string; headers: string[]; emptyMessage: string; children: ReactNode; minWidth?: number; maxHeight?: number; fillHeight?: boolean }) {
   const hasRows = Array.isArray(props.children) ? props.children.length > 0 : Boolean(props.children);
+  const scrollerStyle = props.fillHeight
+    ? { ...styles.tableScroller, ...styles.tableScrollerFill }
+    : { ...styles.tableScroller, maxHeight: props.maxHeight ?? styles.tableScroller.maxHeight };
 
   return (
     <div style={{ ...styles.tableShell, ...(props.fillHeight ? styles.tableShellFill : null) }}>
-      <div style={{ ...styles.tableScroller, ...(props.fillHeight ? styles.tableScrollerFill : null), maxHeight: props.fillHeight ? styles.tableScrollerFill.maxHeight : props.maxHeight ?? styles.tableScroller.maxHeight }}>
+      <div style={scrollerStyle}>
         <div style={{ display: "grid", gridTemplateColumns: props.columns, minWidth: props.minWidth ?? 1040, width: "max-content", background: uiTokens.colors.surfaceMuted, borderBottom: `1px solid ${uiTokens.colors.border}`, position: "sticky", top: 0, zIndex: 1 }}>
           {props.headers.map((header) => <HeaderCell key={header}>{header}</HeaderCell>)}
         </div>
