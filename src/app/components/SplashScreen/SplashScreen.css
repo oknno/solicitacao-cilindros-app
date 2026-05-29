@@ -44,8 +44,9 @@
 
 .capex-splash__logo {
   display: block;
-  width: clamp(184px, 18vw, 260px);
-  max-height: 52px;
+  width: clamp(248px, 24vw, 340px);
+  height: clamp(62px, 6vw, 70px);
+  max-width: none;
   object-fit: contain;
   object-position: left center;
   filter: grayscale(1) contrast(1.08);
@@ -55,15 +56,6 @@
   display: block;
 }
 
-.capex-splash__brand::after {
-  display: block;
-  width: 42px;
-  height: 1px;
-  margin-top: 12px;
-  background: #111111;
-  content: "";
-  opacity: 0.72;
-}
 
 .capex-splash__titleBlock {
   width: min(100%, 680px);
@@ -92,9 +84,9 @@
 }
 
 .capex-splash__titleBlock p:not(.capex-splash__eyebrow) {
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   color: #383c40;
-  font-size: clamp(20px, 2.8vw, 34px);
+  font-size: clamp(18px, 2.35vw, 30px);
   font-weight: 300;
   letter-spacing: -0.025em;
 }
