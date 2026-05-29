@@ -14,7 +14,7 @@ export default function App() {
 
   useEffect(() => {
     const splashDurationInMs = 1600;
-    const splashExitDurationInMs = 360;
+    const splashExitDurationInMs = 400;
 
     const exitTimer = window.setTimeout(() => {
       setIsSplashExiting(true);
@@ -32,8 +32,8 @@ export default function App() {
 
   return (
     <ToastProvider>
+      {showSplash ? <SplashScreen isExiting={isSplashExiting} /> : null}
       <div className="capex-app">
-        {showSplash ? <SplashScreen isExiting={isSplashExiting} /> : null}
         <main className="capex-container" style={{ minHeight: 0 }}>
           <div style={{ minHeight: 0, overflow: "hidden" }}>
             {currentView === "requests" ? (

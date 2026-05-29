@@ -1,3 +1,6 @@
+import { useState } from "react";
+import arcelorMittalLogo from "../../../assets/branding/arcelormittal-logo.svg";
+import splashBuilding from "../../../assets/splash/splash-building.webp";
 import "./SplashScreen.css";
 
 type SplashScreenProps = {
@@ -5,19 +8,29 @@ type SplashScreenProps = {
 };
 
 export function SplashScreen({ isExiting = false }: SplashScreenProps) {
+  const [hasLogoError, setHasLogoError] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
+
   return (
     <section
       aria-label="Tela de abertura do sistema"
-      className={`capex-splash${isExiting ? " capex-splash--exit" : ""}`}
+      className={`capex-splash${isExiting ? " capex-splash--exit" : ""}${
+        hasImageError ? " capex-splash--imageFallback" : ""
+      }`}
       role="status"
     >
       <div className="capex-splash__content">
         <div className="capex-splash__brand" aria-label="ArcelorMittal">
-          {/* Assets opcionais adicionados manualmente depois:
-              logo: src/assets/branding/arcelormittal-logo.svg
-              imagem: src/assets/splash/splash-building.webp
-              Não importamos esses arquivos aqui para manter o build funcionando sem assets binários. */}
-          ArcelorMittal
+          {hasLogoError ? (
+            <span className="capex-splash__brandFallback">ArcelorMittal</span>
+          ) : (
+            <img
+              src={arcelorMittalLogo}
+              alt="ArcelorMittal"
+              className="capex-splash__logo"
+              onError={() => setHasLogoError(true)}
+            />
+          )}
         </div>
 
         <div className="capex-splash__titleBlock">
@@ -31,9 +44,16 @@ export function SplashScreen({ isExiting = false }: SplashScreenProps) {
       </div>
 
       <div className="capex-splash__visual" aria-hidden="true">
-        {/* Fallback visual em CSS. A imagem corporativa real poderá substituir esta área
-            quando src/assets/splash/splash-building.webp for adicionada manualmente. */}
         <div className="capex-splash__visualFrame">
+          {!hasImageError ? (
+            <img
+              src={splashBuilding}
+              alt=""
+              aria-hidden="true"
+              className="capex-splash__image"
+              onError={() => setHasImageError(true)}
+            />
+          ) : null}
           <span className="capex-splash__curve capex-splash__curve--one" />
           <span className="capex-splash__curve capex-splash__curve--two" />
           <span className="capex-splash__curve capex-splash__curve--three" />
