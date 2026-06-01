@@ -8,6 +8,7 @@ import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
 import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
+import { MaterialRequestTechnicalDataViewSection } from "./MaterialRequestTechnicalDataSection";
 import {
   CollapsibleSection,
   MaterialRequestMainInfoSection,
@@ -83,6 +84,7 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
     <AppModal title={`Visualizar Solicitação #${request.id ?? ""}`} subtitle="Modo visualização: campos bloqueados." onClose={onClose}>
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
         <MaterialRequestMainInfoSection request={request} title="1. Dados da Solicitação" />
+        <MaterialRequestTechnicalDataViewSection technicalData={request.technicalData} />
 
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={request.requestedQuantity} mode="view" />}

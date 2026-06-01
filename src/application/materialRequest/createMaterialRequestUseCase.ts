@@ -1,6 +1,7 @@
 import {
   analyzeStockForMaterialRequest,
   requiresRequesterJustification,
+  normalizeMaterialRequestTechnicalData,
   type MaterialRequest,
   type StockAnalysisResult,
   type StockMaterial,
@@ -22,6 +23,7 @@ export interface CreateMaterialRequestInput {
   requesterJustification?: string;
   materialDescription?: string;
   isManualMaterial?: boolean;
+  technicalData?: MaterialRequest["technicalData"];
   attachment?: File;
 }
 
@@ -93,6 +95,7 @@ export async function createMaterialRequestUseCase(
       ? manualMaterialDescription ?? ""
       : stockMaterial?.description ?? "",
     center,
+    technicalData: normalizeMaterialRequestTechnicalData(input.technicalData),
     requestedQuantity: input.requestedQuantity,
     evaluatedStockTotalAtRequest: stockAnalysis.evaluatedStockTotal,
     stockRecommendation: stockAnalysis.recommendation,

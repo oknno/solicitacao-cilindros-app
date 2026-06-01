@@ -1,5 +1,5 @@
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
-import { MATERIAL_REQUEST_FIELDS } from "../sharepointFields";
+import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 
 type SpRecord = Record<string, unknown>;
 
@@ -55,6 +55,29 @@ export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
     materialCode: getStringField(source, MATERIAL_REQUEST_FIELDS.materialCode),
     materialDescription: getStringField(source, MATERIAL_REQUEST_FIELDS.materialDescription),
     center: getStringField(source, MATERIAL_REQUEST_FIELDS.center),
+    technicalData: {
+      refrol: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.refrol)),
+      site: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.site)),
+      mill: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.mill)),
+      standType: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.standType)),
+      rollType: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.rollType)),
+      standLocalName: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.standLocalName)),
+      profile: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.profile)),
+      profileCode: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.profileCode)),
+      rollDrawing: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.rollDrawing)),
+      groovesCaliberDrawing: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.groovesCaliberDrawing)),
+      calibrationNeed: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.calibrationNeed)),
+      diamExt: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.diamExt)),
+      scrapDiam: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.scrapDiam)),
+      diamInt: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.diamInt)),
+      lengthTable: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.lengthTable)),
+      lengthTotal: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.lengthTotal)),
+      finalWeight: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.finalWeight)),
+      neededHardness: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.neededHardness)),
+      technology: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.technology)),
+      grade: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.grade)),
+      delivery: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.delivery)),
+    },
     requestedQuantity: parseNumberFromSharePointText(getStringField(source, MATERIAL_REQUEST_FIELDS.requestedQuantity)) ?? 0,
     evaluatedStockTotalAtRequest: parseNumberFromSharePointText(
       getStringField(source, MATERIAL_REQUEST_FIELDS.evaluatedStockTotal)
@@ -84,6 +107,10 @@ export function mapMaterialRequestToSharePointPayload(request: MaterialRequest):
     [MATERIAL_REQUEST_FIELDS.materialCode]: request.materialCode ?? "",
     [MATERIAL_REQUEST_FIELDS.materialDescription]: request.materialDescription ?? "",
     [MATERIAL_REQUEST_FIELDS.center]: request.center ?? "",
+    ...Object.fromEntries(Object.entries(MATERIAL_REQUEST_TECHNICAL_FIELDS).map(([key, fieldName]) => [
+      fieldName,
+      request.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>] ?? "",
+    ])),
     [MATERIAL_REQUEST_FIELDS.requestedQuantity]: stringifyNumberForSharePoint(request.requestedQuantity),
     [MATERIAL_REQUEST_FIELDS.evaluatedStockTotal]: stringifyNumberForSharePoint(request.evaluatedStockTotalAtRequest),
     [MATERIAL_REQUEST_FIELDS.stockRecommendation]: request.stockRecommendation ?? "",
@@ -114,6 +141,11 @@ export function mapMaterialRequestToUpdatePayload(patch: Partial<MaterialRequest
   setIfDefined(MATERIAL_REQUEST_FIELDS.materialCode, patch.materialCode);
   setIfDefined(MATERIAL_REQUEST_FIELDS.materialDescription, patch.materialDescription);
   setIfDefined(MATERIAL_REQUEST_FIELDS.center, patch.center);
+  if (patch.technicalData !== undefined) {
+    Object.entries(MATERIAL_REQUEST_TECHNICAL_FIELDS).forEach(([key, fieldName]) => {
+      setIfDefined(fieldName, patch.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>] ?? "");
+    });
+  }
   if (patch.requestedQuantity !== undefined) {
     setIfDefined(MATERIAL_REQUEST_FIELDS.requestedQuantity, stringifyNumberForSharePoint(patch.requestedQuantity));
   }

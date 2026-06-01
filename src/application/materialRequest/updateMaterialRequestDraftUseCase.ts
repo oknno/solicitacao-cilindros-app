@@ -1,5 +1,6 @@
 import {
   analyzeStockForMaterialRequest,
+  normalizeMaterialRequestTechnicalData,
   requiresRequesterJustification,
   type MaterialRequest,
 } from "../../domain/materialRequest";
@@ -9,7 +10,7 @@ import { getMaterialRequestById, updateMaterialRequest } from "../../services/sh
 
 export interface UpdateMaterialRequestDraftInput {
   requestId: number; center: string; materialCode: string; materialDescription?: string; requestedQuantity: number;
-  requestReason: string; requesterJustification?: string; isManualMaterial?: boolean; performedByName: string; performedByEmail?: string;
+  requestReason: string; requesterJustification?: string; technicalData?: MaterialRequest["technicalData"]; isManualMaterial?: boolean; performedByName: string; performedByEmail?: string;
 }
 
 export async function updateMaterialRequestDraftUseCase(input: UpdateMaterialRequestDraftInput): Promise<{ request: MaterialRequest }> {
@@ -32,7 +33,7 @@ export async function updateMaterialRequestDraftUseCase(input: UpdateMaterialReq
   const updated = await updateMaterialRequest(input.requestId, {
     center, materialCode, materialDescription: isManual ? manualDescription ?? "" : (stockMaterial?.description ?? request.materialDescription),
     requestedQuantity: input.requestedQuantity, evaluatedStockTotalAtRequest: analysis.evaluatedStockTotal, stockRecommendation: analysis.recommendation,
-    requestReason: reason, requesterJustification: justification || undefined
+    requestReason: reason, requesterJustification: justification || undefined, technicalData: normalizeMaterialRequestTechnicalData(input.technicalData)
   });
   await createMaterialRequestHistoryEntry({ requestId: input.requestId, action: "UPDATED", previousStatus: request.status, newStatus: request.status, performedByName: input.performedByName, performedByEmail: input.performedByEmail, performedAt: new Date().toISOString(), comment: "Solicitação atualizada." });
   return { request: updated };

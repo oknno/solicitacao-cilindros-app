@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./technicalData";
 export * from "./status";
 export * from "./stockTypes";
 export * from "./stockDerivedFields";

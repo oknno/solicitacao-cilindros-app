@@ -1,5 +1,6 @@
 import type { MaterialRequestStatus } from "./status";
 import type { StockRecommendation } from "./stockTypes";
+import type { MaterialRequestTechnicalData } from "./technicalData";
 
 export interface MaterialRequest {
   id?: number;
@@ -15,6 +16,7 @@ export interface MaterialRequest {
   materialDescription: string;
   unitOfMeasure?: string;
   center: string;
+  technicalData?: MaterialRequestTechnicalData;
 
   requestedQuantity: number;
   needDate?: string;

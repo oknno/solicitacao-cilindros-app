@@ -4,7 +4,7 @@ import {
   mapMaterialRequestToUpdatePayload,
   mapSharePointMaterialRequest
 } from "../mappers/materialRequestMapper";
-import { MATERIAL_REQUEST_FIELDS } from "../sharepointFields";
+import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 import { SHAREPOINT_LISTS } from "../sharepointLists";
 import { spConfig } from "../spConfig";
 import { getDigest, spDelete, spGetJson, spPatchJson, spPostJson } from "../spHttp";
@@ -46,7 +46,7 @@ function buildListItemsUrl(): string {
 }
 
 function buildSelectClause(): string {
-  return ["Id", ...Object.values(MATERIAL_REQUEST_FIELDS)].join(",");
+  return ["Id", ...Object.values(MATERIAL_REQUEST_FIELDS), ...Object.values(MATERIAL_REQUEST_TECHNICAL_FIELDS)].join(",");
 }
 
 export async function getMaterialRequests(): Promise<MaterialRequest[]> {
