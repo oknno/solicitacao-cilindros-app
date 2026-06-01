@@ -13,7 +13,7 @@ interface TechnicalFieldDefinition {
 
 interface TechnicalGroupDefinition {
   title: string;
-  columns: 3 | 4;
+  columns: 3 | 4 | 5;
   fields: TechnicalFieldDefinition[];
 }
 
@@ -28,7 +28,7 @@ const MATERIAL_REQUEST_TECHNICAL_GROUPS: TechnicalGroupDefinition[] = [
   },
   {
     title: "Perfil e desenhos",
-    columns: 3,
+    columns: 5,
     fields: [
       { key: "profile", label: "PROFILE" }, { key: "profileCode", label: "PROFILE Code" }, { key: "rollDrawing", label: "ROLL DRAWING" },
       { key: "groovesCaliberDrawing", label: "GROOVES (CALIBER) DRAWING" }, { key: "calibrationNeed", label: "CALIBRATION NEED (Yes/No)" },

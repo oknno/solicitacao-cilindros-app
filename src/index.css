@@ -298,6 +298,10 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+#static-mirror .material-request-technical-data__grid--5-columns {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 #static-mirror .material-request-technical-data__readonly-field {
   min-width: 0;
   padding: var(--ui-space-sm);
@@ -308,14 +312,16 @@
 
 @media (max-width: 900px) {
   #static-mirror .material-request-technical-data__grid--3-columns,
-  #static-mirror .material-request-technical-data__grid--4-columns {
+  #static-mirror .material-request-technical-data__grid--4-columns,
+  #static-mirror .material-request-technical-data__grid--5-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 600px) {
   #static-mirror .material-request-technical-data__grid--3-columns,
-  #static-mirror .material-request-technical-data__grid--4-columns {
+  #static-mirror .material-request-technical-data__grid--4-columns,
+  #static-mirror .material-request-technical-data__grid--5-columns {
     grid-template-columns: minmax(0, 1fr);
   }
 }
