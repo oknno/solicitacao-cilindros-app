@@ -248,3 +248,74 @@
 #static-mirror .btn:active {
   transform: translateY(1px);
 }
+
+/* Dados técnicos permanecem visíveis nos formulários e resumos de solicitação. */
+#static-mirror .material-request-technical-data {
+  display: grid;
+  gap: var(--ui-space-lg);
+  padding: var(--ui-space-xl);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-surface);
+}
+
+#static-mirror .material-request-technical-data__title,
+#static-mirror .material-request-technical-data__group-title {
+  margin: 0;
+  color: var(--ui-color-text-strong);
+}
+
+#static-mirror .material-request-technical-data__title {
+  font-size: var(--ui-font-md);
+  font-weight: 700;
+}
+
+#static-mirror .material-request-technical-data__groups,
+#static-mirror .material-request-technical-data__group {
+  display: grid;
+  gap: var(--ui-space-lg);
+}
+
+#static-mirror .material-request-technical-data__group {
+  gap: var(--ui-space-sm);
+}
+
+#static-mirror .material-request-technical-data__group-title {
+  font-size: var(--ui-font-sm);
+  font-weight: 700;
+}
+
+#static-mirror .material-request-technical-data__grid {
+  display: grid;
+  gap: var(--ui-space-md);
+}
+
+#static-mirror .material-request-technical-data__grid--3-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#static-mirror .material-request-technical-data__grid--4-columns {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#static-mirror .material-request-technical-data__readonly-field {
+  min-width: 0;
+  padding: var(--ui-space-sm);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-color-surface-muted);
+}
+
+@media (max-width: 900px) {
+  #static-mirror .material-request-technical-data__grid--3-columns,
+  #static-mirror .material-request-technical-data__grid--4-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  #static-mirror .material-request-technical-data__grid--3-columns,
+  #static-mirror .material-request-technical-data__grid--4-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
