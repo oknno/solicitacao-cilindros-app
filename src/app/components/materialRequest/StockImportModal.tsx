@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type DragEvent } from "react";
+import type { UserAccessProfile } from "../../../domain/accessControl";
 import {
   importStockItemsFromExcelUseCase,
   type ImportStockItemsFromExcelOutput
@@ -34,7 +35,7 @@ function formatPreviewNumber(value: number | null) {
   return value == null ? "-" : value.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
-export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+export function StockImportModal({ accessProfile, onClose, onSuccess }: { accessProfile: UserAccessProfile; onClose: () => void; onSuccess: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportStockItemsFromExcelOutput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,7 @@ export function StockImportModal({ onClose, onSuccess }: { onClose: () => void; 
   }
 
   async function onConfirm() {
+    if (!accessProfile.permissions.canUploadStock) { setLocalError("Você não possui permissão para atualizar o estoque."); return; }
     if (!result || result.errors.length > 0) return;
     setLoading(true);
     try {

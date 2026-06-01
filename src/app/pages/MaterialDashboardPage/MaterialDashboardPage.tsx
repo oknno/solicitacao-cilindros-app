@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
+import { getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
 import type { DashboardStockRankingItem, MaterialDashboardAttentionLabel, MaterialDashboardResult, MaterialDashboardSeverity } from "../../../domain/materialDashboard";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -606,7 +607,7 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
   };
 }
 
-export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
+export function MaterialDashboardPage(props: { accessProfile: UserAccessProfile; onBackToRequests: () => void }) {
   const [dashboard, setDashboard] = useState<MaterialDashboardResult | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("loading");
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
@@ -617,21 +618,21 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
   const loadDashboard = useCallback(async () => {
     setState("loading");
     try {
-      const result = await getMaterialDashboardUseCase();
+      const result = await getMaterialDashboardUseCase(props.accessProfile);
       setDashboard(result);
       setState("idle");
     } catch (error) {
       console.error(error);
       setState("error");
     }
-  }, []);
+  }, [props.accessProfile]);
 
   useEffect(() => {
     let ignore = false;
 
     void (async () => {
       try {
-        const result = await getMaterialDashboardUseCase();
+        const result = await getMaterialDashboardUseCase(props.accessProfile);
         if (ignore) return;
         setDashboard(result);
         setState("idle");
@@ -645,7 +646,7 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [props.accessProfile]);
 
   const stockDashboard = useMemo(() => getStockDashboardModel(dashboard, appliedFilters), [dashboard, appliedFilters]);
   const stockQuickFilter = quickFilter;
@@ -681,7 +682,8 @@ export function MaterialDashboardPage(props: { onBackToRequests: () => void }) {
     <div style={styles.page}>
       <CommandBar
         title="Dashboard de Estoque — Cilindros e Discos"
-        isAdmin={false}
+        isAdmin={props.accessProfile.roles.includes("ADMIN")}
+        profileLabel={getAccessProfileLabel(props.accessProfile)}
         selectedId={null}
         totalLoaded={stockDashboard.stockItems.length}
         canEdit={false}

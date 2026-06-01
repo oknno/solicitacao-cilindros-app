@@ -137,6 +137,7 @@ export type ProjectsFilters = {
 
 export function CommandBar(props: {
   isAdmin: boolean;
+  profileLabel?: string;
   selectedId: number | null;
   totalLoaded: number;
 
@@ -223,7 +224,7 @@ export function CommandBar(props: {
     <div style={styles.commandBar}>
       <div style={styles.titleWrap}>
         <div style={styles.title}>
-          {props.title ?? "Termo de Abertura de Projeto"}{props.isAdmin ? " | ADMIN" : ""}
+          {props.title ?? "Termo de Abertura de Projeto"}{props.profileLabel ? ` | ${props.profileLabel}` : props.isAdmin ? " | ADMIN" : ""}
         </div>
       </div>
 

@@ -1,13 +1,16 @@
 import { type ApproverRole, type MaterialRequest, type MaterialRequestDecision } from "../../domain/materialRequest";
+import { assertCanDecideMaterialRequest, type UserAccessProfile } from "../../domain/accessControl";
+import { resolveCurrentUserAccess } from "../resolveCurrentUserAccess";
 import type { MaterialRequestHistoryAction, MaterialRequestStatus } from "../../domain/materialRequest";
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
 import { getMaterialRequestById, updateMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
 
-export interface DecideMaterialRequestApprovalInput { requestId:number; decision:MaterialRequestDecision; approverRole:ApproverRole; approverName:string; approverEmail?:string; justification:string; }
+export interface DecideMaterialRequestApprovalInput { requestId:number; decision:MaterialRequestDecision; approverRole:ApproverRole; approverName:string; approverEmail?:string; justification:string; accessProfile?:UserAccessProfile; }
 export interface DecideMaterialRequestApprovalOutput { request: MaterialRequest; }
 
 export async function decideMaterialRequestApprovalUseCase(input:DecideMaterialRequestApprovalInput):Promise<DecideMaterialRequestApprovalOutput>{
  const request=await getMaterialRequestById(input.requestId); if(!request) throw new Error("Solicitação não encontrada.");
+ assertCanDecideMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request, input.approverRole);
  const justification=input.justification?.trim();
  if(!justification) throw new Error("Informe a justificativa para concluir esta decisão.");
  const nowIso=new Date().toISOString(); let patch:Partial<MaterialRequest>={updatedAt:nowIso}; let newStatus:MaterialRequestStatus; let action:MaterialRequestHistoryAction;

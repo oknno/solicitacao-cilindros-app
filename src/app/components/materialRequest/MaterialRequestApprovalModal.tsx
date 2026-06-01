@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { decideMaterialRequestApprovalUseCase, getCurrentMaterialRequestUserUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest, MaterialRequestDecision, StockMaterial } from "../../../domain/materialRequest";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
+import type { UserAccessProfile } from "../../../domain/accessControl";
 import { useToast } from "../notifications/useToast";
 import { Button } from "../ui/Button";
 import { AppModal } from "../common/AppModal";
@@ -61,6 +62,7 @@ function hasLaminationManagerDecision(request: MaterialRequest): boolean {
 }
 
 export function MaterialRequestApprovalModal(props: {
+  accessProfile: UserAccessProfile;
   request: MaterialRequest;
   decision: Decision;
   approverRole: ApproverRole;
@@ -147,6 +149,7 @@ export function MaterialRequestApprovalModal(props: {
         approverName: approverName.trim(),
         approverEmail: approverEmail.trim() || undefined,
         justification: normalizedJustification,
+        accessProfile: props.accessProfile,
       });
       notify(copy.successMessage, "success");
       props.onCompleted();

@@ -66,3 +66,9 @@ npm run test          # testes de regras de aprovação
 - **Persistência (SharePoint)**
   - Operações CRUD e consultas paginadas para projetos e entidades relacionadas.
   - Implementação em `src/services/sharepoint` (`projectsApi`, `milestonesApi`, `activitiesApi`, `pepsApi`, `spHttp`, etc.).
+
+## Controle de acesso de materiais
+
+A aplicação lê a lista SharePoint `MaterialAccessControl` apenas com os campos de texto `Title`, `UserEmail`, `Role`, `Center` e `IsActive` (além de `Id` para identificação técnica). A autorização compara o e-mail autenticado exclusivamente com `UserEmail`, sem diferenciar maiúsculas e minúsculas, aceita somente linhas cujo texto `IsActive` seja `TRUE` e interpreta `Role` como texto normalizado em maiúsculas. Usuários sem registro ativo recebem o perfil seguro `USER`.
+
+> **Limitação de segurança:** este controle é uma autorização client-side/application-side. Ele controla filtros, botões, ações e a experiência do usuário, mas não substitui as permissões nativas do SharePoint. Para impedir acesso direto aos dados fora da aplicação, também é necessário configurar permissões no SharePoint.

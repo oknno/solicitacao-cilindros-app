@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMaterialRequestForApprovalUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
+import { assertCanDecideMaterialRequest, getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
 import { MaterialRequestFormModal } from "../../components/materialRequest/MaterialRequestFormModal";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
@@ -20,7 +21,6 @@ import { CommandBar, type ProjectsFilters } from "../ProjectsPage/CommandBar";
 import { projectsPageStyles as sharedPageStyles } from "../ProjectsPage/components/ProjectsPage.styles";
 import {
   getMaterialRequestCommandPermissions,
-  type MaterialRequestUserProfile,
 } from "../../../domain/permissions";
 import { deleteMaterialRequestUseCase } from "../../../application/materialRequest/deleteMaterialRequestUseCase";
 
@@ -34,7 +34,7 @@ type ApprovalModalState = {
   approverRole: ApproverRole;
 };
 
-export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void }) {
+export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfile; onOpenDashboard: () => void }) {
   const { notify } = useToast();
   const [items, setItems] = useState<MaterialRequest[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -53,12 +53,12 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
   const [stockImportOpen, setStockImportOpen] = useState(false);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
-  const profile = (import.meta.env.VITE_MATERIAL_REQUEST_PROFILE as MaterialRequestUserProfile | undefined) ?? "ADMIN";
+  const { accessProfile } = props;
   const commandPermissions = useMemo(() => getMaterialRequestCommandPermissions({
-    profile,
+    accessProfile,
     hasSelection: Boolean(selectedRequest),
     selectedStatus: selectedRequest?.status,
-  }), [profile, selectedRequest]);
+  }), [accessProfile, selectedRequest]);
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
   const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => item.center).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
@@ -68,7 +68,7 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
     setState("loading");
     setError("");
     try {
-      const result = await getMaterialRequestsUseCase();
+      const result = await getMaterialRequestsUseCase(accessProfile);
       setItems(result);
       setSelectedId((current) => (result.some((item) => item.id === current) ? current : (result[0]?.id ?? null)));
       setState("idle");
@@ -81,7 +81,7 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
           : "Não foi possível carregar as solicitações de material. Tente novamente."
       );
     }
-  }, [items.length]);
+  }, [accessProfile, items.length]);
 
   useEffect(() => {
     void loadRequests();
@@ -89,6 +89,7 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
 
 
   const handleExportRequests = useCallback(() => {
+    if (!accessProfile.permissions.canExport) { notify("Você não possui permissão para exportar solicitações.", "info"); return; }
     if (!filteredItems.length) {
       notify("Não há solicitações para exportar.", "info");
       return;
@@ -96,7 +97,7 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
 
     exportMaterialRequestsUseCase(filteredItems);
     notify(`Exportação gerada com ${filteredItems.length} solicitações.`, "success");
-  }, [filteredItems, notify]);
+  }, [accessProfile.permissions.canExport, filteredItems, notify]);
 
   function getApproverRoleFromStatus(request: MaterialRequest): ApproverRole | null {
     if (request.status === "PENDING_LAMINATION_MANAGER_APPROVAL") return "LAMINATION_MANAGER";
@@ -113,6 +114,9 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
       notify("Esta solicitação não está pendente de aprovação.", "info");
       return;
     }
+
+    try { assertCanDecideMaterialRequest(accessProfile, selectedRequest, approverRole); }
+    catch (error) { notify(error instanceof Error ? error.message : "Você não possui permissão para esta ação.", "info"); return; }
 
     setApprovalModalState({ request: selectedRequest, decision: initialDecision, approverRole });
   }
@@ -208,7 +212,8 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
   return <div style={{ background: uiTokens.colors.appBackground, height: "100%", padding: uiTokens.spacing.md, display: "grid", gridTemplateRows: "auto 1fr", gap: uiTokens.spacing.md }}>
     <CommandBar
       title="Cilindros e Discos"
-      isAdmin={profile === "ADMIN"}
+      isAdmin={accessProfile.roles.includes("ADMIN")}
+      profileLabel={getAccessProfileLabel(accessProfile)}
       selectedId={selectedId}
       totalLoaded={items.length}
       canEdit={commandPermissions.canEdit}
@@ -227,15 +232,15 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
       filterButtonMode="triggerOnly"
       filterButtonId={MATERIAL_FILTER_BUTTON_ID}
       onRefresh={() => void loadRequests()}
-      onNew={() => setFormMode("create")}
-      onUpdateStock={() => setStockImportOpen(true)}
+      onNew={() => { if (accessProfile.permissions.canCreateRequest) setFormMode("create"); }}
+      onUpdateStock={accessProfile.permissions.canUploadStock ? () => setStockImportOpen(true) : undefined}
       canCreate={commandPermissions.canNew}
       onView={() => { if (selectedRequest) setViewRequest(selectedRequest); }}
-      onEdit={() => { if (selectedRequest) setFormMode("edit"); }}
+      onEdit={() => { if (selectedRequest && commandPermissions.canEdit) setFormMode("edit"); }}
       onDuplicate={() => undefined}
       onDelete={() => { void onDelete(); }}
       onSendToApproval={() => { void onSendToApproval(); }}
-      onBackStatus={() => { if (selectedRequest) setReturnStatusRequest(selectedRequest); }}
+      onBackStatus={() => { if (selectedRequest && accessProfile.roles.includes("ADMIN")) setReturnStatusRequest(selectedRequest); }}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
       showApprovalActions={commandPermissions.canShowApprove || commandPermissions.canShowReject}
@@ -282,9 +287,9 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
 
     {formMode && <MaterialRequestFormModal mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
 
-    {approvalModalState && <MaterialRequestApprovalModal request={approvalModalState.request} decision={approvalModalState.decision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onCompleted={() => { setApprovalModalState(null); void loadRequests(); }} />}
+    {approvalModalState && <MaterialRequestApprovalModal accessProfile={accessProfile} request={approvalModalState.request} decision={approvalModalState.decision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onCompleted={() => { setApprovalModalState(null); void loadRequests(); }} />}
 
-    {stockImportOpen && <StockImportModal onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
+    {stockImportOpen && <StockImportModal accessProfile={accessProfile} onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
 
     {viewRequest && <MaterialRequestViewModal request={viewRequest} onClose={() => setViewRequest(null)} />}
@@ -316,7 +321,7 @@ export function MaterialRequestsHomePage(props: { onOpenDashboard: () => void })
       }}
     />
 
-    {returnStatusRequest && <ReturnMaterialRequestStatusModal request={returnStatusRequest} onClose={() => setReturnStatusRequest(null)} onReturned={() => { setReturnStatusRequest(null); void loadRequests(); }} />}
+    {returnStatusRequest && <ReturnMaterialRequestStatusModal accessProfile={accessProfile} request={returnStatusRequest} onClose={() => setReturnStatusRequest(null)} onReturned={() => { setReturnStatusRequest(null); void loadRequests(); }} />}
 
     {filterModalOpen && <MaterialRequestFilterModal
       value={draftFilters}
