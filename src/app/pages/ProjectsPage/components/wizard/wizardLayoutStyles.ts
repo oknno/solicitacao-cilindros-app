@@ -3,12 +3,12 @@ import type { CSSProperties } from "react";
 import { uiTokens } from "../../../../components/ui/tokens";
 
 export const wizardLayoutStyles: Record<string, CSSProperties> = {
-  overlay: { position: "fixed", inset: 0, background: uiTokens.colors.overlay, display: "flex", alignItems: "center", justifyContent: "center", padding: uiTokens.spacing.xl, zIndex: 9999 },
-  modal: { width: "min(1100px, 100%)", background: uiTokens.colors.surface, borderRadius: uiTokens.radius.lg, border: `1px solid ${uiTokens.colors.border}`, overflow: "hidden", maxHeight: "92vh", display: "grid", gridTemplateRows: "auto auto 1fr auto" },
-  modalHeader: { padding: uiTokens.spacing.lg, borderBottom: `1px solid ${uiTokens.colors.border}`, display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.md },
-  tabsRow: { padding: 10, borderBottom: `1px solid ${uiTokens.colors.border}`, display: "flex", gap: uiTokens.spacing.sm, flexWrap: "wrap" },
-  body: { overflow: "auto" },
-  footer: { padding: uiTokens.spacing.lg, borderTop: `1px solid ${uiTokens.colors.border}`, display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.md, alignItems: "center" },
+  overlay: { position: "fixed", inset: 0, background: uiTokens.colors.overlay, display: "flex", alignItems: "center", justifyContent: "center", padding: uiTokens.spacing.xl, overflowY: "auto", zIndex: 9999 },
+  modal: { width: "min(1100px, 100%)", background: uiTokens.colors.surface, borderRadius: uiTokens.radius.lg, border: `1px solid ${uiTokens.colors.border}`, overflow: "hidden", maxHeight: "calc(100vh - 32px)", display: "flex", flexDirection: "column", minHeight: 0 },
+  modalHeader: { padding: uiTokens.spacing.lg, borderBottom: `1px solid ${uiTokens.colors.border}`, display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.md, flexShrink: 0 },
+  tabsRow: { padding: 10, borderBottom: `1px solid ${uiTokens.colors.border}`, display: "flex", gap: uiTokens.spacing.sm, flexWrap: "wrap", flexShrink: 0 },
+  body: { flex: 1, minHeight: 0, overflowY: "auto" },
+  footer: { padding: uiTokens.spacing.lg, borderTop: `1px solid ${uiTokens.colors.border}`, display: "flex", justifyContent: "space-between", gap: uiTokens.spacing.md, alignItems: "center", flexShrink: 0 },
   sectionStack: { display: "grid", gap: uiTokens.spacing.lg },
   card: {
     display: "grid",

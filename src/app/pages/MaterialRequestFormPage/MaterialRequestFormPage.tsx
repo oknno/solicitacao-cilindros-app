@@ -328,7 +328,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const analysisTone = resolveAnalysisTone(analysisResult, isManualMaterial, parsedRequestedQuantity);
   const analysisToneStyle = uiTokens.stateTones[analysisTone];
 
-  const content = <div style={{ minHeight: "100%", display: "grid", gridTemplateRows: "1fr auto" }}>
+  const content = <div style={{ height: "100%", minHeight: 0, display: "grid", gridTemplateRows: "minmax(0, 1fr) auto" }}>
     <div style={{ ...wizardLayoutStyles.body, padding: uiTokens.spacing.lg }}>
       <div style={{ ...wizardLayoutStyles.sectionStack, padding: 0 }}>
         <div style={wizardLayoutStyles.card}>
