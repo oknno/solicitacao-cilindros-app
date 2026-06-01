@@ -46,6 +46,30 @@ export const MATERIAL_REQUEST_FIELDS = {
   ctoDecisionDate: "CTODecisionDate",
 } as const;
 
+export const MATERIAL_REQUEST_TECHNICAL_FIELDS = {
+  refrol: "Refrol",
+  site: "Site",
+  mill: "Mill",
+  standType: "StandType",
+  rollType: "RollType",
+  standLocalName: "StandLocalName",
+  profile: "Profile",
+  profileCode: "ProfileCode",
+  rollDrawing: "RollDrawing",
+  groovesCaliberDrawing: "GroovesCaliberDrawing",
+  calibrationNeed: "CalibrationNeed",
+  diamExt: "DiamExt",
+  scrapDiam: "ScrapDiam",
+  diamInt: "DiamInt",
+  lengthTable: "LengthTable",
+  lengthTotal: "LengthTotal",
+  finalWeight: "FinalWeight",
+  neededHardness: "NeededHardness",
+  technology: "Technology",
+  grade: "Grade",
+  delivery: "Delivery",
+} as const;
+
 export const MATERIAL_REQUEST_HISTORY_FIELDS = {
   title: "Title",
   requestId: "RequestId",

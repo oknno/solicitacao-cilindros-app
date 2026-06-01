@@ -9,6 +9,7 @@ import { AppModal } from "../common/AppModal";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
+import { MaterialRequestTechnicalDataViewSection } from "./MaterialRequestTechnicalDataSection";
 import {
   MaterialRequestMainInfoSection,
   MaterialRequestPreviousApprovalSection,
@@ -174,6 +175,7 @@ export function MaterialRequestApprovalModal(props: {
     >
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
         <MaterialRequestMainInfoSection request={props.request} />
+        <MaterialRequestTechnicalDataViewSection technicalData={props.request.technicalData} />
 
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={props.request.requestedQuantity} mode="approval" />}

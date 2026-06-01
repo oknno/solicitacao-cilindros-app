@@ -10,7 +10,9 @@ import {
 } from "../../../application/materialRequest";
 import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import type { MaterialRequestTechnicalData } from "../../../domain/materialRequest";
 import { MaterialStockAnalysisSection } from "../../components/materialRequest/MaterialStockAnalysisSection";
+import { MaterialRequestTechnicalDataFormSection } from "../../components/materialRequest/MaterialRequestTechnicalDataSection";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
@@ -77,6 +79,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
   const [materialDescription, setMaterialDescription] = useState("");
   const [requestedQuantity, setRequestedQuantity] = useState("");
   const [requestReason, setRequestReason] = useState("");
+  const [technicalData, setTechnicalData] = useState<MaterialRequestTechnicalData>({});
   const [requesterJustification, setRequesterJustification] = useState("");
   const [analysisResult, setAnalysisResult] = useState<AnalyzeMaterialRequestStockOutput | null>(null);
   const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
@@ -120,6 +123,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
     setRequestedQuantity(String(initialRequest.requestedQuantity ?? ""));
     setRequestReason(initialRequest.requestReason ?? "");
     setRequesterJustification(initialRequest.requesterJustification ?? "");
+    setTechnicalData(initialRequest.technicalData ?? {});
     setMaterialDescription(initialRequest.materialDescription ?? "");
     setManualMaterialCode("");
     setMaterialSelection(normalizeFormText(initialRequest.materialCode));
@@ -310,10 +314,10 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
     setSending(true);
     try {
       if (mode === "edit" && initialRequest?.id) {
-        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail });
+        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail });
         notify("Solicitação atualizada com sucesso.", "success");
       } else {
-        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, isManualMaterial, attachment: attachment ?? undefined });
+        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachment: attachment ?? undefined });
         notify("Solicitação salva como rascunho.", "success");
       }
       onCreated();
@@ -366,6 +370,8 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
             {!isManualMaterial && (
               <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{loadingAnalysis ? "Atualizando análise de estoque..." : analysisMessage}</div>
             )}
+
+            <MaterialRequestTechnicalDataFormSection value={technicalData} onChange={setTechnicalData} />
 
             <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
             <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
