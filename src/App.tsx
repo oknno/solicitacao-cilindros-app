@@ -25,7 +25,7 @@ export default function App() {
       <div className={`capex-appContent${isAppVisible ? "" : " capex-appContent--hiddenDuringSplash"}`}>
         <div className="capex-app">
           <main className="capex-container" style={{ minHeight: 0 }}>
-            <div style={{ minHeight: 0, overflow: "hidden" }}>
+            <div className="capex-pageContent">
               {currentView === "requests" ? (
                 <MaterialRequestsHomePage onOpenDashboard={() => setCurrentView("dashboard")} />
               ) : (
