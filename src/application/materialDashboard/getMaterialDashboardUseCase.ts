@@ -1,3 +1,4 @@
+import { filterCentersByAccess, filterMaterialRequestsByAccess, type UserAccessProfile } from "../../domain/accessControl";
 import type { MaterialRequestStatus } from "../../domain/materialRequest/status";
 import type { MaterialRequest } from "../../domain/materialRequest/types";
 import type { StockMaterial } from "../../domain/materialRequest/stockTypes";
@@ -192,8 +193,10 @@ function buildCenterOptions(stockItems: StockMaterial[], materialRequests: Mater
   return Array.from(centers).sort((left, right) => left.localeCompare(right, "pt-BR", { numeric: true }));
 }
 
-export async function getMaterialDashboardUseCase(): Promise<MaterialDashboardResult> {
-  const [stockItems, materialRequests] = await Promise.all([getAllStockItems(), getMaterialRequests()]);
+export async function getMaterialDashboardUseCase(accessProfile: UserAccessProfile): Promise<MaterialDashboardResult> {
+  const [allStockItems, allMaterialRequests] = await Promise.all([getAllStockItems(), getMaterialRequests()]);
+  const stockItems = allStockItems.filter((item) => filterCentersByAccess(accessProfile, [item.center]).length > 0);
+  const materialRequests = filterMaterialRequestsByAccess(accessProfile, allMaterialRequests);
   const openMaterialRequests = materialRequests.filter((request) => OPEN_DASHBOARD_STATUSES.has(request.status));
   const openRequestsByMaterial = buildOpenRequestsByMaterial(openMaterialRequests);
   const stockIndex = new Map(stockItems.map((item) => [buildMaterialKey(item.center, item.materialCode), item]));

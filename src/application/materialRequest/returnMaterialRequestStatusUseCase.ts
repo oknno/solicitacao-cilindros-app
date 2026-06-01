@@ -1,3 +1,4 @@
+import type { UserAccessProfile } from "../../domain/accessControl";
 import type { MaterialRequestStatus } from "../../domain/materialRequest/status";
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
 import { getMaterialRequestById, updateMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
@@ -8,7 +9,8 @@ const MAP: Record<MaterialRequestStatus, MaterialRequestStatus[]> = {
 };
 export const getAllowedReturnStatuses = (status: MaterialRequestStatus) => MAP[status] ?? [];
 
-export async function returnMaterialRequestStatusUseCase(input:{requestId:number;targetStatus:MaterialRequestStatus;reason:string;performedByName:string;performedByEmail?:string;}){
+export async function returnMaterialRequestStatusUseCase(input:{requestId:number;targetStatus:MaterialRequestStatus;reason:string;performedByName:string;performedByEmail?:string;accessProfile:UserAccessProfile;}){
+ if(!input.accessProfile.roles.includes("ADMIN")) throw new Error("Você não possui permissão para voltar o status da solicitação.");
  if(!Number.isInteger(input.requestId)||input.requestId<=0) throw new Error("Informe uma solicitação válida.");
  const req=await getMaterialRequestById(input.requestId); if(!req) throw new Error("Solicitação não encontrada.");
  const reason=input.reason?.trim(); if(!reason) throw new Error("Informe o motivo para voltar o status.");
