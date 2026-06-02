@@ -90,12 +90,24 @@ export async function deleteMaterialRequest(id: number): Promise<void> {
   await spDelete(itemUrl, digest);
 }
 
+
+function encodeODataString(value: string): string {
+  return encodeURIComponent(value.replace(/'/g, "''")).replace(/'/g, "%27");
+}
+
+export async function deleteAttachmentFromMaterialRequest(requestId: number, fileName: string): Promise<void> {
+  const digest = await getDigest();
+  const encodedFileName = encodeODataString(fileName);
+  const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles/getByFileName('${encodedFileName}')`;
+  await spDelete(url, digest);
+}
+
 export async function addAttachmentToMaterialRequest(
   requestId: number,
   file: File,
 ): Promise<void> {
   const digest = await getDigest();
-  const fileName = encodeURIComponent(file.name);
+  const fileName = encodeODataString(file.name);
   const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles/add(FileName='${fileName}')`;
   const res = await fetch(url, {
     method: "POST",
@@ -103,7 +115,7 @@ export async function addAttachmentToMaterialRequest(
       Accept: "application/json;odata=nometadata",
       "X-RequestDigest": digest,
     },
-    body: await file.arrayBuffer(),
+    body: file,
   });
 
   if (!res.ok) {

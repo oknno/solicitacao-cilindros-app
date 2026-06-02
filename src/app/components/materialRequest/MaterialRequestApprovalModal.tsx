@@ -170,7 +170,7 @@ export function MaterialRequestApprovalModal(props: {
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
         <MaterialRequestMainInfoSection request={props.request} />
         <MaterialRequestTechnicalDataViewSection technicalData={props.request.technicalData} />
-        {props.request.id ? <RequestAttachmentsSection requestId={props.request.id} accessProfile={props.accessProfile} /> : null}
+        {props.request.id ? <RequestAttachmentsSection requestId={props.request.id} accessProfile={props.accessProfile} mode="readonly" /> : null}
 
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={props.request.requestedQuantity} mode="approval" />}
