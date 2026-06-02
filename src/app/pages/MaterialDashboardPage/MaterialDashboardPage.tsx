@@ -169,6 +169,12 @@ const styles = {
     display: "grid",
     gap: uiTokens.spacing.sm,
   } satisfies React.CSSProperties,
+  centerChartScroller: {
+    maxHeight: 280,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    paddingRight: uiTokens.spacing.xs,
+  } satisfies React.CSSProperties,
   chartLabelRow: {
     display: "grid",
     gridTemplateColumns: "minmax(120px, 1fr) auto",
@@ -349,12 +355,28 @@ const styles = {
   materialCombobox: {
     position: "relative",
   } satisfies React.CSSProperties,
-  materialOptionsList: {
+  materialOptionsPanel: {
     position: "absolute",
-    zIndex: 10,
+    zIndex: 1100,
     top: "calc(100% + 4px)",
     left: 0,
     right: 0,
+    overflow: "hidden",
+    background: uiTokens.colors.surface,
+    border: `1px solid ${uiTokens.colors.border}`,
+    borderRadius: uiTokens.radius.sm,
+    boxShadow: `0 8px 20px ${uiTokens.colors.shadowSoft}`,
+    boxSizing: "border-box",
+  } satisfies React.CSSProperties,
+  materialOptionsHeader: {
+    padding: "7px 8px",
+    borderBottom: `1px solid ${uiTokens.colors.borderMuted}`,
+    background: uiTokens.colors.surfaceMuted,
+    color: uiTokens.colors.textMuted,
+    fontSize: uiTokens.typography.xs,
+    fontWeight: uiTokens.typography.mediumWeight,
+  } satisfies React.CSSProperties,
+  materialOptionsList: {
     maxHeight: 280,
     overflowX: "hidden",
     overflowY: "auto",
@@ -362,11 +384,6 @@ const styles = {
     margin: 0,
     padding: 4,
     listStyle: "none",
-    background: uiTokens.colors.surface,
-    border: `1px solid ${uiTokens.colors.border}`,
-    borderRadius: uiTokens.radius.sm,
-    boxShadow: `0 8px 20px ${uiTokens.colors.shadowSoft}`,
-    boxSizing: "border-box",
   } satisfies React.CSSProperties,
   materialOptionButton: {
     width: "100%",
@@ -597,9 +614,7 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
     return map;
   }, new Map<string, number>()).entries())
     .map(([center, value]) => ({ center, value }))
-    .filter((item) => item.value > 0)
-    .sort((left, right) => right.value - left.value)
-    .slice(0, 5);
+    .sort((left, right) => right.value - left.value || left.center.localeCompare(right.center, "pt-BR", { numeric: true, sensitivity: "base" }));
 
   return {
     stockItems,
@@ -855,9 +870,9 @@ function StockAttentionDistributionChart(props: { items: StockSignalDistribution
 function StockValueByCenterChart(props: { items: { center: string; value: number }[] }) {
   const max = Math.max(...props.items.map((item) => item.value), 0);
   return (
-    <DashboardSection title="Valor em estoque por centro (Top 5)" count={props.items.length}>
+    <DashboardSection title="Valor em estoque por centro" count={props.items.length}>
       {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
-        <div style={styles.chartRows}>
+        <div style={{ ...styles.chartRows, ...styles.centerChartScroller }}>
           {props.items.map((item) => (
             <div key={item.center}>
               <div style={styles.chartLabelRow}>
@@ -1085,7 +1100,7 @@ function MaterialFilterCombobox(props: { value: string; options: MaterialFilterO
   const normalizedQuery = query.trim().toLocaleUpperCase("pt-BR");
   const visibleOptions = (normalizedQuery
     ? props.options.filter((option) => option.searchText.includes(normalizedQuery) || option.label.toLocaleUpperCase("pt-BR").includes(normalizedQuery))
-    : props.options).slice(0, 30);
+    : props.options);
 
   function selectOption(option: MaterialFilterOption) {
     props.onChange(option.key);
@@ -1115,17 +1130,20 @@ function MaterialFilterCombobox(props: { value: string; options: MaterialFilterO
           role="combobox"
         />
         {open ? (
-          <ul style={styles.materialOptionsList} role="listbox">
-            {visibleOptions.length > 0 ? visibleOptions.map((option) => (
-              <li key={option.key} role="option" aria-selected={option.key === props.value}>
-                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOption(option)} style={styles.materialOptionButton}>
-                  {option.label}
-                </button>
-              </li>
-            )) : (
-              <li style={{ padding: "8px", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Nenhum material encontrado.</li>
-            )}
-          </ul>
+          <div style={styles.materialOptionsPanel}>
+            <div style={styles.materialOptionsHeader}>Materiais disponíveis · {visibleOptions.length}</div>
+            <ul style={styles.materialOptionsList} role="listbox">
+              {visibleOptions.length > 0 ? visibleOptions.map((option) => (
+                <li key={option.key} role="option" aria-selected={option.key === props.value}>
+                  <button type="button" title={option.label} onMouseDown={(event) => event.preventDefault()} onClick={() => selectOption(option)} style={styles.materialOptionButton}>
+                    {option.label}
+                  </button>
+                </li>
+              )) : (
+                <li style={{ padding: "8px", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Nenhum material encontrado</li>
+              )}
+            </ul>
+          </div>
         ) : null}
       </div>
     </label>

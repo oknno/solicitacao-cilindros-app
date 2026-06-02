@@ -1,5 +1,6 @@
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { normalizeMaterialRequestStatus } from "../../../domain/materialRequest/status";
+import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 
 type SpRecord = Record<string, unknown>;
@@ -55,7 +56,7 @@ export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
     requesterEmail: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.requesterEmail)),
     materialCode: getStringField(source, MATERIAL_REQUEST_FIELDS.materialCode),
     materialDescription: getStringField(source, MATERIAL_REQUEST_FIELDS.materialDescription),
-    center: getStringField(source, MATERIAL_REQUEST_FIELDS.center),
+    center: normalizeCenter(getStringField(source, MATERIAL_REQUEST_FIELDS.center)),
     technicalData: {
       refrol: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.refrol)),
       site: optionalString(getStringField(source, MATERIAL_REQUEST_TECHNICAL_FIELDS.site)),
