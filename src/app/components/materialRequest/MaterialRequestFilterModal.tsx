@@ -11,8 +11,6 @@ const STATUS_OPTIONS: Array<{ value: MaterialRequestStatus; label: string }> = [
   { value: "PENDING_CTO_APPROVAL", label: "Pendente CTO" },
   { value: "APPROVED", label: "Aprovada" },
   { value: "REJECTED", label: "Reprovada" },
-  { value: "RETURNED_FOR_ADJUSTMENT", label: "Devolvida" },
-  { value: "CANCELLED", label: "Cancelada" },
 ];
 
 const styles = {

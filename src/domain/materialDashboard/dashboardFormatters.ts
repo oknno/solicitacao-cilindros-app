@@ -5,10 +5,8 @@ const MATERIAL_REQUEST_STATUS_LABELS: Record<MaterialRequestStatus, string> = {
   DRAFT: "Rascunho",
   PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
   PENDING_CTO_APPROVAL: "Pendente CTO",
-  RETURNED_FOR_ADJUSTMENT: "Devolvida",
   APPROVED: "Aprovada",
   REJECTED: "Reprovada",
-  CANCELLED: "Cancelada",
 };
 
 const STOCK_RECOMMENDATION_LABELS: Record<StockRecommendation, string> = {

@@ -32,13 +32,11 @@ const RECOMMENDATION_MESSAGES: Record<MaterialRequest["stockRecommendation"], st
 const DECISION_LABELS: Record<CtoDecision, string> = {
   APPROVE: "Aprovar",
   REJECT: "Reprovar",
-  RETURN_FOR_ADJUSTMENT: "Devolver para ajuste",
 };
 
 const DECISION_SUCCESS_MESSAGES: Record<CtoDecision, string> = {
   APPROVE: "Solicitação aprovada pelo CTO.",
   REJECT: "Solicitação reprovada pelo CTO.",
-  RETURN_FOR_ADJUSTMENT: "Solicitação devolvida para ajuste.",
 };
 
 export function CtoApprovalPage({ request, initialDecision, onBack, onDecided }: CtoApprovalPageProps) {

@@ -19,7 +19,7 @@ import {
 import { formatDateTime } from "./materialRequestSummaryFormatters";
 import { wizardLayoutStyles } from "../../pages/ProjectsPage/components/wizard/wizardLayoutStyles";
 
-type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT" | "RETURN_FOR_ADJUSTMENT">;
+type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT">;
 
 const JUSTIFICATION_MAX_LENGTH = 2000;
 const GENERIC_CURRENT_USER_NAME = "Usuário atual";
@@ -38,13 +38,6 @@ const DECISION_COPY: Record<Decision, { title: string; confirm: string; confirmi
     confirming: "Reprovando...",
     placeholder: "Informe a justificativa da reprovação.",
     successMessage: "Solicitação reprovada com sucesso.",
-  },
-  RETURN_FOR_ADJUSTMENT: {
-    title: "Devolver solicitação",
-    confirm: "Devolver",
-    confirming: "Devolvendo...",
-    placeholder: "Informe a justificativa da decisão.",
-    successMessage: "Solicitação devolvida com sucesso.",
   },
 };
 

@@ -1,4 +1,6 @@
 import type { MaterialRequest } from "../../domain/materialRequest";
+import { assertCanModifyOwnMaterialRequest, type UserAccessProfile } from "../../domain/accessControl";
+import { resolveCurrentUserAccess } from "../resolveCurrentUserAccess";
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
 import { getMaterialRequestById, updateMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
 
@@ -6,6 +8,7 @@ export interface SubmitMaterialRequestForApprovalInput {
   requestId: number;
   performedByName: string;
   performedByEmail?: string;
+  accessProfile?: UserAccessProfile;
 }
 
 export interface SubmitMaterialRequestForApprovalOutput {
@@ -29,7 +32,9 @@ export async function submitMaterialRequestForApprovalUseCase(
     throw new Error("Solicitação não encontrada.");
   }
 
-  if (request.status !== "DRAFT" && request.status !== "RETURNED_FOR_ADJUSTMENT") {
+  assertCanModifyOwnMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request);
+
+  if (request.status !== "DRAFT" && request.status !== "REJECTED") {
     throw new Error("A solicitação não pode ser enviada para aprovação neste status.");
   }
 

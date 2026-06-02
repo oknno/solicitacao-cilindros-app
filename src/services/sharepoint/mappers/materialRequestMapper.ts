@@ -1,4 +1,5 @@
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import { normalizeMaterialRequestStatus } from "../../../domain/materialRequest/status";
 import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 
 type SpRecord = Record<string, unknown>;
@@ -85,7 +86,7 @@ export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
     stockRecommendation: getStringField(source, MATERIAL_REQUEST_FIELDS.stockRecommendation) as MaterialRequest["stockRecommendation"],
     requestReason: getStringField(source, MATERIAL_REQUEST_FIELDS.requestReason),
     requesterJustification: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.requesterJustification)),
-    status: getStringField(source, MATERIAL_REQUEST_FIELDS.requestStatus) as MaterialRequest["status"],
+    status: normalizeMaterialRequestStatus(getStringField(source, MATERIAL_REQUEST_FIELDS.requestStatus)),
     laminationManagerName: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.laminationManagerName)),
     laminationManagerEmail: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.laminationManagerEmail)),
     laminationManagerJustification: optionalString(getStringField(source, MATERIAL_REQUEST_FIELDS.laminationManagerJustification)),

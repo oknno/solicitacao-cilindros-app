@@ -51,13 +51,3 @@ test("CTO reprovando não exige justificativa obrigatória", () => {
     false,
   );
 });
-
-test("CTO devolvendo não exige justificativa obrigatória", () => {
-  assert.equal(
-    requiresCtoJustificationOnDecision({
-      recommendation: "MANUAL_REVIEW_REQUIRED",
-      decision: "RETURN_FOR_ADJUSTMENT",
-    }),
-    false,
-  );
-});

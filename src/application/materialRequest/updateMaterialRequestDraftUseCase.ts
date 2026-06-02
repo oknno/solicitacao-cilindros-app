@@ -1,3 +1,5 @@
+import { assertCanModifyOwnMaterialRequest, type UserAccessProfile } from "../../domain/accessControl";
+import { resolveCurrentUserAccess } from "../resolveCurrentUserAccess";
 import {
   analyzeStockForMaterialRequest,
   normalizeMaterialRequestTechnicalData,
@@ -10,14 +12,15 @@ import { getMaterialRequestById, updateMaterialRequest } from "../../services/sh
 
 export interface UpdateMaterialRequestDraftInput {
   requestId: number; center: string; materialCode: string; materialDescription?: string; requestedQuantity: number;
-  requestReason: string; requesterJustification?: string; technicalData?: MaterialRequest["technicalData"]; isManualMaterial?: boolean; performedByName: string; performedByEmail?: string;
+  requestReason: string; requesterJustification?: string; technicalData?: MaterialRequest["technicalData"]; isManualMaterial?: boolean; performedByName: string; performedByEmail?: string; accessProfile?: UserAccessProfile;
 }
 
 export async function updateMaterialRequestDraftUseCase(input: UpdateMaterialRequestDraftInput): Promise<{ request: MaterialRequest }> {
   if (!Number.isInteger(input.requestId) || input.requestId <= 0) throw new Error("Informe uma solicitação válida.");
   const request = await getMaterialRequestById(input.requestId);
   if (!request) throw new Error("Solicitação não encontrada.");
-  if (request.status !== "DRAFT" && request.status !== "RETURNED_FOR_ADJUSTMENT") throw new Error("Esta solicitação não pode ser editada neste status.");
+  assertCanModifyOwnMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request);
+  if (request.status !== "DRAFT" && request.status !== "REJECTED") throw new Error("Esta solicitação não pode ser editada neste status.");
   const center = input.center?.trim(); const materialCode = input.materialCode?.trim(); const reason = input.requestReason?.trim();
   if (!center) throw new Error("Informe o centro da solicitação.");
   if (!materialCode) throw new Error("Informe o código do material.");

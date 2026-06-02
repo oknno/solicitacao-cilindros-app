@@ -108,7 +108,7 @@ function TextRow(props: { label: string; children: ReactNode }) {
 function resolveStatusTone(status?: MaterialRequest["status"]): "neutral" | "info" | "success" | "danger" | "warning" {
   if (status === "APPROVED") return "success";
   if (status === "REJECTED") return "danger";
-  if (status === "DRAFT" || status === "CANCELLED") return "neutral";
+  if (status === "DRAFT") return "neutral";
   if (status === "PENDING_LAMINATION_MANAGER_APPROVAL" || status === "PENDING_CTO_APPROVAL") return "warning";
   return "info";
 }

@@ -9,8 +9,6 @@ const STATUS_LABELS: Record<MaterialRequestStatus, string> = {
   PENDING_CTO_APPROVAL: "Pendente CTO",
   APPROVED: "Aprovada",
   REJECTED: "Reprovada",
-  RETURNED_FOR_ADJUSTMENT: "Devolvida",
-  CANCELLED: "Cancelada",
 };
 
 const STOCK_RECOMMENDATION_LABELS: Record<StockRecommendation, string> = {

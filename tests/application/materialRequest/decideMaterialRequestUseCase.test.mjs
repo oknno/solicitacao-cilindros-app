@@ -78,7 +78,7 @@ test("decideMaterialRequestUseCase lança erro quando solicitação não está p
   mock.module("../../../src/services/sharepoint/repositories/materialRequestRepository.ts", {
     namedExports: {
       getMaterialRequestById: async () =>
-        buildPendingRequest({ status: "APPROVED_BY_CTO" }),
+        buildPendingRequest({ status: "APPROVED" }),
       updateMaterialRequest: async () => {
         throw new Error("não deveria atualizar");
       },
@@ -178,7 +178,7 @@ test("APPROVE em PURCHASE_RECOMMENDED sem justificativa funciona", async () => {
     ctoApproverName: "CTO",
   });
 
-  assert.equal(result.request.status, "APPROVED_BY_CTO");
+  assert.equal(result.request.status, "APPROVED");
 });
 
 test("REJECT sem justificativa funciona", async () => {
@@ -207,36 +207,7 @@ test("REJECT sem justificativa funciona", async () => {
     ctoApproverName: "CTO",
   });
 
-  assert.equal(result.request.status, "REJECTED_BY_CTO");
-});
-
-test("RETURN_FOR_ADJUSTMENT sem justificativa funciona", async () => {
-  const request = buildPendingRequest({ stockRecommendation: "MANUAL_REVIEW_REQUIRED" });
-
-  mock.module("../../../src/services/sharepoint/repositories/materialRequestRepository.ts", {
-    namedExports: {
-      getMaterialRequestById: async () => request,
-      updateMaterialRequest: async (id, patch) => ({ ...request, id, ...patch }),
-    },
-  });
-
-  mock.module("../../../src/services/sharepoint/repositories/materialRequestHistoryRepository.ts", {
-    namedExports: {
-      createMaterialRequestHistoryEntry: async (entry) => entry,
-    },
-  });
-
-  const { decideMaterialRequestUseCase } = await import(
-    "../../../src/application/materialRequest/decideMaterialRequestUseCase.ts"
-  );
-
-  const result = await decideMaterialRequestUseCase({
-    requestId: 10,
-    decision: "RETURN_FOR_ADJUSTMENT",
-    ctoApproverName: "CTO",
-  });
-
-  assert.equal(result.request.status, "RETURNED_FOR_ADJUSTMENT");
+  assert.equal(result.request.status, "REJECTED");
 });
 
 test("cria histórico após decisão", async () => {
@@ -272,7 +243,7 @@ test("cria histórico após decisão", async () => {
 
   assert.equal(historyPayload.action, "REJECTED_BY_CTO");
   assert.equal(historyPayload.previousStatus, "PENDING_CTO_APPROVAL");
-  assert.equal(historyPayload.newStatus, "REJECTED_BY_CTO");
+  assert.equal(historyPayload.newStatus, "REJECTED");
   assert.equal(historyPayload.performedByName, "CTO Nome");
   assert.equal(historyPayload.performedByEmail, "cto@empresa.com");
 });

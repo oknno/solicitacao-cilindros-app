@@ -8,6 +8,7 @@ import {
   type AnalyzeMaterialRequestStockOutput,
   updateMaterialRequestDraftUseCase,
 } from "../../../application/materialRequest";
+import type { UserAccessProfile } from "../../../domain/accessControl";
 import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { MaterialRequestTechnicalData } from "../../../domain/materialRequest";
@@ -33,6 +34,7 @@ function normalizeFormText(value: string | number | null | undefined): string {
 }
 
 interface MaterialRequestFormPageProps {
+  accessProfile: UserAccessProfile;
   onBack: () => void;
   onCreated: () => void;
   inModal?: boolean;
@@ -69,7 +71,7 @@ function buildAnalysisMessage(result: AnalyzeMaterialRequestStockOutput | null, 
   return "Análise de estoque concluída.";
 }
 
-export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "create", initialRequest }: MaterialRequestFormPageProps) {
+export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inModal, mode = "create", initialRequest }: MaterialRequestFormPageProps) {
   const { notify } = useToast();
   const [requesterName, setRequesterName] = useState("Usuário atual");
   const [requesterEmail, setRequesterEmail] = useState("");
@@ -314,7 +316,7 @@ export function MaterialRequestFormPage({ onBack, onCreated, inModal, mode = "cr
     setSending(true);
     try {
       if (mode === "edit" && initialRequest?.id) {
-        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail });
+        await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail, accessProfile });
         notify("Solicitação atualizada com sucesso.", "success");
       } else {
         await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachment: attachment ?? undefined });
