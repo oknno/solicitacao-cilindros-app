@@ -14,6 +14,7 @@ import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { MaterialRequestTechnicalData } from "../../../domain/materialRequest";
 import { MaterialStockAnalysisSection } from "../../components/materialRequest/MaterialStockAnalysisSection";
 import { MaterialRequestTechnicalDataFormSection } from "../../components/materialRequest/MaterialRequestTechnicalDataSection";
+import { RequestAttachmentsSection } from "../../components/materialRequest/RequestAttachmentsSection";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
@@ -381,16 +382,22 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
             {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
             {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
 
-            <Field label="Anexo de apoio">
-              <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
-                <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
-                <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
-                <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
-                {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
-              </label>
-            </Field>
-            {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
-            {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
+            {mode === "edit" && initialRequest?.id ? <RequestAttachmentsSection requestId={initialRequest.id} accessProfile={accessProfile} /> : null}
+
+            {mode === "create" ? (
+              <>
+                <Field label="Anexo de apoio">
+                  <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
+                    <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
+                    <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
+                    <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
+                    {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
+                  </label>
+                </Field>
+                {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
+                {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
+              </>
+            ) : null}
           </div>
         </div>
 

@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { getMaterialRequestHistoryUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
 import type { MaterialRequestHistoryEntry } from "../../../domain/materialRequest/historyTypes";
 import type { StockMaterial } from "../../../domain/materialRequest";
+import type { UserAccessProfile } from "../../../domain/accessControl";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { AppModal } from "../common/AppModal";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialRequestHistoryTimeline } from "./MaterialRequestHistoryTimeline";
+import { RequestAttachmentsSection } from "./RequestAttachmentsSection";
 import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
 import { MaterialRequestTechnicalDataViewSection } from "./MaterialRequestTechnicalDataSection";
 import {
@@ -15,7 +17,7 @@ import {
   MaterialRequestPreviousApprovalSection,
 } from "./MaterialRequestViewSections";
 
-export function MaterialRequestViewModal({ request, onClose }: { request: MaterialRequest; onClose: () => void }) {
+export function MaterialRequestViewModal({ accessProfile, request, onClose }: { accessProfile: UserAccessProfile; request: MaterialRequest; onClose: () => void }) {
   const [history, setHistory] = useState<MaterialRequestHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export function MaterialRequestViewModal({ request, onClose }: { request: Materi
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
         <MaterialRequestMainInfoSection request={request} title="1. Dados da Solicitação" />
         <MaterialRequestTechnicalDataViewSection technicalData={request.technicalData} />
+        {request.id ? <RequestAttachmentsSection requestId={request.id} accessProfile={accessProfile} /> : null}
 
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={request.requestedQuantity} mode="view" />}

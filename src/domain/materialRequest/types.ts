@@ -45,3 +45,11 @@ export interface MaterialRequest {
   ctoApproverEmail?: string;
   ctoDecisionDate?: string;
 }
+
+export interface MaterialRequestAttachment {
+  fileName: string;
+  serverRelativeUrl: string;
+  url: string;
+  size?: number;
+  createdAt?: string;
+}

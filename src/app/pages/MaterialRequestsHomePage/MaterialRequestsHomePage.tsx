@@ -294,7 +294,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     {stockImportOpen && <StockImportModal accessProfile={accessProfile} onClose={() => setStockImportOpen(false)} onSuccess={() => { setStockImportOpen(false); void loadRequests(); }} />}
 
 
-    {viewRequest && <MaterialRequestViewModal request={viewRequest} onClose={() => setViewRequest(null)} />}
+    {viewRequest && <MaterialRequestViewModal accessProfile={accessProfile} request={viewRequest} onClose={() => setViewRequest(null)} />}
 
     <ConfirmDialog
       open={Boolean(confirmState)}
