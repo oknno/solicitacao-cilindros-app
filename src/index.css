@@ -325,3 +325,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* Mantém a estrutura gerencial do estoque estável mesmo quando os filtros reduzem os dados. */
+#static-mirror .material-stock-dashboard-layout {
+  height: 640px;
+  min-height: 640px;
+}
+
+@media (max-width: 900px) {
+  #static-mirror .material-stock-dashboard-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto;
+    min-height: 0;
+  }
+
+  #static-mirror .material-stock-dashboard-analytics,
+  #static-mirror .material-stock-dashboard-table-section {
+    height: 640px !important;
+    min-height: 640px !important;
+  }
+}
