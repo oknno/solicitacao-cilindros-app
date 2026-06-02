@@ -3,6 +3,7 @@ import { Badge } from "../ui/Badge";
 
 const statusMap: Record<MaterialRequestStatus, { text: string; tone: "neutral" | "info" | "success" | "danger" | "warning" }> = {
   DRAFT: { text: "Rascunho", tone: "neutral" },
+  RETURNED_TO_DRAFT: { text: "Retornado para Rascunho", tone: "info" },
   PENDING_LAMINATION_MANAGER_APPROVAL: { text: "Pendente Gerente Laminação", tone: "warning" },
   PENDING_CTO_APPROVAL: { text: "Pendente CTO", tone: "warning" },
   APPROVED: { text: "Aprovada", tone: "success" },

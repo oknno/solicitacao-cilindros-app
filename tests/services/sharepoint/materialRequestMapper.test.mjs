@@ -116,6 +116,11 @@ test("mapMaterialRequestToUpdatePayload para decisão CTO não sobrescreve campo
   assert.equal("StockRecommendation" in payload, false);
 });
 
+test("mapSharePointMaterialRequest mantém RETURNED_TO_DRAFT como status oficial", () => {
+  const mapped = mapSharePointMaterialRequest({ RequestStatus: "RETURNED_TO_DRAFT" });
+  assert.equal(mapped.status, "RETURNED_TO_DRAFT");
+});
+
 test("mapSharePointMaterialRequest normaliza status legado devolvido para REJECTED", () => {
   const mapped = mapSharePointMaterialRequest({ RequestStatus: "RETURNED_FOR_ADJUSTMENT" });
   assert.equal(mapped.status, "REJECTED");

@@ -66,10 +66,10 @@ export function buildUserAccessProfile(input: { userEmail: string; roles: Access
 export function canAccessMaterialRequest(profile: UserAccessProfile, request: MaterialRequest): boolean {
   if (profile.roles.includes("ADMIN")) return true;
   if (profile.roles.includes("CTO")) {
-    return request.status !== "DRAFT" && request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL";
+    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL";
   }
   if (profile.roles.includes("MANAGER")) {
-    return request.status !== "DRAFT" && profile.centers.includes(request.center);
+    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && profile.centers.includes(request.center);
   }
   return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
 }

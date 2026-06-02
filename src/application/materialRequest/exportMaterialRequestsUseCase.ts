@@ -5,6 +5,7 @@ import type { StockRecommendation } from "../../domain/materialRequest/stockType
 
 const STATUS_LABELS: Record<MaterialRequestStatus, string> = {
   DRAFT: "Rascunho",
+  RETURNED_TO_DRAFT: "Retornado para Rascunho",
   PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
   PENDING_CTO_APPROVAL: "Pendente CTO",
   APPROVED: "Aprovada",

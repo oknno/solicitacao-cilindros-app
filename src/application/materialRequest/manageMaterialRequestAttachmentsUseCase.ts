@@ -22,7 +22,7 @@ async function assertCanEditMaterialRequestAttachments(input: MaterialRequestAtt
   if (!request) throw new Error("Solicitação não encontrada.");
 
   assertCanModifyOwnMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request);
-  if (request.status !== "DRAFT" && request.status !== "REJECTED") {
+  if (request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "REJECTED") {
     throw new Error("Os anexos não podem ser alterados neste status.");
   }
 }

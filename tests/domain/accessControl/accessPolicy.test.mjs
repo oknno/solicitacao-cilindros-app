@@ -28,7 +28,7 @@ test("usuário sem papel configurado recebe fallback USER e visualiza somente so
 test("MANAGER não visualiza rascunhos e CTO visualiza somente etapas CTO e históricas", () => {
   const manager = buildUserAccessProfile({ userEmail: "manager@example.com", roles: ["MANAGER"], centers: ["9860"] });
   const cto = buildUserAccessProfile({ userEmail: "cto@example.com", roles: ["CTO"] });
-  const statuses = ["DRAFT", "PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"];
+  const statuses = ["DRAFT", "RETURNED_TO_DRAFT", "PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"];
   const requests = statuses.map((status) => ({ ...request("9860"), status }));
 
   assert.deepEqual(filterMaterialRequestsByAccess(manager, requests).map((item) => item.status), ["PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);

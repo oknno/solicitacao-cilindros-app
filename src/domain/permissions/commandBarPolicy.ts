@@ -1,7 +1,7 @@
 import type { MaterialRequestStatus } from "../materialRequest/status";
 import type { MaterialRequestCommandPermissionInput, MaterialRequestCommandPermissions } from "./permissionTypes";
 
-const EDITABLE_STATUSES: MaterialRequestStatus[] = ["DRAFT", "REJECTED"];
+const EDITABLE_STATUSES: MaterialRequestStatus[] = ["DRAFT", "RETURNED_TO_DRAFT", "REJECTED"];
 const DRAFT_STATUS: MaterialRequestStatus[] = ["DRAFT"];
 const MANAGER_PENDING_STATUS: MaterialRequestStatus[] = ["PENDING_LAMINATION_MANAGER_APPROVAL"];
 const CTO_PENDING_STATUS: MaterialRequestStatus[] = ["PENDING_CTO_APPROVAL"];
@@ -26,7 +26,7 @@ export function getMaterialRequestCommandPermissions(input: MaterialRequestComma
     canShowEdit: permissions.canEditRequest,
     canShowDelete: permissions.canCancelRequest,
     canShowSubmit: permissions.canSubmitRequest,
-    canShowReturnStatus: accessProfile.roles.includes("ADMIN"),
+    canShowReturnStatus: permissions.canSubmitRequest,
     canShowApprove: permissions.canApproveAsManager || permissions.canApproveAsCTO,
     canShowReject: permissions.canRejectRequest && (permissions.canApproveAsManager || permissions.canApproveAsCTO),
     canShowFilter: true,
@@ -37,7 +37,7 @@ export function getMaterialRequestCommandPermissions(input: MaterialRequestComma
     canEdit: permissions.canEditRequest && canChangeOwnRequest && hasSelection && includes(EDITABLE_STATUSES, selectedStatus),
     canDelete: permissions.canCancelRequest && canChangeOwnRequest && hasSelection && includes(DRAFT_STATUS, selectedStatus),
     canSubmit: permissions.canSubmitRequest && canChangeOwnRequest && hasSelection && includes(EDITABLE_STATUSES, selectedStatus),
-    canReturnStatus: accessProfile.roles.includes("ADMIN") && hasSelection && selectedStatus !== "DRAFT",
+    canReturnStatus: permissions.canSubmitRequest && canChangeOwnRequest && hasSelection && selectedStatus === "PENDING_LAMINATION_MANAGER_APPROVAL",
     canApprove,
     canReject: permissions.canRejectRequest && canApprove,
     canFilter: true,

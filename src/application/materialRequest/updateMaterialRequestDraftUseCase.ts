@@ -20,7 +20,7 @@ export async function updateMaterialRequestDraftUseCase(input: UpdateMaterialReq
   const request = await getMaterialRequestById(input.requestId);
   if (!request) throw new Error("Solicitação não encontrada.");
   assertCanModifyOwnMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request);
-  if (request.status !== "DRAFT" && request.status !== "REJECTED") throw new Error("Esta solicitação não pode ser editada neste status.");
+  if (request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "REJECTED") throw new Error("Esta solicitação não pode ser editada neste status.");
   const center = input.center?.trim(); const materialCode = input.materialCode?.trim(); const reason = input.requestReason?.trim();
   if (!center) throw new Error("Informe o centro da solicitação.");
   if (!materialCode) throw new Error("Informe o código do material.");

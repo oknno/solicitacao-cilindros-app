@@ -1,5 +1,6 @@
 export type MaterialRequestStatus =
   | "DRAFT"
+  | "RETURNED_TO_DRAFT"
   | "PENDING_LAMINATION_MANAGER_APPROVAL"
   | "PENDING_CTO_APPROVAL"
   | "APPROVED"
@@ -14,6 +15,7 @@ export type CtoDecision = MaterialRequestDecision;
 
 const OFFICIAL_STATUSES = new Set<MaterialRequestStatus>([
   "DRAFT",
+  "RETURNED_TO_DRAFT",
   "PENDING_LAMINATION_MANAGER_APPROVAL",
   "PENDING_CTO_APPROVAL",
   "APPROVED",
