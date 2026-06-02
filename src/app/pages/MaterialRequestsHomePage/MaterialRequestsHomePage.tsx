@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMaterialRequestForApprovalUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import { assertCanDecideMaterialRequest, getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
@@ -62,7 +63,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
   }), [accessProfile, selectedRequest]);
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
-  const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => item.center).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")), [items]);
+  const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => normalizeCenter(item.center)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" })), [items]);
   const isInitialLoading = state === "loading" && items.length === 0;
 
   const loadRequests = useCallback(async () => {

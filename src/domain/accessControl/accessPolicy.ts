@@ -1,4 +1,5 @@
 import type { ApproverRole, MaterialRequest } from "../materialRequest";
+import { normalizeCenter } from "../materialRequest";
 import type { AccessPermissions, AccessRole, DataScope, UserAccessProfile } from "./types";
 
 const ROLE_ORDER: AccessRole[] = ["ADMIN", "CTO", "MANAGER", "USER"];
@@ -53,7 +54,7 @@ function mergePermissions(roles: AccessRole[]): AccessPermissions {
 export function buildUserAccessProfile(input: { userEmail: string; roles: AccessRole[]; centers?: string[] }): UserAccessProfile {
   const roles = ROLE_ORDER.filter((role) => input.roles.includes(role));
   const effectiveRoles: AccessRole[] = roles.length > 0 ? roles : ["USER"];
-  const centers = Array.from(new Set((input.centers ?? []).map((center) => center.trim()).filter(Boolean)));
+  const centers = Array.from(new Set((input.centers ?? []).map(normalizeCenter).filter(Boolean)));
   const dataScope: DataScope = effectiveRoles.includes("ADMIN") || effectiveRoles.includes("CTO")
     ? "ALL_CENTERS"
     : effectiveRoles.includes("MANAGER")
@@ -69,7 +70,7 @@ export function canAccessMaterialRequest(profile: UserAccessProfile, request: Ma
     return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL";
   }
   if (profile.roles.includes("MANAGER")) {
-    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && profile.centers.includes(request.center);
+    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && profile.centers.includes(normalizeCenter(request.center));
   }
   return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
 }
@@ -88,14 +89,14 @@ export function filterMaterialRequestsByAccess(profile: UserAccessProfile, reque
 
 export function filterCentersByAccess(profile: UserAccessProfile, centers: string[]): string[] {
   if (profile.dataScope === "ALL_CENTERS") return centers;
-  if (profile.dataScope === "ASSIGNED_CENTERS") return centers.filter((center) => profile.centers.includes(center));
+  if (profile.dataScope === "ASSIGNED_CENTERS") return centers.filter((center) => profile.centers.includes(normalizeCenter(center)));
   return [];
 }
 
 export function assertCanDecideMaterialRequest(profile: UserAccessProfile, request: MaterialRequest, approverRole: ApproverRole): void {
   if (approverRole === "LAMINATION_MANAGER") {
     if (!profile.permissions.canApproveAsManager) throw new Error("Você não possui permissão para decidir aprovações gerenciais.");
-    if (!profile.roles.includes("ADMIN") && !profile.centers.includes(request.center)) {
+    if (!profile.roles.includes("ADMIN") && !profile.centers.includes(normalizeCenter(request.center))) {
       throw new Error("Você não possui permissão para decidir solicitações deste centro.");
     }
     return;
