@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { decideMaterialRequestApprovalUseCase, getCurrentMaterialRequestUserUseCase, getMaterialRequestStockAnalysisUseCase } from "../../../application/materialRequest";
-import type { MaterialRequest, MaterialRequestDecision, StockMaterial } from "../../../domain/materialRequest";
+import { decideMaterialRequestApprovalUseCase, getCurrentMaterialRequestUserUseCase } from "../../../application/materialRequest";
+import type { MaterialRequest, MaterialRequestDecision } from "../../../domain/materialRequest";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
 import type { UserAccessProfile } from "../../../domain/accessControl";
 import { useToast } from "../notifications/useToast";
@@ -8,15 +8,7 @@ import { Button } from "../ui/Button";
 import { AppModal } from "../common/AppModal";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
-import { MaterialStockAnalysisSection } from "./MaterialStockAnalysisSection";
-import { MaterialRequestTechnicalDataViewSection } from "./MaterialRequestTechnicalDataSection";
-import { RequestAttachmentsSection } from "./RequestAttachmentsSection";
-import {
-  MaterialRequestMainInfoSection,
-  MaterialRequestPreviousApprovalSection,
-  SummaryField,
-  SummarySection,
-} from "./MaterialRequestViewSections";
+import { SummaryField, SummarySection } from "./MaterialRequestViewSections";
 import { formatDateTime } from "./materialRequestSummaryFormatters";
 import { wizardLayoutStyles } from "../../pages/ProjectsPage/components/wizard/wizardLayoutStyles";
 
@@ -25,16 +17,14 @@ type Decision = Extract<MaterialRequestDecision, "APPROVE" | "REJECT">;
 const JUSTIFICATION_MAX_LENGTH = 2000;
 const GENERIC_CURRENT_USER_NAME = "Usuário atual";
 
-const DECISION_COPY: Record<Decision, { title: string; confirm: string; confirming: string; placeholder: string; successMessage: string }> = {
+const DECISION_COPY: Record<Decision, { confirm: string; confirming: string; placeholder: string; successMessage: string }> = {
   APPROVE: {
-    title: "Aprovar solicitação",
     confirm: "Aprovar",
     confirming: "Aprovando...",
     placeholder: "Informe a justificativa da aprovação.",
     successMessage: "Solicitação aprovada com sucesso.",
   },
   REJECT: {
-    title: "Reprovar solicitação",
     confirm: "Reprovar",
     confirming: "Reprovando...",
     placeholder: "Informe a justificativa da reprovação.",
@@ -46,15 +36,6 @@ const DECISION_SECTION_TITLE: Record<ApproverRole, string> = {
   LAMINATION_MANAGER: "Aprovação Gerente Laminação",
   CTO: "Aprovação CTO",
 };
-
-function hasLaminationManagerDecision(request: MaterialRequest): boolean {
-  return Boolean(
-    request.laminationManagerName
-    || request.laminationManagerEmail
-    || request.laminationManagerDecisionDate
-    || request.laminationManagerJustification,
-  );
-}
 
 export function MaterialRequestApprovalModal(props: {
   accessProfile: UserAccessProfile;
@@ -71,13 +52,8 @@ export function MaterialRequestApprovalModal(props: {
   const [justification, setJustification] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const [stockMaterial, setStockMaterial] = useState<StockMaterial | null>(null);
-  const [stockAnalysisError, setStockAnalysisError] = useState("");
-  const [loadingStockAnalysis, setLoadingStockAnalysis] = useState(false);
-
   const copy = useMemo(() => DECISION_COPY[props.decision], [props.decision]);
   const decisionDate = useMemo(() => new Date().toISOString(), []);
-  const showPreviousLaminationApproval = props.approverRole === "CTO" && hasLaminationManagerDecision(props.request);
 
   useEffect(() => {
     let mounted = true;
@@ -101,30 +77,6 @@ export function MaterialRequestApprovalModal(props: {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadStockAnalysis() {
-      setStockAnalysisError("");
-      setLoadingStockAnalysis(true);
-      try {
-        const result = await getMaterialRequestStockAnalysisUseCase(props.request);
-        if (mounted) setStockMaterial(result.stockMaterial);
-      } catch (e) {
-        if (!mounted) return;
-        setStockMaterial(null);
-        setStockAnalysisError(e instanceof Error ? e.message : "Não foi possível carregar a análise do material.");
-      } finally {
-        if (mounted) setLoadingStockAnalysis(false);
-      }
-    }
-
-    void loadStockAnalysis();
-    return () => {
-      mounted = false;
-    };
-  }, [props.request]);
 
   async function handleConfirm() {
     setError("");
@@ -157,8 +109,8 @@ export function MaterialRequestApprovalModal(props: {
 
   return (
     <AppModal
-      title={copy.title}
-      subtitle="Revise o resumo e informe a justificativa para concluir a decisão."
+      title={DECISION_SECTION_TITLE[props.approverRole]}
+      subtitle="Última seção editável: registre os dados da decisão."
       onClose={props.onClose}
       actions={(
         <>
@@ -168,24 +120,7 @@ export function MaterialRequestApprovalModal(props: {
       )}
     >
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
-        <MaterialRequestMainInfoSection request={props.request} />
-        <MaterialRequestTechnicalDataViewSection technicalData={props.request.technicalData} />
-        {props.request.id ? <RequestAttachmentsSection requestId={props.request.id} accessProfile={props.accessProfile} mode="readonly" /> : null}
-
-        {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
-        {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={props.request.requestedQuantity} mode="approval" />}
-
-        {showPreviousLaminationApproval ? (
-          <MaterialRequestPreviousApprovalSection
-            title="Aprovação anterior do Gerente da Laminação"
-            approverName={props.request.laminationManagerName}
-            approverEmail={props.request.laminationManagerEmail}
-            decisionDate={props.request.laminationManagerDecisionDate}
-            justification={props.request.laminationManagerJustification}
-          />
-        ) : null}
-
-        <SummarySection title={DECISION_SECTION_TITLE[props.approverRole]} subtitle="Última seção editável: registre os dados da decisão.">
+        <SummarySection title="Dados da decisão">
           <SummaryField
             label="Nome do aprovador"
             value={(
