@@ -21,3 +21,4 @@ export * from "./deleteMaterialRequestUseCase";
 export * from "./returnMaterialRequestStatusUseCase";
 export * from "./getCurrentMaterialRequestUserUseCase";
 export * from "./getMaterialRequestStockAnalysisUseCase";
+export * from "./getMaterialRequestAttachmentsUseCase";

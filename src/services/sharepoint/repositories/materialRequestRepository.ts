@@ -1,4 +1,4 @@
-import type { MaterialRequest } from "../../../domain/materialRequest/types";
+import type { MaterialRequest, MaterialRequestAttachment } from "../../../domain/materialRequest/types";
 import {
   mapMaterialRequestToSharePointPayload,
   mapMaterialRequestToUpdatePayload,
@@ -110,4 +110,48 @@ export async function addAttachmentToMaterialRequest(
     const txt = await res.text();
     throw new Error(`Falha ao anexar arquivo. (${res.status}) ${txt}`);
   }
+}
+
+function readOptionalString(record: SpRecord, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  return undefined;
+}
+
+function readOptionalNumber(record: SpRecord, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  }
+
+  return undefined;
+}
+
+function buildAttachmentOpenUrl(serverRelativeUrl: string): string {
+  return new URL(serverRelativeUrl, `${spConfig.siteUrl}/`).toString();
+}
+
+export async function listAttachmentsByRequestId(requestId: number): Promise<MaterialRequestAttachment[]> {
+  if (!Number.isInteger(requestId) || requestId <= 0) return [];
+
+  const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles`;
+  const data = await spGetJson<ODataListResponse<SpRecord>>(url);
+
+  return readItems(data).flatMap((record) => {
+    const fileName = readOptionalString(record, "FileName", "fileName");
+    const serverRelativeUrl = readOptionalString(record, "ServerRelativeUrl", "serverRelativeUrl");
+    if (!fileName || !serverRelativeUrl) return [];
+
+    return [{
+      fileName,
+      serverRelativeUrl,
+      url: buildAttachmentOpenUrl(serverRelativeUrl),
+      size: readOptionalNumber(record, "Length", "length", "Size", "size"),
+      createdAt: readOptionalString(record, "TimeCreated", "timeCreated", "Created", "createdAt"),
+    }];
+  });
 }
