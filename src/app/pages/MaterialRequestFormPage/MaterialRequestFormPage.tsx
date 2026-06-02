@@ -382,7 +382,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
             {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
             {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
 
-            {mode === "edit" && initialRequest?.id ? <RequestAttachmentsSection requestId={initialRequest.id} accessProfile={accessProfile} /> : null}
+            {mode === "edit" && initialRequest?.id ? <RequestAttachmentsSection requestId={initialRequest.id} accessProfile={accessProfile} mode="editable" requestStatus={initialRequest.status} /> : null}
 
             {mode === "create" ? (
               <>

@@ -87,7 +87,7 @@ export function MaterialRequestViewModal({ accessProfile, request, onClose }: { 
       <div style={{ padding: 14, display: "grid", gap: 16 }}>
         <MaterialRequestMainInfoSection request={request} title="1. Dados da Solicitação" />
         <MaterialRequestTechnicalDataViewSection technicalData={request.technicalData} />
-        {request.id ? <RequestAttachmentsSection requestId={request.id} accessProfile={accessProfile} /> : null}
+        {request.id ? <RequestAttachmentsSection requestId={request.id} accessProfile={accessProfile} mode="readonly" /> : null}
 
         {stockAnalysisError ? <StateMessage state="error" message={stockAnalysisError} /> : null}
         {loadingStockAnalysis ? <StateMessage state="loading" message="Carregando análise do material..." /> : <MaterialStockAnalysisSection stockMaterial={stockMaterial} requestedQuantity={request.requestedQuantity} mode="view" />}
