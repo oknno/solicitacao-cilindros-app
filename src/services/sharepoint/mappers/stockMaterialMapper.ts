@@ -1,4 +1,5 @@
 import type { StockMaterial } from "../../../domain/materialRequest/stockTypes";
+import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 
 export type StockMaterialNumericField =
   | "evaluatedStockTotal"
@@ -99,7 +100,7 @@ export function mapSharePointStockMaterial(
   return {
     materialCode: readString(source, fields.materialCode),
     description: readString(source, fields.description),
-    center: readString(source, fields.center),
+    center: normalizeCenter(readFieldValue(source, fields.center)),
     evaluatedStockTotal: readNullableNumber(source, fields.evaluatedStockTotal),
     totalStockValueBRL: readNullableNumber(source, fields.totalStockValueBRL),
     consumption2021: readNullableNumber(source, fields.consumption2021),
