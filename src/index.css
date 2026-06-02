@@ -329,15 +329,21 @@
 
 /* Mantém a estrutura gerencial do estoque estável mesmo quando os filtros reduzem os dados. */
 #static-mirror .material-stock-dashboard-layout {
-  height: 640px;
-  min-height: 640px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @media (max-width: 900px) {
+  #static-mirror .material-stock-dashboard-page {
+    overflow-y: auto !important;
+  }
+
   #static-mirror .material-stock-dashboard-layout {
     grid-template-columns: minmax(0, 1fr) !important;
-    height: auto;
+    height: auto !important;
     min-height: 0;
+    overflow: visible !important;
   }
 
   #static-mirror .material-stock-dashboard-analytics,

@@ -70,12 +70,14 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", cu
 const styles = {
   page: {
     height: "100%",
-    overflow: "auto",
+    minHeight: 0,
+    overflow: "hidden",
     background: uiTokens.colors.appBackground,
     padding: uiTokens.spacing.md,
     display: "grid",
+    gridTemplateRows: "auto auto minmax(0, 1fr)",
     gap: uiTokens.spacing.md,
-    alignContent: "start",
+    alignContent: "stretch",
   } satisfies React.CSSProperties,
   filterPopoverOverlay: {
     position: "fixed",
@@ -140,6 +142,9 @@ const styles = {
     gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.5fr)",
     gap: uiTokens.spacing.md,
     alignItems: "stretch",
+    height: "100%",
+    minHeight: 0,
+    overflow: "hidden",
   } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
@@ -195,6 +200,9 @@ const styles = {
     paddingBottom: uiTokens.spacing.sm,
     scrollbarGutter: "stable",
   } satisfies React.CSSProperties,
+  centerChartRow: {
+    paddingBottom: uiTokens.spacing.xxs,
+  } satisfies React.CSSProperties,
   chartLabelRow: {
     display: "grid",
     gridTemplateColumns: "minmax(120px, 1fr) auto",
@@ -202,6 +210,7 @@ const styles = {
     alignItems: "center",
     color: uiTokens.colors.textStrong,
     fontSize: uiTokens.typography.sm,
+    lineHeight: 1.35,
   } satisfies React.CSSProperties,
   chartTrack: {
     height: 9,
@@ -723,7 +732,7 @@ export function MaterialDashboardPage(props: { accessProfile: UserAccessProfile;
   }
 
   return (
-    <div style={styles.page}>
+    <div className="material-stock-dashboard-page" style={styles.page}>
       <CommandBar
         title="Dashboard de Estoque — Cilindros e Discos"
         isAdmin={props.accessProfile.roles.includes("ADMIN")}
@@ -893,21 +902,19 @@ function StockValueByCenterChart(props: { items: { center: string; value: number
   const max = Math.max(...props.items.map((item) => item.value), 0);
   return (
     <DashboardSection title="Valor em estoque por centro" count={props.items.length} style={styles.analyticsSection}>
-      {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
-        <div style={{ ...styles.chartRows, ...styles.centerChartScroller }}>
-          {props.items.map((item) => (
-            <div key={item.center}>
-              <div style={styles.chartLabelRow}>
-                <span>Centro {item.center}</span>
-                <strong>{formatCurrency(item.value)}</strong>
-              </div>
-              <div style={styles.chartTrack} aria-hidden="true">
-                <div style={{ width: `${max > 0 ? Math.max((item.value / max) * 100, 4) : 0}%`, height: "100%", background: uiTokens.colors.accent, borderRadius: 999 }} />
-              </div>
+      <div style={{ ...styles.chartRows, ...styles.centerChartScroller }}>
+        {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Nenhum item encontrado para os filtros aplicados.</div> : props.items.map((item) => (
+          <div key={item.center} style={styles.centerChartRow}>
+            <div style={styles.chartLabelRow}>
+              <span>Centro {item.center}</span>
+              <strong>{formatCurrency(item.value)}</strong>
             </div>
-          ))}
-        </div>
-      )}
+            <div style={styles.chartTrack} aria-hidden="true">
+              <div style={{ width: `${max > 0 ? Math.max((item.value / max) * 100, 4) : 0}%`, height: "100%", background: uiTokens.colors.accent, borderRadius: 999 }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </DashboardSection>
   );
 }
