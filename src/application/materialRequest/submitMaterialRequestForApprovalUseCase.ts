@@ -34,7 +34,7 @@ export async function submitMaterialRequestForApprovalUseCase(
 
   assertCanModifyOwnMaterialRequest(input.accessProfile ?? await resolveCurrentUserAccess(), request);
 
-  if (request.status !== "DRAFT" && request.status !== "REJECTED") {
+  if (request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "REJECTED") {
     throw new Error("A solicitação não pode ser enviada para aprovação neste status.");
   }
 

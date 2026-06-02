@@ -22,6 +22,7 @@ import { getMaterialRequests } from "../../services/sharepoint/repositories/mate
 import { getAllStockItems } from "../../services/sharepoint/repositories/stockMaterialRepository";
 
 const OPEN_DASHBOARD_STATUSES = new Set<MaterialRequestStatus>([
+  "RETURNED_TO_DRAFT",
   "PENDING_LAMINATION_MANAGER_APPROVAL",
   "PENDING_CTO_APPROVAL",
   "REJECTED",

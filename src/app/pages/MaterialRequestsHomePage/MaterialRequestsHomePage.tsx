@@ -223,6 +223,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       deleteDisabledReason={selectedRequest ? "Somente solicitações em rascunho podem ser excluídas." : "Selecione uma solicitação."}
       canSend={commandPermissions.canSubmit}
       canBack={commandPermissions.canReturnStatus}
+      backDisabledReason={selectedRequest?.status === "PENDING_CTO_APPROVAL" ? "Não é possível voltar para rascunho uma solicitação que já foi enviada ao CTO." : "Somente solicitações pendentes do Gerente da Laminação podem voltar para rascunho."}
       canApprove={commandPermissions.canApprove}
       canReject={commandPermissions.canReject}
       approveDisabledReason="Selecione uma solicitação pendente de aprovação."
@@ -242,7 +243,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       onDuplicate={() => undefined}
       onDelete={() => { void onDelete(); }}
       onSendToApproval={() => { void onSendToApproval(); }}
-      onBackStatus={() => { if (selectedRequest && accessProfile.roles.includes("ADMIN")) setReturnStatusRequest(selectedRequest); }}
+      onBackStatus={() => { if (selectedRequest && commandPermissions.canReturnStatus) setReturnStatusRequest(selectedRequest); }}
       onApprove={() => openApprovalModal("APPROVE")}
       onReject={() => openApprovalModal("REJECT")}
       showApprovalActions={commandPermissions.canShowApprove || commandPermissions.canShowReject}

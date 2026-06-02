@@ -109,6 +109,7 @@ function resolveStatusTone(status?: MaterialRequest["status"]): "neutral" | "inf
   if (status === "APPROVED") return "success";
   if (status === "REJECTED") return "danger";
   if (status === "DRAFT") return "neutral";
+  if (status === "RETURNED_TO_DRAFT") return "info";
   if (status === "PENDING_LAMINATION_MANAGER_APPROVAL" || status === "PENDING_CTO_APPROVAL") return "warning";
   return "info";
 }

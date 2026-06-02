@@ -7,6 +7,7 @@ import { uiTokens } from "../ui/tokens";
 
 const STATUS_OPTIONS: Array<{ value: MaterialRequestStatus; label: string }> = [
   { value: "DRAFT", label: "Rascunho" },
+  { value: "RETURNED_TO_DRAFT", label: "Retornado para Rascunho" },
   { value: "PENDING_LAMINATION_MANAGER_APPROVAL", label: "Pendente Gerente Laminação" },
   { value: "PENDING_CTO_APPROVAL", label: "Pendente CTO" },
   { value: "APPROVED", label: "Aprovada" },

@@ -24,6 +24,7 @@ const ACTION_LABELS: Partial<Record<MaterialRequestHistoryEntry["action"], strin
   RETURNED_BY_CTO: "Devolvida pelo CTO",
   DELETED: "Excluída",
   STATUS_RETURNED: "Status retornado",
+  STATUS_RETURNED_TO_DRAFT: "Retornada para rascunho",
 };
 
 function getActionLabel(action: MaterialRequestHistoryEntry["action"]): string {

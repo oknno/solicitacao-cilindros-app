@@ -10,6 +10,7 @@ export function formatEmpty(value: unknown): string {
 export function formatMaterialRequestStatusLabel(status?: ReadableMaterialRequestStatus | string): string {
   const labels: Record<ReadableMaterialRequestStatus, string> = {
     DRAFT: "Rascunho",
+    RETURNED_TO_DRAFT: "Retornado para Rascunho",
     PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
     PENDING_CTO_APPROVAL: "Pendente CTO",
     APPROVED: "Aprovada",

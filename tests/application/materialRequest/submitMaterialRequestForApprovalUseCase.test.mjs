@@ -51,6 +51,15 @@ test("status DRAFT muda para PENDING_LAMINATION_MANAGER_APPROVAL", async () => {
   assert.equal(out.request.status, "PENDING_LAMINATION_MANAGER_APPROVAL");
 });
 
+test("status RETURNED_TO_DRAFT muda para PENDING_LAMINATION_MANAGER_APPROVAL", async () => {
+  const request = buildRequest({ status: "RETURNED_TO_DRAFT" });
+  mock.module("../../../src/services/sharepoint/repositories/materialRequestRepository.ts", { namedExports: { getMaterialRequestById: async () => request, updateMaterialRequest: async (id, patch) => ({ ...request, id, ...patch }) } });
+  mock.module("../../../src/services/sharepoint/repositories/materialRequestHistoryRepository.ts", { namedExports: { createMaterialRequestHistoryEntry: async (entry) => entry } });
+  const { submitMaterialRequestForApprovalUseCase } = await import("../../../src/application/materialRequest/submitMaterialRequestForApprovalUseCase.ts");
+  const out = await submitMaterialRequestForApprovalUseCase({ requestId: 17, performedByName: "Usuário", accessProfile });
+  assert.equal(out.request.status, "PENDING_LAMINATION_MANAGER_APPROVAL");
+});
+
 test("status REJECTED muda para PENDING_LAMINATION_MANAGER_APPROVAL", async () => {
   const request = buildRequest({ status: "REJECTED" });
   mock.module("../../../src/services/sharepoint/repositories/materialRequestRepository.ts", { namedExports: { getMaterialRequestById: async () => request, updateMaterialRequest: async (id, patch) => ({ ...request, id, ...patch }) } });

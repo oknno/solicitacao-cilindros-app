@@ -25,7 +25,7 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   const [mutation, setMutation] = useState<"idle" | "adding" | "deleting">("idle");
   const [mutationError, setMutationError] = useState("");
-  const canEdit = mode === "editable" && (requestStatus === "DRAFT" || requestStatus === "REJECTED");
+  const canEdit = mode === "editable" && (requestStatus === "DRAFT" || requestStatus === "RETURNED_TO_DRAFT" || requestStatus === "REJECTED");
 
   const loadAttachments = useCallback(async () => {
     if (!requestId) {

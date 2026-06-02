@@ -12,7 +12,8 @@ export type MaterialRequestHistoryAction =
   | "CANCELLED"
   | "UPDATED"
   | "DELETED"
-  | "STATUS_RETURNED";
+  | "STATUS_RETURNED"
+  | "STATUS_RETURNED_TO_DRAFT";
 
 export interface MaterialRequestHistoryEntry {
   id?: number;
