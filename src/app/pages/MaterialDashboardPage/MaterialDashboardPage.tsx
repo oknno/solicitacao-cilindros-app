@@ -143,7 +143,24 @@ const styles = {
   } satisfies React.CSSProperties,
   analyticsColumn: {
     display: "grid",
+    gridTemplateRows: "repeat(2, minmax(0, 1fr))",
     gap: uiTokens.spacing.md,
+    minHeight: 0,
+  } satisfies React.CSSProperties,
+  analyticsSection: {
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    overflow: "hidden",
+  } satisfies React.CSSProperties,
+  analyticsScroller: {
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    paddingRight: uiTokens.spacing.xs,
+    paddingBottom: uiTokens.spacing.sm,
+    scrollbarGutter: "stable",
   } satisfies React.CSSProperties,
   stockTableSection: {
     display: "flex",
@@ -170,10 +187,13 @@ const styles = {
     gap: uiTokens.spacing.sm,
   } satisfies React.CSSProperties,
   centerChartScroller: {
-    maxHeight: 280,
+    flex: "1 1 auto",
+    minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
     paddingRight: uiTokens.spacing.xs,
+    paddingBottom: uiTokens.spacing.sm,
+    scrollbarGutter: "stable",
   } satisfies React.CSSProperties,
   chartLabelRow: {
     display: "grid",
@@ -807,8 +827,8 @@ function MaterialStockDashboardView(props: {
   return (
     <>
       <StockKpiGrid kpis={props.model.kpis} onApplyQuickFilter={props.onApplyQuickFilter} />
-      <div style={styles.stockLayout}>
-        <div style={styles.analyticsColumn}>
+      <div className="material-stock-dashboard-layout" style={styles.stockLayout}>
+        <div className="material-stock-dashboard-analytics" style={styles.analyticsColumn}>
           <StockAttentionDistributionChart items={props.model.distribution} onApplyQuickFilter={props.onApplyQuickFilter} />
           <StockValueByCenterChart items={props.model.stockValueByCenter} />
         </div>
@@ -857,12 +877,14 @@ function StockKpiGrid(props: { kpis: ReturnType<typeof getStockDashboardModel>["
 
 function StockAttentionDistributionChart(props: { items: StockSignalDistributionItem[]; onApplyQuickFilter: (filter: QuickFilter) => void }) {
   return (
-    <DashboardSection title="Distribuição das sinalizações" titleTooltip="Um material pode aparecer em mais de uma sinalização.">
-      <SimpleBarChart
-        emptyMessage="Sem dados para exibir."
-        items={props.items}
-        onItemClick={(item) => props.onApplyQuickFilter({ view: "stock", type: "signal", value: item.label, label: item.label })}
-      />
+    <DashboardSection title="Distribuição das sinalizações" titleTooltip="Um material pode aparecer em mais de uma sinalização." style={styles.analyticsSection}>
+      <div style={styles.analyticsScroller}>
+        <SimpleBarChart
+          emptyMessage="Sem dados para exibir."
+          items={props.items}
+          onItemClick={(item) => props.onApplyQuickFilter({ view: "stock", type: "signal", value: item.label, label: item.label })}
+        />
+      </div>
     </DashboardSection>
   );
 }
@@ -870,7 +892,7 @@ function StockAttentionDistributionChart(props: { items: StockSignalDistribution
 function StockValueByCenterChart(props: { items: { center: string; value: number }[] }) {
   const max = Math.max(...props.items.map((item) => item.value), 0);
   return (
-    <DashboardSection title="Valor em estoque por centro" count={props.items.length}>
+    <DashboardSection title="Valor em estoque por centro" count={props.items.length} style={styles.analyticsSection}>
       {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
         <div style={{ ...styles.chartRows, ...styles.centerChartScroller }}>
           {props.items.map((item) => (
@@ -913,7 +935,7 @@ function StockManagementTable(props: { items: StockDashboardItem[]; sortConfig: 
   }
 
   return (
-    <DashboardSection title="Tabela gerencial de estoque" count={props.items.length} style={styles.stockTableSection}>
+    <DashboardSection title="Tabela gerencial de estoque" count={props.items.length} style={styles.stockTableSection} className="material-stock-dashboard-table-section">
       <QuickFilterNotice quickFilter={props.quickFilter} onClear={props.onClearQuickFilter} />
       <DashboardTable
         columns={columns}
@@ -1363,9 +1385,9 @@ function QuickFilterNotice(props: { quickFilter: QuickFilter | null; onClear: ()
   );
 }
 
-function DashboardSection(props: { title: string; count?: number; children: ReactNode; style?: React.CSSProperties; titleTooltip?: string }) {
+function DashboardSection(props: { title: string; count?: number; children: ReactNode; style?: React.CSSProperties; titleTooltip?: string; className?: string }) {
   return (
-    <Card style={{ minWidth: 0, ...props.style }}>
+    <Card className={props.className} style={{ minWidth: 0, ...props.style }}>
       <div style={styles.sectionHeader}>
         <h2 style={styles.sectionTitle} title={props.titleTooltip}>{props.title}</h2>
         {typeof props.count === "number" ? <Badge text={`${formatNumber(props.count)} itens`} tone="neutral" /> : null}
