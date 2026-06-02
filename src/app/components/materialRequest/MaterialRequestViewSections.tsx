@@ -37,7 +37,7 @@ export function CollapsibleSection(props: { title: string; children: ReactNode; 
   );
 }
 
-export function SummarySection(props: { title: string; subtitle?: string; children: ReactNode }) {
+export function MaterialRequestViewSection(props: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section
       style={{
@@ -53,8 +53,16 @@ export function SummarySection(props: { title: string; subtitle?: string; childr
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: uiTokens.colors.textStrong }}>{props.title}</h3>
         {props.subtitle ? <p style={{ margin: 0, fontSize: 12, color: uiTokens.colors.textMuted }}>{props.subtitle}</p> : null}
       </div>
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>{props.children}</div>
+      {props.children}
     </section>
+  );
+}
+
+export function SummarySection(props: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <MaterialRequestViewSection title={props.title} subtitle={props.subtitle}>
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>{props.children}</div>
+    </MaterialRequestViewSection>
   );
 }
 

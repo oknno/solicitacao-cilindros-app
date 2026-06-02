@@ -3,6 +3,7 @@ import type { MaterialRequestTechnicalData } from "../../../domain/materialReque
 import { Field } from "../ui/Field";
 import { wizardLayoutStyles } from "../../pages/ProjectsPage/components/wizard/wizardLayoutStyles";
 import { formatEmpty } from "./materialRequestSummaryFormatters";
+import { MaterialRequestViewSection } from "./MaterialRequestViewSections";
 
 type TechnicalDataKey = keyof MaterialRequestTechnicalData;
 
@@ -52,7 +53,18 @@ const MATERIAL_REQUEST_TECHNICAL_GROUPS: TechnicalGroupDefinition[] = [
   },
 ];
 
-function TechnicalDataSectionContainer(props: { children: ReactNode }) {
+function TechnicalDataSectionContainer(props: { children: ReactNode; viewMode?: boolean }) {
+  if (props.viewMode) {
+    return (
+      <MaterialRequestViewSection
+        title="2. Dados Técnicos do Material"
+        subtitle="Informações técnicas preenchidas para caracterização do material solicitado."
+      >
+        <div className="material-request-technical-data__groups">{props.children}</div>
+      </MaterialRequestViewSection>
+    );
+  }
+
   return (
     <section className="material-request-technical-data">
       <h3 className="material-request-technical-data__title">Dados técnicos do material</h3>
@@ -93,7 +105,7 @@ export function MaterialRequestTechnicalDataFormSection(props: {
 
 export function MaterialRequestTechnicalDataViewSection(props: { technicalData?: MaterialRequestTechnicalData }) {
   return (
-    <TechnicalDataSectionContainer>
+    <TechnicalDataSectionContainer viewMode>
       {MATERIAL_REQUEST_TECHNICAL_GROUPS.map((group) => (
         <section key={group.title} className="material-request-technical-data__group">
           <h4 className="material-request-technical-data__group-title">{group.title}</h4>

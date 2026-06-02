@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
+import { MaterialRequestViewSection } from "./MaterialRequestViewSections";
 
 type RequestAttachmentsMode = "readonly" | "editable";
 type RequestAttachmentsSectionProps = { requestId?: number; accessProfile: UserAccessProfile; mode: RequestAttachmentsMode; requestStatus?: MaterialRequestStatus };
@@ -76,13 +77,8 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
     }
   }
 
-  return (
-    <Card style={{ display: "grid", gap: uiTokens.spacing.md }}>
-      <div>
-        <div style={{ fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Anexos da solicitação</div>
-        <div style={{ marginTop: uiTokens.spacing.xxs, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>Arquivos enviados com esta solicitação.</div>
-      </div>
-
+  const content = (
+    <>
       {canEdit ? (
         <label style={{ display: "flex", alignItems: "center", gap: uiTokens.spacing.sm }}>
           <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Adicionar anexo</span>
@@ -117,6 +113,27 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
           })}
         </div>
       ) : null}
+    </>
+  );
+
+  if (mode === "readonly") {
+    return (
+      <MaterialRequestViewSection
+        title="3. Anexos da Solicitação"
+        subtitle="Arquivos enviados como apoio à análise da solicitação."
+      >
+        {content}
+      </MaterialRequestViewSection>
+    );
+  }
+
+  return (
+    <Card style={{ display: "grid", gap: uiTokens.spacing.md }}>
+      <div>
+        <div style={{ fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Anexos da solicitação</div>
+        <div style={{ marginTop: uiTokens.spacing.xxs, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>Arquivos enviados com esta solicitação.</div>
+      </div>
+      {content}
     </Card>
   );
 }
