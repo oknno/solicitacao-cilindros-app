@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { getMaterialDashboardUseCase } from "../../../application/materialDashboard";
 import { getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
 import type { DashboardStockRankingItem, MaterialDashboardAttentionLabel, MaterialDashboardResult, MaterialDashboardSeverity } from "../../../domain/materialDashboard";
+import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -90,7 +91,7 @@ const styles = {
     borderRadius: uiTokens.radius.md,
     padding: uiTokens.spacing.md,
     boxShadow: `0 10px 30px ${uiTokens.colors.shadowSoft}`,
-    overflow: "hidden",
+    overflow: "visible",
   } satisfies React.CSSProperties,
   filterPopoverContent: {
     display: "grid",
@@ -350,12 +351,14 @@ const styles = {
   } satisfies React.CSSProperties,
   materialOptionsList: {
     position: "absolute",
-    zIndex: 2,
+    zIndex: 10,
     top: "calc(100% + 4px)",
     left: 0,
     right: 0,
-    maxHeight: 220,
+    maxHeight: 280,
+    overflowX: "hidden",
     overflowY: "auto",
+    overscrollBehavior: "contain",
     margin: 0,
     padding: 4,
     listStyle: "none",
@@ -363,6 +366,7 @@ const styles = {
     border: `1px solid ${uiTokens.colors.border}`,
     borderRadius: uiTokens.radius.sm,
     boxShadow: `0 8px 20px ${uiTokens.colors.shadowSoft}`,
+    boxSizing: "border-box",
   } satisfies React.CSSProperties,
   materialOptionButton: {
     width: "100%",
@@ -374,6 +378,10 @@ const styles = {
     padding: "7px 8px",
     textAlign: "left",
     fontSize: uiTokens.typography.sm,
+    lineHeight: 1.35,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   } satisfies React.CSSProperties,
 };
 
@@ -423,7 +431,7 @@ function getQuickFilterEmptyMessage(quickFilter: QuickFilter | null, filters: Da
 }
 
 function buildMaterialKey(center: string, material: string): string {
-  return `${center.trim().toLocaleUpperCase("pt-BR")}::${material.trim().toLocaleUpperCase("pt-BR")}`;
+  return `${normalizeCenter(center).toLocaleUpperCase("pt-BR")}::${material.trim().toLocaleUpperCase("pt-BR")}`;
 }
 
 function getStockDashboardItems(data: MaterialDashboardResult | null): StockDashboardItem[] {
@@ -452,7 +460,7 @@ function getStockDashboardItems(data: MaterialDashboardResult | null): StockDash
 function filterStockItems(items: StockDashboardItem[], filters: DashboardFilters): StockDashboardItem[] {
   const stockSignal = STOCK_SIGNAL_OPTIONS.includes(filters.signal as MaterialDashboardAttentionLabel) ? filters.signal as MaterialDashboardAttentionLabel : "";
   return items.filter((item) => {
-    if (filters.center && item.center !== filters.center) return false;
+    if (normalizeCenter(filters.center) && normalizeCenter(item.center) !== normalizeCenter(filters.center)) return false;
     if (stockSignal && !item.attentionLabels.includes(stockSignal)) return false;
     if (filters.severity && item.severity !== filters.severity) return false;
     if (filters.materialKey && buildMaterialKey(item.center, item.material) !== filters.materialKey) return false;
@@ -560,7 +568,7 @@ function sortStockItemsByColumn(items: StockDashboardItem[], sortConfig: StockSo
 function buildMaterialFilterOptions(items: StockDashboardItem[], selectedCenter: string): MaterialFilterOption[] {
   const uniqueOptions = new Map<string, MaterialFilterOption>();
   for (const item of items) {
-    if (selectedCenter && item.center !== selectedCenter) continue;
+    if (normalizeCenter(selectedCenter) && normalizeCenter(item.center) !== normalizeCenter(selectedCenter)) continue;
     const key = buildMaterialKey(item.center, item.material);
     if (uniqueOptions.has(key)) continue;
     const label = `${item.center} | ${item.material} - ${item.description || "Descrição não informada"}`;
@@ -584,7 +592,8 @@ function getStockDashboardModel(data: MaterialDashboardResult | null, filters: D
     .filter((item) => item.count > 0)
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "pt-BR"));
   const stockValueByCenter = Array.from(stockItems.reduce((map, item) => {
-    map.set(item.center, (map.get(item.center) ?? 0) + item.totalStockValueBRL);
+    const center = normalizeCenter(item.center);
+    if (center) map.set(center, (map.get(center) ?? 0) + item.totalStockValueBRL);
     return map;
   }, new Map<string, number>()).entries())
     .map(([center, value]) => ({ center, value }))
@@ -742,7 +751,7 @@ export function MaterialDashboardPage(props: { accessProfile: UserAccessProfile;
           const next = { ...current, ...patch };
           if (patch.center !== undefined && next.materialKey) {
             const selectedMaterial = allStockItems.find((item) => buildMaterialKey(item.center, item.material) === next.materialKey);
-            if (selectedMaterial && next.center && selectedMaterial.center !== next.center) next.materialKey = "";
+            if (selectedMaterial && normalizeCenter(next.center) && normalizeCenter(selectedMaterial.center) !== normalizeCenter(next.center)) next.materialKey = "";
           }
           return next;
         })}
@@ -846,7 +855,7 @@ function StockAttentionDistributionChart(props: { items: StockSignalDistribution
 function StockValueByCenterChart(props: { items: { center: string; value: number }[] }) {
   const max = Math.max(...props.items.map((item) => item.value), 0);
   return (
-    <DashboardSection title="Valor em estoque por centro" count={props.items.length}>
+    <DashboardSection title="Valor em estoque por centro (Top 5)" count={props.items.length}>
       {props.items.length === 0 ? <div style={{ padding: "12px 0", color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Sem dados para exibir.</div> : (
         <div style={styles.chartRows}>
           {props.items.map((item) => (

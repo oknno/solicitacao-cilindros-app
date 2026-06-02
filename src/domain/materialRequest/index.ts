@@ -7,3 +7,4 @@ export * from "./historyTypes";
 export * from "./stockPolicy";
 export * from "./justificationPolicy";
 export * from "./buildStockItemTitle";
+export * from "./normalizeCenter";

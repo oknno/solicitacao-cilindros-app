@@ -2,6 +2,7 @@ import { filterCentersByAccess, filterMaterialRequestsByAccess, type UserAccessP
 import type { MaterialRequestStatus } from "../../domain/materialRequest/status";
 import type { MaterialRequest } from "../../domain/materialRequest/types";
 import type { StockMaterial } from "../../domain/materialRequest/stockTypes";
+import { normalizeCenter } from "../../domain/materialRequest/normalizeCenter";
 import {
   calculateCoverageYears,
   calculateTotalStockValueBRL,
@@ -35,7 +36,7 @@ const SEVERITY_ORDER: Record<MaterialDashboardSeverity, number> = {
 };
 
 function buildMaterialKey(center: string, materialCode: string): string {
-  return `${center.trim().toUpperCase()}::${materialCode.trim().toUpperCase()}`;
+  return `${normalizeCenter(center).toUpperCase()}::${materialCode.trim().toUpperCase()}`;
 }
 
 function buildOpenRequestsByMaterial(openRequests: MaterialRequest[]): Map<string, MaterialRequest[]> {
@@ -71,7 +72,7 @@ function toRankingItem(material: StockMaterial): DashboardStockRankingItem {
   const coverageYears = calculateCoverageYears(material);
 
   return {
-    center: material.center,
+    center: normalizeCenter(material.center),
     material: material.materialCode,
     description: material.description,
     evaluatedStockTotal: toDashboardNumber(material.evaluatedStockTotal),
@@ -180,15 +181,12 @@ function buildAttentionMaterials(input: {
     });
 }
 
-function buildCenterOptions(stockItems: StockMaterial[], materialRequests: MaterialRequest[]): string[] {
+function buildCenterOptions(stockItems: StockMaterial[]): string[] {
   const centers = new Set<string>();
 
   for (const item of stockItems) {
-    if (item.center.trim()) centers.add(item.center.trim());
-  }
-
-  for (const request of materialRequests) {
-    if (request.center.trim()) centers.add(request.center.trim());
+    const center = normalizeCenter(item.center);
+    if (center) centers.add(center);
   }
 
   return Array.from(centers).sort((left, right) => left.localeCompare(right, "pt-BR", { numeric: true }));
@@ -196,7 +194,9 @@ function buildCenterOptions(stockItems: StockMaterial[], materialRequests: Mater
 
 export async function getMaterialDashboardUseCase(accessProfile: UserAccessProfile): Promise<MaterialDashboardResult> {
   const [allStockItems, allMaterialRequests] = await Promise.all([getAllStockItems(), getMaterialRequests()]);
-  const stockItems = allStockItems.filter((item) => filterCentersByAccess(accessProfile, [item.center]).length > 0);
+  const stockItems = allStockItems
+    .map((item) => ({ ...item, center: normalizeCenter(item.center) }))
+    .filter((item) => item.center && filterCentersByAccess(accessProfile, [item.center]).length > 0);
   const materialRequests = filterMaterialRequestsByAccess(accessProfile, allMaterialRequests);
   const openMaterialRequests = materialRequests.filter((request) => OPEN_DASHBOARD_STATUSES.has(request.status));
   const openRequestsByMaterial = buildOpenRequestsByMaterial(openMaterialRequests);
@@ -216,6 +216,6 @@ export async function getMaterialDashboardUseCase(accessProfile: UserAccessProfi
       .filter((item) => item.coverageYears !== null)
       .sort((left, right) => (right.coverageYears ?? 0) - (left.coverageYears ?? 0))
       .slice(0, 10),
-    centerOptions: buildCenterOptions(stockItems, materialRequests),
+    centerOptions: buildCenterOptions(stockItems),
   };
 }

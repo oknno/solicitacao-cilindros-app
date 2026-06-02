@@ -1,5 +1,6 @@
 import type { StockMaterial } from "../../../domain/materialRequest/stockTypes";
 import { buildStockItemTitle } from "../../../domain/materialRequest/buildStockItemTitle";
+import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import { spConfig } from "../spConfig";
 import { getDigest, spGetJson } from "../spHttp";
 import { escapeODataFilterLiterals } from "../odataFilter";
@@ -127,7 +128,7 @@ export async function getStockCenters(): Promise<string[]> {
   const url = `${buildListItemsUrl()}?$select=${STOCK_FIELDS.center}&$top=5000`;
   const items = await getAllPagedItems(url);
   return items
-    .map((item) => String(item[STOCK_FIELDS.center] ?? "").trim())
+    .map((item) => normalizeCenter(item[STOCK_FIELDS.center]))
     .filter(Boolean);
 }
 
