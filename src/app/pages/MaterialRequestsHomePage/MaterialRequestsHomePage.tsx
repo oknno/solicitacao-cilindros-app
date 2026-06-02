@@ -58,6 +58,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     accessProfile,
     hasSelection: Boolean(selectedRequest),
     selectedStatus: selectedRequest?.status,
+    selectedRequesterEmail: selectedRequest?.requesterEmail,
   }), [accessProfile, selectedRequest]);
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
@@ -145,7 +146,8 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
           await submitMaterialRequestForApprovalUseCase({
             requestId: selectedRequest.id ?? 0,
             performedByName: "Usuário atual",
-            performedByEmail: "",
+            performedByEmail: accessProfile.userEmail,
+            accessProfile,
           });
           await loadRequests();
           notify("Solicitação enviada para aprovação do Gerente da Laminação.", "success");
@@ -285,7 +287,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       </Card>
     </div>
 
-    {formMode && <MaterialRequestFormModal mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
+    {formMode && <MaterialRequestFormModal accessProfile={accessProfile} mode={formMode} request={formMode === "edit" ? selectedRequest : null} onClose={() => setFormMode(null)} onSuccess={() => { setFormMode(null); void loadRequests(); }} />}
 
     {approvalModalState && <MaterialRequestApprovalModal accessProfile={accessProfile} request={approvalModalState.request} decision={approvalModalState.decision} approverRole={approvalModalState.approverRole} onClose={() => setApprovalModalState(null)} onCompleted={() => { setApprovalModalState(null); void loadRequests(); }} />}
 

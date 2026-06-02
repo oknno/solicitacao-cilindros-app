@@ -1,4 +1,4 @@
-import type { MaterialRequestStatus } from "../../../domain/materialRequest/status";
+import type { ReadableMaterialRequestStatus } from "../../../domain/materialRequest/status";
 import type { StockRecommendation } from "../../../domain/materialRequest/stockTypes";
 
 export function formatEmpty(value: unknown): string {
@@ -7,19 +7,19 @@ export function formatEmpty(value: unknown): string {
   return text.length ? text : "-";
 }
 
-export function formatMaterialRequestStatusLabel(status?: MaterialRequestStatus): string {
-  const labels: Record<MaterialRequestStatus, string> = {
+export function formatMaterialRequestStatusLabel(status?: ReadableMaterialRequestStatus | string): string {
+  const labels: Record<ReadableMaterialRequestStatus, string> = {
     DRAFT: "Rascunho",
     PENDING_LAMINATION_MANAGER_APPROVAL: "Pendente Gerente Laminação",
     PENDING_CTO_APPROVAL: "Pendente CTO",
     APPROVED: "Aprovada",
     REJECTED: "Reprovada",
-    RETURNED_FOR_ADJUSTMENT: "Devolvida",
+    RETURNED_FOR_ADJUSTMENT: "Reprovada",
     CANCELLED: "Cancelada",
   };
 
   if (!status) return "-";
-  return labels[status] ?? status;
+  return labels[status as ReadableMaterialRequestStatus] ?? status;
 }
 
 export function formatStockRecommendationLabel(recommendation?: StockRecommendation): string {
@@ -52,11 +52,11 @@ export function formatDateTime(value?: string): string {
   }).format(date);
 }
 
-export function formatDecisionLabel(status?: MaterialRequestStatus): string {
+export function formatDecisionLabel(status?: ReadableMaterialRequestStatus): string {
   if (!status) return "-";
   if (status === "APPROVED") return "Aprovada";
   if (status === "REJECTED") return "Reprovada";
-  if (status === "RETURNED_FOR_ADJUSTMENT") return "Devolvida";
+  if (status === "RETURNED_FOR_ADJUSTMENT") return "Reprovada";
   if (status === "CANCELLED") return "Cancelada";
   return "Pendente";
 }

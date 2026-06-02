@@ -24,7 +24,7 @@ import { getAllStockItems } from "../../services/sharepoint/repositories/stockMa
 const OPEN_DASHBOARD_STATUSES = new Set<MaterialRequestStatus>([
   "PENDING_LAMINATION_MANAGER_APPROVAL",
   "PENDING_CTO_APPROVAL",
-  "RETURNED_FOR_ADJUSTMENT",
+  "REJECTED",
 ]);
 
 const SEVERITY_ORDER: Record<MaterialDashboardSeverity, number> = {

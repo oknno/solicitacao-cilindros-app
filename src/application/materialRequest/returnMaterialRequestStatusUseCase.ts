@@ -5,7 +5,7 @@ import { getMaterialRequestById, updateMaterialRequest } from "../../services/sh
 
 const MAP: Record<MaterialRequestStatus, MaterialRequestStatus[]> = {
   DRAFT: [], PENDING_LAMINATION_MANAGER_APPROVAL: ["DRAFT"], PENDING_CTO_APPROVAL: ["PENDING_LAMINATION_MANAGER_APPROVAL", "DRAFT"], APPROVED: ["PENDING_CTO_APPROVAL"],
-  REJECTED: ["PENDING_LAMINATION_MANAGER_APPROVAL", "DRAFT"], RETURNED_FOR_ADJUSTMENT: ["DRAFT"], CANCELLED: []
+  REJECTED: ["PENDING_LAMINATION_MANAGER_APPROVAL", "DRAFT"]
 };
 export const getAllowedReturnStatuses = (status: MaterialRequestStatus) => MAP[status] ?? [];
 

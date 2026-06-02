@@ -4,6 +4,7 @@ import type { MaterialRequestStatus } from "../materialRequest/status";
 export type MaterialRequestCommandPermissionInput = {
   accessProfile: UserAccessProfile;
   selectedStatus?: MaterialRequestStatus;
+  selectedRequesterEmail?: string;
   hasSelection: boolean;
 };
 

@@ -16,14 +16,14 @@ export async function decideMaterialRequestApprovalUseCase(input:DecideMaterialR
  const nowIso=new Date().toISOString(); let patch:Partial<MaterialRequest>={updatedAt:nowIso}; let newStatus:MaterialRequestStatus; let action:MaterialRequestHistoryAction;
  if(input.approverRole==="LAMINATION_MANAGER"){
   if(request.status!=="PENDING_LAMINATION_MANAGER_APPROVAL") throw new Error("A solicitação não está pendente de aprovação do Gerente da Laminação.");
-  const map={APPROVE:"PENDING_CTO_APPROVAL",REJECT:"REJECTED",RETURN_FOR_ADJUSTMENT:"RETURNED_FOR_ADJUSTMENT"} as const;
-  const a={APPROVE:"APPROVED_BY_LAMINATION_MANAGER",REJECT:"REJECTED_BY_LAMINATION_MANAGER",RETURN_FOR_ADJUSTMENT:"RETURNED_BY_LAMINATION_MANAGER"} as const;
+  const map={APPROVE:"PENDING_CTO_APPROVAL",REJECT:"REJECTED"} as const;
+  const a={APPROVE:"APPROVED_BY_LAMINATION_MANAGER",REJECT:"REJECTED_BY_LAMINATION_MANAGER"} as const;
   newStatus=map[input.decision]; action=a[input.decision];
   patch={...patch,status:newStatus,laminationManagerName:input.approverName,laminationManagerEmail:input.approverEmail,laminationManagerJustification:justification,laminationManagerDecisionDate:nowIso};
  } else {
   if(request.status!=="PENDING_CTO_APPROVAL") throw new Error("A solicitação não está pendente de aprovação CTO.");
-  const map={APPROVE:"APPROVED",REJECT:"REJECTED",RETURN_FOR_ADJUSTMENT:"RETURNED_FOR_ADJUSTMENT"} as const;
-  const a={APPROVE:"APPROVED_BY_CTO",REJECT:"REJECTED_BY_CTO",RETURN_FOR_ADJUSTMENT:"RETURNED_BY_CTO"} as const;
+  const map={APPROVE:"APPROVED",REJECT:"REJECTED"} as const;
+  const a={APPROVE:"APPROVED_BY_CTO",REJECT:"REJECTED_BY_CTO"} as const;
   newStatus=map[input.decision]; action=a[input.decision];
   patch={...patch,status:newStatus,ctoApproverName:input.approverName,ctoApproverEmail:input.approverEmail,ctoJustification:justification,ctoDecisionDate:nowIso};
  }

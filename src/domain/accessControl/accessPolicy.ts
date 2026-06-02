@@ -64,9 +64,22 @@ export function buildUserAccessProfile(input: { userEmail: string; roles: Access
 }
 
 export function canAccessMaterialRequest(profile: UserAccessProfile, request: MaterialRequest): boolean {
-  if (profile.dataScope === "ALL_CENTERS") return true;
-  if (profile.dataScope === "ASSIGNED_CENTERS") return profile.centers.includes(request.center);
+  if (profile.roles.includes("ADMIN")) return true;
+  if (profile.roles.includes("CTO")) {
+    return request.status !== "DRAFT" && request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL";
+  }
+  if (profile.roles.includes("MANAGER")) {
+    return request.status !== "DRAFT" && profile.centers.includes(request.center);
+  }
   return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
+}
+
+export function assertCanModifyOwnMaterialRequest(profile: UserAccessProfile, request: MaterialRequest): void {
+  if (profile.roles.includes("ADMIN")) return;
+  const requesterEmail = request.requesterEmail?.trim().toLowerCase();
+  if (!profile.userEmail || requesterEmail !== profile.userEmail) {
+    throw new Error("Somente o solicitante ou um administrador pode alterar esta solicitação.");
+  }
 }
 
 export function filterMaterialRequestsByAccess(profile: UserAccessProfile, requests: MaterialRequest[]): MaterialRequest[] {

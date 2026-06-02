@@ -1,4 +1,4 @@
-import type { MaterialRequestStatus } from "./status";
+import type { ReadableMaterialRequestStatus } from "./status";
 
 export type MaterialRequestHistoryAction =
   | "CREATED"
@@ -18,8 +18,8 @@ export interface MaterialRequestHistoryEntry {
   id?: number;
   requestId: number;
   action: MaterialRequestHistoryAction;
-  previousStatus?: MaterialRequestStatus;
-  newStatus: MaterialRequestStatus;
+  previousStatus?: ReadableMaterialRequestStatus;
+  newStatus: ReadableMaterialRequestStatus;
   performedByName: string;
   performedByEmail?: string;
   performedAt: string;

@@ -54,7 +54,7 @@ test("mapMaterialRequestToSharePointPayload converte números para texto e prese
     evaluatedStockTotalAtRequest: 30.75,
     stockRecommendation: "REQUEST_JUSTIFICATION_REQUIRED",
     requestReason: "Projeto",
-    status: "APPROVED_BY_CTO",
+    status: "APPROVED",
     ctoApproverName: "Diretor CTO",
     ctoApproverEmail: "cto@empresa.com",
     ctoJustification: "Aprovado por exceção",
@@ -63,7 +63,7 @@ test("mapMaterialRequestToSharePointPayload converte números para texto e prese
 
   assert.equal(payload.RequestedQuantity, "12");
   assert.equal(payload.EvaluatedStockTotal, "30.75");
-  assert.equal(payload.RequestStatus, "APPROVED_BY_CTO");
+  assert.equal(payload.RequestStatus, "APPROVED");
   assert.equal(payload.StockRecommendation, "REQUEST_JUSTIFICATION_REQUIRED");
   assert.equal(payload.CTOApproverName, "Diretor CTO");
   assert.equal(payload.CTOApproverEmail, "cto@empresa.com");
@@ -96,7 +96,7 @@ test("mapMaterialRequestToUpdatePayload envia apenas os campos presentes no patc
 
 test("mapMaterialRequestToUpdatePayload para decisão CTO não sobrescreve campos principais", () => {
   const payload = mapMaterialRequestToUpdatePayload({
-    status: "APPROVED_BY_CTO",
+    status: "APPROVED",
     ctoApproverName: "CTO",
     ctoApproverEmail: "cto@empresa.com",
     ctoJustification: "Aprovado",
@@ -104,7 +104,7 @@ test("mapMaterialRequestToUpdatePayload para decisão CTO não sobrescreve campo
   });
 
   assert.deepEqual(payload, {
-    RequestStatus: "APPROVED_BY_CTO",
+    RequestStatus: "APPROVED",
     CTOApproverName: "CTO",
     CTOApproverEmail: "cto@empresa.com",
     CTOJustification: "Aprovado",
@@ -114,4 +114,14 @@ test("mapMaterialRequestToUpdatePayload para decisão CTO não sobrescreve campo
   assert.equal("Material" in payload, false);
   assert.equal("RequestedQuantity" in payload, false);
   assert.equal("StockRecommendation" in payload, false);
+});
+
+test("mapSharePointMaterialRequest normaliza status legado devolvido para REJECTED", () => {
+  const mapped = mapSharePointMaterialRequest({ RequestStatus: "RETURNED_FOR_ADJUSTMENT" });
+  assert.equal(mapped.status, "REJECTED");
+});
+
+test("mapSharePointMaterialRequest mantém CANCELLED legado em fallback oficial não editável", () => {
+  const mapped = mapSharePointMaterialRequest({ RequestStatus: "CANCELLED" });
+  assert.equal(mapped.status, "APPROVED");
 });
