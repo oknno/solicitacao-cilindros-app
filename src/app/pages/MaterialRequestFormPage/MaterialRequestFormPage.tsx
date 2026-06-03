@@ -13,6 +13,7 @@ import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import type { MaterialRequestTechnicalData } from "../../../domain/materialRequest";
 import { MaterialStockAnalysisSection } from "../../components/materialRequest/MaterialStockAnalysisSection";
+import { MaterialRequestViewSection } from "../../components/materialRequest/MaterialRequestViewSections";
 import { MaterialRequestTechnicalDataFormSection } from "../../components/materialRequest/MaterialRequestTechnicalDataSection";
 import { RequestAttachmentsSection } from "../../components/materialRequest/RequestAttachmentsSection";
 import { useToast } from "../../components/notifications/useToast";
@@ -335,11 +336,46 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
   const analysisTone = resolveAnalysisTone(analysisResult, isManualMaterial, parsedRequestedQuantity);
   const analysisToneStyle = uiTokens.stateTones[analysisTone];
 
+  const materialAnalysisSection = (isManualMaterial || selectedStockMaterial) ? (
+    <MaterialStockAnalysisSection stockMaterial={isManualMaterial ? null : selectedStockMaterial} requestedQuantity={parsedRequestedQuantity} mode="form" />
+  ) : null;
+
+  const createAttachmentSection = mode === "create" ? (
+    <MaterialRequestViewSection
+      title="5. Anexos da Solicitação"
+      subtitle="Inclua arquivos de apoio para análise da solicitação."
+    >
+      <Field label="Anexo de apoio">
+        <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
+          <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
+          <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
+          <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
+          {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
+        </label>
+      </Field>
+      {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
+      {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
+    </MaterialRequestViewSection>
+  ) : null;
+
+  const editAttachmentSection = mode === "edit" && initialRequest?.id ? (
+    <RequestAttachmentsSection
+      requestId={initialRequest.id}
+      accessProfile={accessProfile}
+      mode="editable"
+      requestStatus={initialRequest.status}
+      title="5. Anexos da Solicitação"
+      subtitle="Inclua arquivos de apoio para análise da solicitação."
+    />
+  ) : null;
+
   const content = <div style={{ height: "100%", minHeight: 0, display: "grid", gridTemplateRows: "minmax(0, 1fr) auto" }}>
     <div style={{ ...wizardLayoutStyles.body, padding: uiTokens.spacing.lg }}>
       <div style={{ ...wizardLayoutStyles.sectionStack, padding: 0 }}>
-        <div style={wizardLayoutStyles.card}>
-          <h3 style={{ margin: 0, fontSize: uiTokens.typography.lg, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Dados da solicitação</h3>
+        <MaterialRequestViewSection
+          title="1. Dados da Solicitação"
+          subtitle="Preencha as informações principais da solicitação de material."
+        >
           <div style={{ ...wizardLayoutStyles.journeyStack, gap: uiTokens.spacing.md }}>
             <div style={wizardLayoutStyles.journeyPairGrid}>
               <Field label="Solicitante"><input value={requesterName} readOnly style={wizardLayoutStyles.input} /></Field>
@@ -366,40 +402,29 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
               </div>
             )}
 
-            {(isManualMaterial || selectedStockMaterial) && (
-              <MaterialStockAnalysisSection stockMaterial={isManualMaterial ? null : selectedStockMaterial} requestedQuantity={parsedRequestedQuantity} mode="form" />
-            )}
-
             {!isManualMaterial && (
               <div style={{ border: `1px solid ${analysisToneStyle.bd}`, background: analysisToneStyle.bg, color: analysisToneStyle.fg, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.sm}px ${uiTokens.spacing.lg}px`, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>{loadingAnalysis ? "Atualizando análise de estoque..." : analysisMessage}</div>
             )}
-
-            <MaterialRequestTechnicalDataFormSection value={technicalData} onChange={setTechnicalData} />
-
-            <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
-            <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
-
-            {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
-            {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
-
-            {mode === "edit" && initialRequest?.id ? <RequestAttachmentsSection requestId={initialRequest.id} accessProfile={accessProfile} mode="editable" requestStatus={initialRequest.status} /> : null}
-
-            {mode === "create" ? (
-              <>
-                <Field label="Anexo de apoio">
-                  <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
-                    <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
-                    <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
-                    <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
-                    {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
-                  </label>
-                </Field>
-                {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
-                {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
-              </>
-            ) : null}
           </div>
-        </div>
+        </MaterialRequestViewSection>
+
+        <MaterialRequestTechnicalDataFormSection value={technicalData} onChange={setTechnicalData} />
+
+        {materialAnalysisSection}
+
+        <MaterialRequestViewSection
+          title="4. Motivo da Solicitação"
+          subtitle="Descreva a necessidade da solicitação e o contexto de uso do material."
+        >
+          <Field label="Motivo da Solicitação"><textarea value={requestReason} onChange={(e) => setRequestReason(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={3} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>
+          <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requestReason.trim().length}/{MAX_REASON_LENGTH} caracteres</p>
+
+          {justificationRequired && <Field label="Se há estoque, qual a necessidade da solicitação?"><textarea value={requesterJustification} onChange={(e) => setRequesterJustification(e.target.value.slice(0, MAX_REASON_LENGTH))} rows={4} style={{ ...wizardLayoutStyles.input, ...wizardLayoutStyles.textareaReadable }} /></Field>}
+          {justificationRequired && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>{requesterJustification.trim().length}/{MAX_REASON_LENGTH} caracteres</p>}
+        </MaterialRequestViewSection>
+
+        {editAttachmentSection}
+        {createAttachmentSection}
 
         {error && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{error}</p>}
       </div>

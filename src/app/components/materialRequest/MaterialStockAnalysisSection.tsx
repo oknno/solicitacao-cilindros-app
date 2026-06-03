@@ -50,12 +50,6 @@ function buildCoverageValue(stock: number, averageAnnualConsumption: number): nu
   return stock / averageAnnualConsumption;
 }
 
-function resolveTitle(mode: MaterialStockAnalysisSectionProps["mode"]): string {
-  if (mode === "approval") return "2. Análise do material";
-  if (mode === "view") return "Análise do material";
-  return "Análise do material";
-}
-
 function resolveCoverageTone(coverage: number | null): keyof typeof uiTokens.stateTones {
   if (coverage == null) return "neutral";
   if (coverage > 50) return "danger";
@@ -67,7 +61,6 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   if (!stockMaterial) {
     const unavailableMessage = (
       <div style={{ border: `1px solid ${uiTokens.stateTones.warning.bd}`, borderRadius: uiTokens.radius.lg, background: uiTokens.stateTones.warning.bg, color: uiTokens.stateTones.warning.fg, padding: uiTokens.spacing.lg, display: "grid", gap: uiTokens.spacing.xs }}>
-        {mode === "view" ? null : <h4 style={{ margin: 0, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight }}>Análise do material</h4>}
         <p style={{ margin: 0, fontSize: uiTokens.typography.sm, lineHeight: 1.4 }}>Material não encontrado na base de estoque. A solicitação seguirá para análise manual.</p>
       </div>
     );
@@ -83,7 +76,14 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
       );
     }
 
-    return unavailableMessage;
+    return (
+      <MaterialRequestViewSection
+        title="3. Análise do Material"
+        subtitle="Leitura automática de estoque, consumo, cobertura e impacto da solicitação."
+      >
+        {unavailableMessage}
+      </MaterialRequestViewSection>
+    );
   }
 
   const evaluatedStock = asNumber(stockMaterial.evaluatedStockTotal);
@@ -146,7 +146,6 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   const content = (
     <>
       <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
-        {mode === "view" ? null : <h4 style={{ margin: 0, fontSize: uiTokens.typography.md, fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>{resolveTitle(mode)}</h4>}
         <p style={{ margin: 0, fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>{stockMaterial.materialCode} - {stockMaterial.description}</p>
       </div>
 
@@ -254,8 +253,11 @@ export function MaterialStockAnalysisSection({ stockMaterial, requestedQuantity,
   }
 
   return (
-    <section style={{ border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.lg, background: uiTokens.colors.surface, padding: uiTokens.spacing.md, display: "grid", gap: uiTokens.spacing.sm }}>
-      {content}
-    </section>
+    <MaterialRequestViewSection
+      title="3. Análise do Material"
+      subtitle="Leitura automática de estoque, consumo, cobertura e impacto da solicitação."
+    >
+      <div style={{ display: "grid", gap: uiTokens.spacing.sm }}>{content}</div>
+    </MaterialRequestViewSection>
   );
 }

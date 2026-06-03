@@ -66,10 +66,12 @@ function TechnicalDataSectionContainer(props: { children: ReactNode; viewMode?: 
   }
 
   return (
-    <section className="material-request-technical-data">
-      <h3 className="material-request-technical-data__title">Dados técnicos do material</h3>
+    <MaterialRequestViewSection
+      title="2. Dados Técnicos do Material"
+      subtitle="Preencha as informações técnicas necessárias para caracterização do material solicitado."
+    >
       <div className="material-request-technical-data__groups">{props.children}</div>
-    </section>
+    </MaterialRequestViewSection>
   );
 }
 
