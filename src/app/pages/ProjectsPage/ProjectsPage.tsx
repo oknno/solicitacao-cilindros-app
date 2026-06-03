@@ -4,9 +4,6 @@ import { useEffect, useState } from "react";
 
 import { getProjectById } from "../../../services/sharepoint/projectsApi";
 import type { ProjectDraft, ProjectRow } from "../../../services/sharepoint/projectsApi";
-import { getMilestonesByProject } from "../../../services/sharepoint/milestonesApi";
-import { getActivitiesBatchByProject } from "../../../services/sharepoint/activitiesApi";
-import { getPepsBatchByProject } from "../../../services/sharepoint/pepsApi";
 import { createProject } from "../../../application/use-cases/createProject";
 import { editProject } from "../../../application/use-cases/editProject";
 import { sendProjectToApproval } from "../../../application/use-cases/sendToApproval";
@@ -30,7 +27,6 @@ import { InputDialog } from "../../components/InputDialog";
 import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { exportProjectsCsv } from "./utils/exportProjectsCsv";
-import { exportProjectView } from "./utils/exportProjectView";
 import { BootstrapLoader } from "../../components/BootstrapLoader";
 
 export function ProjectsPage(props: {
@@ -314,27 +310,6 @@ export function ProjectsPage(props: {
     notify("Lista de projetos exportada em CSV.", "success");
   }
 
-  async function onExportProject() {
-    const selected = selectedFull ?? selectedForPolicies;
-    if (!selected) {
-      notify("Selecione um projeto para exportar o resumo.", "info");
-      return;
-    }
-
-    try {
-      const [milestones, activities, peps] = await Promise.all([
-        getMilestonesByProject(selected.Id),
-        getActivitiesBatchByProject(selected.Id, { pageSize: 500, maxPages: 20 }),
-        getPepsBatchByProject(selected.Id, { pageSize: 500, maxPages: 20 })
-      ]);
-      exportProjectView(selected, { milestones, activities, peps });
-      notify(`Resumo do projeto #${selected.Id} pronto para impressão/PDF.`, "success");
-    } catch (e) {
-      console.error(e);
-      notify("Não foi possível abrir a visualização de impressão do projeto.", "error");
-    }
-  }
-
   if (!hasAccess) {
     return (
       <BootstrapLoader
@@ -396,7 +371,6 @@ export function ProjectsPage(props: {
         onReject={onReject}
         showApprovalActions={isAdmin}
         onExportTable={onExportTable}
-        onExportProject={onExportProject}
       />
 
       <div style={styles.grid}>

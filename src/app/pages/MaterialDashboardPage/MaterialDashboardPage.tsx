@@ -775,7 +775,6 @@ export function MaterialDashboardPage(props: { accessProfile: UserAccessProfile;
         filterButtonId={DASHBOARD_FILTER_BUTTON_ID}
         showExportButton={false}
         onExportTable={() => undefined}
-        onExportProject={() => undefined}
         availableUnits={[]}
         navigationAction={{
           label: "Voltar para Solicitações",
