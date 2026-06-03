@@ -9,6 +9,7 @@ import { AppModal } from "../common/AppModal";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { SummaryField, SummarySection } from "./MaterialRequestViewSections";
+import { RequestAttachmentsSection } from "./RequestAttachmentsSection";
 import { formatDateTime } from "./materialRequestSummaryFormatters";
 import { wizardLayoutStyles } from "../../pages/ProjectsPage/components/wizard/wizardLayoutStyles";
 
@@ -168,6 +169,15 @@ export function MaterialRequestApprovalModal(props: {
           />
           {error ? <div style={{ gridColumn: "span 2" }}><StateMessage state="error" message={error} /></div> : null}
         </SummarySection>
+        {props.request.id ? (
+          <RequestAttachmentsSection
+            requestId={props.request.id}
+            accessProfile={props.accessProfile}
+            mode="readonly"
+            title="Anexos da Solicitação"
+            subtitle="Arquivos enviados como apoio à análise da solicitação."
+          />
+        ) : null}
       </div>
     </AppModal>
   );

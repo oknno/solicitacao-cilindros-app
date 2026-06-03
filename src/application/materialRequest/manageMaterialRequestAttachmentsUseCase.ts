@@ -1,5 +1,5 @@
 import { assertCanModifyOwnMaterialRequest, type UserAccessProfile } from "../../domain/accessControl";
-import { addAttachmentToMaterialRequest, deleteAttachmentFromMaterialRequest, getMaterialRequestById } from "../../services/sharepoint/repositories/materialRequestRepository";
+import { addAttachmentsToMaterialRequest, deleteAttachmentFromMaterialRequest, getMaterialRequestById } from "../../services/sharepoint/repositories/materialRequestRepository";
 import { resolveCurrentUserAccess } from "../resolveCurrentUserAccess";
 
 interface MaterialRequestAttachmentMutationInput {
@@ -8,7 +8,7 @@ interface MaterialRequestAttachmentMutationInput {
 }
 
 export interface AddMaterialRequestAttachmentInput extends MaterialRequestAttachmentMutationInput {
-  file: File;
+  files: File[];
 }
 
 export interface DeleteMaterialRequestAttachmentInput extends MaterialRequestAttachmentMutationInput {
@@ -28,9 +28,10 @@ async function assertCanEditMaterialRequestAttachments(input: MaterialRequestAtt
 }
 
 export async function addMaterialRequestAttachmentUseCase(input: AddMaterialRequestAttachmentInput): Promise<void> {
-  if (!input.file) throw new Error("Selecione um arquivo para anexar.");
+  const files = input.files.filter(Boolean);
+  if (files.length === 0) throw new Error("Selecione pelo menos um arquivo para anexar.");
   await assertCanEditMaterialRequestAttachments(input);
-  await addAttachmentToMaterialRequest(input.requestId, input.file);
+  await addAttachmentsToMaterialRequest(input.requestId, files);
 }
 
 export async function deleteMaterialRequestAttachmentUseCase(input: DeleteMaterialRequestAttachmentInput): Promise<void> {

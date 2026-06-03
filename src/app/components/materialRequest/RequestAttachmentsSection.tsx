@@ -48,15 +48,16 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
     void loadAttachments();
   }, [loadAttachments]);
 
-  async function handleAddAttachment(file: File | null) {
-    if (!file || !requestId || !canEdit) return;
+  async function handleAddAttachments(fileList: FileList | null) {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0 || !requestId || !canEdit) return;
     setMutation("adding");
     setMutationError("");
     try {
-      await addMaterialRequestAttachmentUseCase({ requestId, file, accessProfile });
+      await addMaterialRequestAttachmentUseCase({ requestId, files, accessProfile });
       await loadAttachments();
     } catch (error) {
-      setMutationError(error instanceof Error ? error.message : "Não foi possível adicionar o anexo.");
+      setMutationError(error instanceof Error ? error.message : "Não foi possível adicionar os anexos.");
     } finally {
       setMutation("idle");
     }
@@ -81,11 +82,11 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
       {canEdit ? (
         <label style={{ display: "flex", alignItems: "center", gap: uiTokens.spacing.sm }}>
           <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Adicionar anexo</span>
-          <input type="file" disabled={mutation !== "idle"} onChange={(event) => { void handleAddAttachment(event.target.files?.[0] ?? null); event.target.value = ""; }} />
+          <input type="file" accept=".pdf,.xlsx,.xls" multiple disabled={mutation !== "idle"} onChange={(event) => { void handleAddAttachments(event.target.files); event.target.value = ""; }} />
         </label>
       ) : null}
 
-      {mutation === "adding" ? <StateMessage state="loading" message="Adicionando anexo..." /> : null}
+      {mutation === "adding" ? <StateMessage state="loading" message="Adicionando anexos..." /> : null}
       {mutation === "deleting" ? <StateMessage state="loading" message="Excluindo anexo..." /> : null}
       {mutationError ? <StateMessage state="error" message={mutationError} /> : null}
       {state === "loading" ? <StateMessage state="loading" message="Carregando anexos..." /> : null}
