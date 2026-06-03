@@ -191,7 +191,6 @@ export function CommandBar(props: {
   filterButtonId?: string;
 
   onExportTable: () => void;
-  onExportProject: () => void;
   availableUnits?: string[];
   title?: string;
   navigationAction?: {
@@ -283,9 +282,7 @@ export function CommandBar(props: {
         /> : <Button id={filterButtonId} onClick={props.onApply}>Filtro</Button>)}
 
         {showExportButton && <ExportMenu
-          canExportProject={hasSelection}
           onExportTable={props.onExportTable}
-          onExportProject={props.onExportProject}
         />}
 
         {props.navigationAction ? (
@@ -304,9 +301,7 @@ export function CommandBar(props: {
 }
 
 function ExportMenu(props: {
-  canExportProject: boolean;
   onExportTable: () => void;
-  onExportProject: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -329,12 +324,6 @@ function ExportMenu(props: {
     setOpen(false);
   }
 
-  function onClickProject() {
-    if (!props.canExportProject) return;
-    props.onExportProject();
-    setOpen(false);
-  }
-
   return (
     <div ref={rootRef} style={styles.filterRoot}>
       <Button onClick={() => setOpen((prev) => !prev)}>Exportar</Button>
@@ -342,13 +331,6 @@ function ExportMenu(props: {
         <div style={{ ...styles.popover, width: 220, padding: uiTokens.spacing.sm }}>
           <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
             <Button onClick={onClickTable}>Exportar tabela</Button>
-            <Button
-              onClick={onClickProject}
-              disabled={!props.canExportProject}
-              title={!props.canExportProject ? "Selecione um projeto." : undefined}
-            >
-              Exportar projeto
-            </Button>
           </div>
         </div>
       )}

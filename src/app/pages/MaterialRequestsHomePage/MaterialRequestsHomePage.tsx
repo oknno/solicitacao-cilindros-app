@@ -259,7 +259,6 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       showFilterButton={commandPermissions.canShowFilter}
       showExportButton={commandPermissions.canShowExport}
       onExportTable={handleExportRequests}
-      onExportProject={() => undefined}
       availableUnits={[]}
       navigationAction={{
         label: "Abrir Dashboard",
