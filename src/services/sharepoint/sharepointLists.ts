@@ -3,4 +3,5 @@ export const SHAREPOINT_LISTS = {
   materialRequests: "MaterialRequests",
   materialRequestHistory: "MaterialRequestHistory",
   materialAccessControl: "MaterialAccessControl",
+  materialCenters: "MaterialCenters",
 } as const;

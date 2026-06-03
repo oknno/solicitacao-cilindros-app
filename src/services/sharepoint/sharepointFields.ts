@@ -81,3 +81,9 @@ export const MATERIAL_REQUEST_HISTORY_FIELDS = {
   performedAt: "PerformedAt",
   comment: "Comment",
 } as const;
+
+export const MATERIAL_CENTER_FIELDS = {
+  title: "Title",
+  center: "Center",
+  isActive: "IsActive",
+} as const;
