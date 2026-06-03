@@ -3,11 +3,11 @@ import {
   analyzeMaterialRequestStockUseCase,
   createMaterialRequestUseCase,
   getCurrentMaterialRequestUserUseCase,
-  getStockCentersUseCase,
   getStockMaterialsByCenterUseCase,
   type AnalyzeMaterialRequestStockOutput,
   updateMaterialRequestDraftUseCase,
 } from "../../../application/materialRequest";
+import { listAvailableMaterialCenterCodes } from "../../../application/listAvailableMaterialCenters";
 import type { UserAccessProfile } from "../../../domain/accessControl";
 import type { StockMaterial } from "../../../domain/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
@@ -135,7 +135,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
 
   useEffect(() => {
     setLoadingCenters(true);
-    void getStockCentersUseCase().then(setCenters).catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar centros.")).finally(() => setLoadingCenters(false));
+    void listAvailableMaterialCenterCodes().then(setCenters).catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar centros disponíveis para solicitação.")).finally(() => setLoadingCenters(false));
   }, []);
 
   useEffect(() => {
@@ -394,7 +394,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
             </div>
             <div style={wizardLayoutStyles.journeyPairGrid}>
               <Field label="Centro"><select value={center} onChange={(e) => setCenter(e.target.value)} style={wizardLayoutStyles.input}><option value="">{loadingCenters ? "Carregando centros..." : "Selecione"}</option>{centerOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
-              <Field label="Material"><select value={materialSelection} onChange={(e) => handleMaterialSelectionChange(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={normalizeFormText(m.materialCode)} value={normalizeFormText(m.materialCode)}>{`${normalizeFormText(m.materialCode)} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select></Field>
+              <Field label="Material"><select value={materialSelection} onChange={(e) => handleMaterialSelectionChange(e.target.value)} style={wizardLayoutStyles.input} disabled={!center.trim() || loadingMaterials}><option value="">{!center.trim() ? "Selecione primeiro o centro para carregar os materiais disponíveis." : loadingMaterials ? "Carregando materiais do centro..." : stockMaterials.length ? "Selecione" : "Nenhum material encontrado para este centro."}</option>{stockMaterials.map((m) => <option key={normalizeFormText(m.materialCode)} value={normalizeFormText(m.materialCode)}>{`${normalizeFormText(m.materialCode)} - ${m.description}`}</option>)}<option value={MANUAL_NOT_FOUND_OPTION}>Não encontrei o material</option></select>{center.trim() && !loadingMaterials && stockMaterials.length === 0 ? <p style={{ margin: `${uiTokens.spacing.xs}px 0 0`, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}>Nenhum material encontrado para este centro. Use “Não encontrei o material” para preencher manualmente.</p> : null}</Field>
             </div>
 
             {isManualMaterial && (

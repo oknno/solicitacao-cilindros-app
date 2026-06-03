@@ -9,6 +9,7 @@ import {
 import { createMaterialRequestHistoryEntry } from "../../services/sharepoint/repositories/materialRequestHistoryRepository";
 import { findStockMaterialByCenterAndCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
 import { getMaterialRequestById, updateMaterialRequest } from "../../services/sharepoint/repositories/materialRequestRepository";
+import { isActiveMaterialCenter } from "../listAvailableMaterialCenters";
 
 export interface UpdateMaterialRequestDraftInput {
   requestId: number; center: string; materialCode: string; materialDescription?: string; requestedQuantity: number;
@@ -23,6 +24,7 @@ export async function updateMaterialRequestDraftUseCase(input: UpdateMaterialReq
   if (request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "REJECTED") throw new Error("Esta solicitação não pode ser editada neste status.");
   const center = input.center?.trim(); const materialCode = input.materialCode?.trim(); const reason = input.requestReason?.trim();
   if (!center) throw new Error("Informe o centro da solicitação.");
+  if (!(await isActiveMaterialCenter(center))) throw new Error("Informe um centro ativo para a solicitação.");
   if (!materialCode) throw new Error("Informe o código do material.");
   if (!Number.isFinite(input.requestedQuantity) || input.requestedQuantity <= 0) throw new Error("Informe uma quantidade solicitada maior que zero.");
   if (!reason) throw new Error("Informe o motivo da solicitação.");

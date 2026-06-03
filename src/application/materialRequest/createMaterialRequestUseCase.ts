@@ -12,6 +12,7 @@ import {
   createMaterialRequest,
 } from "../../services/sharepoint/repositories/materialRequestRepository";
 import { findStockMaterialByCenterAndCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
+import { isActiveMaterialCenter } from "../listAvailableMaterialCenters";
 
 export interface CreateMaterialRequestInput {
   requesterName: string;
@@ -49,6 +50,10 @@ export async function createMaterialRequestUseCase(
   const center = input.center?.trim();
   if (!center) {
     throw new Error("Informe o centro da solicitação.");
+  }
+
+  if (!(await isActiveMaterialCenter(center))) {
+    throw new Error("Informe um centro ativo para a solicitação.");
   }
 
   if (input.requestedQuantity <= 0) {
