@@ -4,13 +4,12 @@ import type { UserAccessProfile } from "../../../domain/accessControl";
 import type { MaterialRequestStatus } from "../../../domain/materialRequest";
 import type { MaterialRequestAttachment } from "../../../domain/materialRequest/types";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
 import { MaterialRequestViewSection } from "./MaterialRequestViewSections";
 
 type RequestAttachmentsMode = "readonly" | "editable";
-type RequestAttachmentsSectionProps = { requestId?: number; accessProfile: UserAccessProfile; mode: RequestAttachmentsMode; requestStatus?: MaterialRequestStatus };
+type RequestAttachmentsSectionProps = { requestId?: number; accessProfile: UserAccessProfile; mode: RequestAttachmentsMode; requestStatus?: MaterialRequestStatus; title?: string; subtitle?: string };
 
 function formatFileSize(size?: number): string | null {
   if (size === undefined || size < 0) return null;
@@ -21,7 +20,7 @@ function formatFileSize(size?: number): string | null {
 
 const actionLinkStyle = { flexShrink: 0, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.mediumWeight } as const;
 
-export function RequestAttachmentsSection({ requestId, accessProfile, mode, requestStatus }: RequestAttachmentsSectionProps) {
+export function RequestAttachmentsSection({ requestId, accessProfile, mode, requestStatus, title, subtitle }: RequestAttachmentsSectionProps) {
   const [attachments, setAttachments] = useState<MaterialRequestAttachment[]>([]);
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   const [mutation, setMutation] = useState<"idle" | "adding" | "deleting">("idle");
@@ -119,8 +118,8 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
   if (mode === "readonly") {
     return (
       <MaterialRequestViewSection
-        title="3. Anexos da Solicitação"
-        subtitle="Arquivos enviados como apoio à análise da solicitação."
+        title={title ?? "3. Anexos da Solicitação"}
+        subtitle={subtitle ?? "Arquivos enviados como apoio à análise da solicitação."}
       >
         {content}
       </MaterialRequestViewSection>
@@ -128,12 +127,11 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
   }
 
   return (
-    <Card style={{ display: "grid", gap: uiTokens.spacing.md }}>
-      <div>
-        <div style={{ fontWeight: uiTokens.typography.titleWeight, color: uiTokens.colors.textStrong }}>Anexos da solicitação</div>
-        <div style={{ marginTop: uiTokens.spacing.xxs, fontSize: uiTokens.typography.xs, color: uiTokens.colors.textMuted }}>Arquivos enviados com esta solicitação.</div>
-      </div>
+    <MaterialRequestViewSection
+      title={title ?? "5. Anexos da Solicitação"}
+      subtitle={subtitle ?? "Inclua arquivos de apoio para análise da solicitação."}
+    >
       {content}
-    </Card>
+    </MaterialRequestViewSection>
   );
 }
