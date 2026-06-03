@@ -102,25 +102,58 @@ export async function deleteAttachmentFromMaterialRequest(requestId: number, fil
   await spDelete(url, digest);
 }
 
+function buildAttachmentUploadError(fileName: string, status: number, detail: string): Error {
+  const normalizedDetail = detail.toLowerCase();
+  if (status === 409 || normalizedDetail.includes("already exists") || normalizedDetail.includes("já existe")) {
+    return new Error(`Já existe um anexo chamado “${fileName}”. Renomeie o arquivo e tente novamente.`);
+  }
+
+  return new Error(`Falha ao anexar o arquivo “${fileName}”. (${status}) ${detail}`);
+}
+
 export async function addAttachmentToMaterialRequest(
   requestId: number,
   file: File,
+  digest?: string,
 ): Promise<void> {
-  const digest = await getDigest();
+  const requestDigest = digest ?? await getDigest();
   const fileName = encodeODataString(file.name);
   const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles/add(FileName='${fileName}')`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       Accept: "application/json;odata=nometadata",
-      "X-RequestDigest": digest,
+      "X-RequestDigest": requestDigest,
     },
     body: file,
   });
 
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`Falha ao anexar arquivo. (${res.status}) ${txt}`);
+    throw buildAttachmentUploadError(file.name, res.status, txt);
+  }
+}
+
+export async function addAttachmentsToMaterialRequest(
+  requestId: number,
+  files: File[],
+): Promise<void> {
+  const validFiles = files.filter(Boolean);
+  if (validFiles.length === 0) return;
+
+  const digest = await getDigest();
+  const failedFiles: string[] = [];
+
+  for (const file of validFiles) {
+    try {
+      await addAttachmentToMaterialRequest(requestId, file, digest);
+    } catch (error) {
+      failedFiles.push(error instanceof Error ? error.message : `Falha ao anexar o arquivo “${file.name}”.`);
+    }
+  }
+
+  if (failedFiles.length > 0) {
+    throw new Error(failedFiles.join("\n"));
   }
 }
 

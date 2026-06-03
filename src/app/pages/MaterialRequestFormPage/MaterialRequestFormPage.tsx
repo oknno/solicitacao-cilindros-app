@@ -89,7 +89,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
   const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
   const [materialsLoadedCenter, setMaterialsLoadedCenter] = useState("");
   const [centers, setCenters] = useState<string[]>([]);
-  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState("");
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingCenters, setLoadingCenters] = useState(false);
@@ -258,28 +258,30 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
     }
   }
 
-  function handleAttachmentChange(file: File | null) {
-    setAttachmentError("");
-    if (!file) {
-      setAttachment(null);
-      return;
-    }
-
+  function validateAttachmentFile(file: File): string | null {
     const lowerName = file.name.toLowerCase();
     const validExtension = ALLOWED_ATTACHMENT_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
-    if (!validExtension) {
-      setAttachment(null);
-      setAttachmentError("Formato inválido. Anexe um arquivo PDF ou Excel.");
+    if (!validExtension) return `Formato inválido em “${file.name}”. Anexe arquivos PDF ou Excel.`;
+    if (file.size > MAX_FILE_SIZE_BYTES) return `O arquivo “${file.name}” deve ter no máximo 10 MB.`;
+    return null;
+  }
+
+  function handleAttachmentChange(fileList: FileList | null) {
+    setAttachmentError("");
+    const selectedFiles = Array.from(fileList ?? []);
+    if (selectedFiles.length === 0) return;
+
+    const validationError = selectedFiles.map(validateAttachmentFile).find((message): message is string => Boolean(message));
+    if (validationError) {
+      setAttachmentError(validationError);
       return;
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      setAttachment(null);
-      setAttachmentError("O arquivo deve ter no máximo 10 MB.");
-      return;
-    }
+    setAttachments((current) => [...current, ...selectedFiles]);
+  }
 
-    setAttachment(file);
+  function removeSelectedAttachment(indexToRemove: number) {
+    setAttachments((current) => current.filter((_, index) => index !== indexToRemove));
   }
 
   async function handleSubmit() {
@@ -321,7 +323,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
         await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail, accessProfile });
         notify("Solicitação atualizada com sucesso.", "success");
       } else {
-        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachment: attachment ?? undefined });
+        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachments });
         notify("Solicitação salva como rascunho.", "success");
       }
       onCreated();
@@ -347,13 +349,22 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
     >
       <Field label="Anexo de apoio">
         <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
-          <input type="file" accept=".pdf,.xlsx,.xls" onChange={(e) => handleAttachmentChange(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
+          <input type="file" accept=".pdf,.xlsx,.xls" multiple onChange={(e) => { handleAttachmentChange(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
           <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
-          <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar (PDF ou Excel)</span>
-          {attachment && <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Arquivo selecionado: {attachment.name}</span>}
+          <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar um ou mais arquivos (PDF ou Excel)</span>
         </label>
       </Field>
-      {attachment && <p style={{ margin: 0, color: uiTokens.colors.textMuted, fontSize: uiTokens.typography.sm }}><button type="button" onClick={() => setAttachment(null)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer" }}>Remover arquivo</button></p>}
+      {attachments.length > 0 ? (
+        <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
+          <p style={{ margin: 0, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.mediumWeight }}>Arquivos selecionados:</p>
+          {attachments.map((file, index) => (
+            <div key={`${file.name}-${file.lastModified}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: uiTokens.spacing.sm, padding: uiTokens.spacing.sm, border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.sm, background: uiTokens.colors.surfaceMuted }}>
+              <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, overflowWrap: "anywhere" }}>{file.name}</span>
+              <button type="button" onClick={() => removeSelectedAttachment(index)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>Remover</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {attachmentError && <p style={{ margin: 0, color: uiTokens.colors.danger, fontSize: uiTokens.typography.sm }}>{attachmentError}</p>}
     </MaterialRequestViewSection>
   ) : null;
