@@ -90,7 +90,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
   const [stockMaterials, setStockMaterials] = useState<StockMaterial[]>([]);
   const [materialsLoadedCenter, setMaterialsLoadedCenter] = useState("");
   const [centers, setCenters] = useState<string[]>([]);
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [selectedAttachmentFiles, setSelectedAttachmentFiles] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState("");
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [loadingCenters, setLoadingCenters] = useState(false);
@@ -281,11 +281,11 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
       return;
     }
 
-    setAttachments((current) => [...current, ...selectedFiles]);
+    setSelectedAttachmentFiles((current) => [...current, ...selectedFiles]);
   }
 
   function removeSelectedAttachment(indexToRemove: number) {
-    setAttachments((current) => current.filter((_, index) => index !== indexToRemove));
+    setSelectedAttachmentFiles((current) => current.filter((_, index) => index !== indexToRemove));
   }
 
   async function handleSubmit() {
@@ -327,8 +327,8 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
         await updateMaterialRequestDraftUseCase({ requestId: initialRequest.id, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, performedByName: requesterName, performedByEmail: requesterEmail, accessProfile });
         notify("Solicitação atualizada com sucesso.", "success");
       } else {
-        await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachments });
-        notify("Solicitação salva como rascunho.", "success");
+        const result = await createMaterialRequestUseCase({ requesterName, requesterEmail, center, materialCode: effectiveMaterialCode, materialDescription, requestedQuantity: parsedRequestedQuantity, requestReason, requesterJustification, technicalData, isManualMaterial, attachmentFiles: selectedAttachmentFiles });
+        notify(result.attachmentUploadError ?? "Solicitação salva como rascunho.", result.attachmentUploadError ? "info" : "success");
       }
       onCreated();
     } catch (e) {
@@ -358,10 +358,10 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
           <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar um ou mais arquivos (PDF ou Excel)</span>
         </label>
       </Field>
-      {attachments.length > 0 ? (
+      {selectedAttachmentFiles.length > 0 ? (
         <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
           <p style={{ margin: 0, color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, fontWeight: uiTokens.typography.mediumWeight }}>Arquivos selecionados:</p>
-          {attachments.map((file, index) => (
+          {selectedAttachmentFiles.map((file, index) => (
             <div key={`${file.name}-${file.lastModified}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: uiTokens.spacing.sm, padding: uiTokens.spacing.sm, border: `1px solid ${uiTokens.colors.border}`, borderRadius: uiTokens.radius.sm, background: uiTokens.colors.surfaceMuted }}>
               <span style={{ color: uiTokens.colors.textStrong, fontSize: uiTokens.typography.sm, overflowWrap: "anywhere" }}>{file.name}</span>
               <button type="button" onClick={() => removeSelectedAttachment(index)} style={{ border: `1px solid ${uiTokens.colors.border}`, background: uiTokens.colors.surface, color: uiTokens.colors.textStrong, borderRadius: uiTokens.radius.sm, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}>Remover</button>
