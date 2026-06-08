@@ -5,6 +5,7 @@ export type MaterialRequestCommandPermissionInput = {
   accessProfile: UserAccessProfile;
   selectedStatus?: MaterialRequestStatus;
   selectedRequesterEmail?: string;
+  selectedCenter?: string;
   hasSelection: boolean;
 };
 

@@ -1,3 +1,4 @@
+import { normalizeCenter } from "../materialRequest/normalizeCenter";
 import type { MaterialRequestStatus } from "../materialRequest/status";
 import type { MaterialRequestCommandPermissionInput, MaterialRequestCommandPermissions } from "./permissionTypes";
 
@@ -14,10 +15,16 @@ export function getMaterialRequestCommandPermissions(input: MaterialRequestComma
   const isRequester = Boolean(accessProfile.userEmail)
     && input.selectedRequesterEmail?.trim().toLowerCase() === accessProfile.userEmail;
   const canChangeOwnRequest = isAdmin || isRequester;
-  const canApprove = hasSelection && (
-    (permissions.canApproveAsManager && includes(MANAGER_PENDING_STATUS, selectedStatus))
-    || (permissions.canApproveAsCTO && includes(CTO_PENDING_STATUS, selectedStatus))
-  );
+  const selectedCenter = normalizeCenter(input.selectedCenter ?? "");
+  const isAssignedCenter = Boolean(selectedCenter) && accessProfile.centers.includes(selectedCenter);
+  const canApproveAsManager = hasSelection
+    && permissions.canApproveAsManager
+    && includes(MANAGER_PENDING_STATUS, selectedStatus)
+    && (isAdmin || isAssignedCenter);
+  const canApproveAsCTO = hasSelection
+    && permissions.canApproveAsCTO
+    && includes(CTO_PENDING_STATUS, selectedStatus);
+  const canApprove = canApproveAsManager || canApproveAsCTO;
 
   return {
     canShowUpdate: true,
