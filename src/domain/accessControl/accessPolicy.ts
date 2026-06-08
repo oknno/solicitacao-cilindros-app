@@ -64,9 +64,8 @@ export function buildUserAccessProfile(input: { userEmail: string; roles: Access
   return { userEmail: input.userEmail.trim().toLowerCase(), roles: effectiveRoles, centers, dataScope, permissions: mergePermissions(effectiveRoles) };
 }
 
-const CENTER_VISIBLE_STATUSES = new Set(["PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);
+const MANAGER_VISIBLE_STATUSES = new Set(["PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);
 const CTO_VISIBLE_STATUSES = new Set(["PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);
-const OWN_DRAFT_STATUSES = new Set(["DRAFT", "RETURNED_TO_DRAFT"]);
 
 function isRequester(profile: UserAccessProfile, request: MaterialRequest): boolean {
   return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
@@ -81,11 +80,15 @@ export function canAccessMaterialRequest(profile: UserAccessProfile, request: Ma
   if (profile.roles.includes("CTO")) return CTO_VISIBLE_STATUSES.has(request.status);
 
   const ownsRequest = isRequester(profile, request);
-  if (OWN_DRAFT_STATUSES.has(request.status)) return ownsRequest;
 
-  if (profile.roles.includes("MANAGER") || profile.roles.includes("USER")) {
+  if (profile.roles.includes("MANAGER")) {
+    if (profile.centers.length === 0) return ownsRequest && MANAGER_VISIBLE_STATUSES.has(request.status);
+    return MANAGER_VISIBLE_STATUSES.has(request.status) && isAssignedCenter(profile, request);
+  }
+
+  if (profile.roles.includes("USER")) {
     if (profile.centers.length === 0) return ownsRequest;
-    return CENTER_VISIBLE_STATUSES.has(request.status) && isAssignedCenter(profile, request);
+    return isAssignedCenter(profile, request);
   }
 
   return ownsRequest;
