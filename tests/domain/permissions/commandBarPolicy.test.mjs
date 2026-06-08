@@ -37,6 +37,17 @@ test("USER não pode aprovar ou reprovar solicitações visíveis", () => {
   assert.equal(pending.canReject, false);
 });
 
+test("USER não edita solicitação criada por outro usuário", () => {
+  const draftFromOtherUser = permissionsFor("DRAFT", requester, "other@empresa.com", "4000");
+  const returnedFromOtherUser = permissionsFor("RETURNED_TO_DRAFT", requester, "other@empresa.com", "4000");
+
+  assert.equal(draftFromOtherUser.canEdit, false);
+  assert.equal(draftFromOtherUser.canSubmit, false);
+  assert.equal(draftFromOtherUser.canDelete, false);
+  assert.equal(returnedFromOtherUser.canEdit, false);
+  assert.equal(returnedFromOtherUser.canSubmit, false);
+});
+
 test("MANAGER aprova somente solicitação pendente de gerente em centro vinculado", () => {
   const manager = buildUserAccessProfile({ userEmail: "manager@empresa.com", roles: ["MANAGER"], centers: ["4000"] });
 
