@@ -130,3 +130,26 @@ test("mapSharePointMaterialRequest mantém CANCELLED legado em fallback oficial 
   const mapped = mapSharePointMaterialRequest({ RequestStatus: "CANCELLED" });
   assert.equal(mapped.status, "APPROVED");
 });
+
+test("mapMaterialRequestToSharePointPayload ignora anexos e estados complexos acidentais", () => {
+  const payload = mapMaterialRequestToSharePointPayload({
+    requesterName: "Ana",
+    materialCode: "MAT-003",
+    materialDescription: "Material 3",
+    center: "C300",
+    requestedQuantity: 12,
+    evaluatedStockTotalAtRequest: 30.75,
+    stockRecommendation: "PURCHASE_RECOMMENDED",
+    requestReason: "Projeto",
+    status: "DRAFT",
+    attachments: [{ name: "a.pdf" }],
+    attachmentFiles: [{ name: "b.pdf" }],
+    selectedFiles: [{ name: "c.pdf" }],
+    AttachmentFiles: { results: [] }
+  });
+
+  assert.equal("attachments" in payload, false);
+  assert.equal("attachmentFiles" in payload, false);
+  assert.equal("selectedFiles" in payload, false);
+  assert.equal("AttachmentFiles" in payload, false);
+});

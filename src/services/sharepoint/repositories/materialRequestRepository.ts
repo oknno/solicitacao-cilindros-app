@@ -92,7 +92,21 @@ export async function deleteMaterialRequest(id: number): Promise<void> {
 
 
 function encodeODataString(value: string): string {
-  return encodeURIComponent(value.replace(/'/g, "''")).replace(/'/g, "%27");
+  return encodeURIComponent(value.replace(/'/g, "''"))
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29");
+}
+
+function validateAttachmentFileForUpload(file: File): void {
+  const fileName = file?.name?.trim();
+  if (!fileName) {
+    throw new Error("Informe o nome do arquivo que será anexado.");
+  }
+
+  if (!Number.isFinite(file.size) || file.size <= 0) {
+    throw new Error(`O arquivo “${fileName}” está vazio e não pode ser anexado.`);
+  }
 }
 
 export async function deleteAttachmentFromMaterialRequest(requestId: number, fileName: string): Promise<void> {
@@ -116,13 +130,16 @@ export async function addAttachmentToMaterialRequest(
   file: File,
   digest?: string,
 ): Promise<void> {
+  validateAttachmentFileForUpload(file);
   const requestDigest = digest ?? await getDigest();
-  const fileName = encodeODataString(file.name);
+  const rawFileName = file.name.trim();
+  const fileName = encodeODataString(rawFileName);
   const url = `${buildListItemsUrl()}(${requestId})/AttachmentFiles/add(FileName='${fileName}')`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
       Accept: "application/json;odata=nometadata",
+      "Content-Type": "application/octet-stream",
       "X-RequestDigest": requestDigest,
     },
     body: file,
@@ -130,7 +147,7 @@ export async function addAttachmentToMaterialRequest(
 
   if (!res.ok) {
     const txt = await res.text();
-    throw buildAttachmentUploadError(file.name, res.status, txt);
+    throw buildAttachmentUploadError(rawFileName, res.status, txt);
   }
 }
 

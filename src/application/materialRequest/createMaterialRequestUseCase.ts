@@ -25,7 +25,11 @@ export interface CreateMaterialRequestInput {
   materialDescription?: string;
   isManualMaterial?: boolean;
   technicalData?: MaterialRequest["technicalData"];
+  attachmentFile?: File;
+  attachmentFiles?: File[];
+  /** @deprecated Use attachmentFiles to keep request data separated from selected files. */
   attachment?: File;
+  /** @deprecated Use attachmentFiles to keep request data separated from selected files. */
   attachments?: File[];
 }
 
@@ -33,6 +37,7 @@ export interface CreateMaterialRequestOutput {
   request: MaterialRequest;
   stockMaterial: StockMaterial | null;
   stockAnalysis: StockAnalysisResult;
+  attachmentUploadError?: string;
 }
 
 export async function createMaterialRequestUseCase(
@@ -131,14 +136,26 @@ export async function createMaterialRequestUseCase(
     comment: "Solicitação criada como rascunho.",
   });
 
-  const attachments = [...(input.attachments ?? []), ...(input.attachment ? [input.attachment] : [])];
-  if (attachments.length) {
-    await addAttachmentsToMaterialRequest(createdRequest.id, attachments);
+  const selectedFiles = [
+    ...(input.attachmentFiles ?? []),
+    ...(input.attachmentFile ? [input.attachmentFile] : []),
+    ...(input.attachments ?? []),
+    ...(input.attachment ? [input.attachment] : []),
+  ].filter(Boolean);
+
+  let attachmentUploadError: string | undefined;
+  if (selectedFiles.length) {
+    try {
+      await addAttachmentsToMaterialRequest(createdRequest.id, selectedFiles);
+    } catch {
+      attachmentUploadError = "Solicitação salva, mas não foi possível anexar um ou mais arquivos. Tente anexar novamente pela edição.";
+    }
   }
 
   return {
     request: createdRequest,
     stockMaterial,
     stockAnalysis,
+    attachmentUploadError,
   };
 }
