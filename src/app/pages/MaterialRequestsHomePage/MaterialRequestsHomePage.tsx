@@ -3,7 +3,7 @@ import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMateri
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
-import { assertCanDecideMaterialRequest, getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
+import { assertCanDecideMaterialRequest, canAccessMaterialRequest, getAccessProfileLabel, type UserAccessProfile } from "../../../domain/accessControl";
 import { MaterialRequestApprovalModal } from "../../components/materialRequest/MaterialRequestApprovalModal";
 import { MaterialRequestFormModal } from "../../components/materialRequest/MaterialRequestFormModal";
 import { MaterialRequestSummaryPanel } from "../../components/materialRequest/MaterialRequestSummaryPanel";
@@ -60,6 +60,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     hasSelection: Boolean(selectedRequest),
     selectedStatus: selectedRequest?.status,
     selectedRequesterEmail: selectedRequest?.requesterEmail,
+    selectedCenter: selectedRequest?.center,
   }), [accessProfile, selectedRequest]);
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
@@ -239,7 +240,14 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       onNew={() => { if (accessProfile.permissions.canCreateRequest) setFormMode("create"); }}
       onUpdateStock={accessProfile.permissions.canUploadStock ? () => setStockImportOpen(true) : undefined}
       canCreate={commandPermissions.canNew}
-      onView={() => { if (selectedRequest) setViewRequest(selectedRequest); }}
+      onView={() => {
+        if (!selectedRequest) return;
+        if (!canAccessMaterialRequest(accessProfile, selectedRequest)) {
+          notify("Você não possui permissão para visualizar esta solicitação.", "info");
+          return;
+        }
+        setViewRequest(selectedRequest);
+      }}
       onEdit={() => { if (selectedRequest && commandPermissions.canEdit) setFormMode("edit"); }}
       onDuplicate={() => undefined}
       onDelete={() => { void onDelete(); }}

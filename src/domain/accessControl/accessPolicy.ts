@@ -37,7 +37,7 @@ const PERMISSIONS_BY_ROLE: Record<AccessRole, AccessPermissions> = {
     canRejectRequest: true,
   },
   USER: {
-    ...emptyPermissions(), canCreateRequest: true, canEditRequest: true, canCancelRequest: true,
+    ...emptyPermissions(), canViewAssignedCenters: true, canCreateRequest: true, canEditRequest: true, canCancelRequest: true,
     canSubmitRequest: true,
   },
 };
@@ -57,22 +57,38 @@ export function buildUserAccessProfile(input: { userEmail: string; roles: Access
   const centers = Array.from(new Set((input.centers ?? []).map(normalizeCenter).filter(Boolean)));
   const dataScope: DataScope = effectiveRoles.includes("ADMIN") || effectiveRoles.includes("CTO")
     ? "ALL_CENTERS"
-    : effectiveRoles.includes("MANAGER")
+    : centers.length > 0
       ? "ASSIGNED_CENTERS"
       : "OWN_REQUESTS";
 
   return { userEmail: input.userEmail.trim().toLowerCase(), roles: effectiveRoles, centers, dataScope, permissions: mergePermissions(effectiveRoles) };
 }
 
+const CENTER_VISIBLE_STATUSES = new Set(["PENDING_LAMINATION_MANAGER_APPROVAL", "PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);
+const CTO_VISIBLE_STATUSES = new Set(["PENDING_CTO_APPROVAL", "APPROVED", "REJECTED"]);
+const OWN_DRAFT_STATUSES = new Set(["DRAFT", "RETURNED_TO_DRAFT"]);
+
+function isRequester(profile: UserAccessProfile, request: MaterialRequest): boolean {
+  return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
+}
+
+function isAssignedCenter(profile: UserAccessProfile, request: MaterialRequest): boolean {
+  return profile.centers.includes(normalizeCenter(request.center));
+}
+
 export function canAccessMaterialRequest(profile: UserAccessProfile, request: MaterialRequest): boolean {
   if (profile.roles.includes("ADMIN")) return true;
-  if (profile.roles.includes("CTO")) {
-    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL";
+  if (profile.roles.includes("CTO")) return CTO_VISIBLE_STATUSES.has(request.status);
+
+  const ownsRequest = isRequester(profile, request);
+  if (OWN_DRAFT_STATUSES.has(request.status)) return ownsRequest;
+
+  if (profile.roles.includes("MANAGER") || profile.roles.includes("USER")) {
+    if (profile.centers.length === 0) return ownsRequest;
+    return CENTER_VISIBLE_STATUSES.has(request.status) && isAssignedCenter(profile, request);
   }
-  if (profile.roles.includes("MANAGER")) {
-    return request.status !== "DRAFT" && request.status !== "RETURNED_TO_DRAFT" && profile.centers.includes(normalizeCenter(request.center));
-  }
-  return Boolean(profile.userEmail) && request.requesterEmail?.trim().toLowerCase() === profile.userEmail;
+
+  return ownsRequest;
 }
 
 export function assertCanModifyOwnMaterialRequest(profile: UserAccessProfile, request: MaterialRequest): void {
@@ -96,6 +112,7 @@ export function filterCentersByAccess(profile: UserAccessProfile, centers: strin
 export function assertCanDecideMaterialRequest(profile: UserAccessProfile, request: MaterialRequest, approverRole: ApproverRole): void {
   if (approverRole === "LAMINATION_MANAGER") {
     if (!profile.permissions.canApproveAsManager) throw new Error("Você não possui permissão para decidir aprovações gerenciais.");
+    if (request.status !== "PENDING_LAMINATION_MANAGER_APPROVAL") throw new Error("A solicitação não está pendente de aprovação do Gerente da Laminação.");
     if (!profile.roles.includes("ADMIN") && !profile.centers.includes(normalizeCenter(request.center))) {
       throw new Error("Você não possui permissão para decidir solicitações deste centro.");
     }
@@ -103,6 +120,7 @@ export function assertCanDecideMaterialRequest(profile: UserAccessProfile, reque
   }
 
   if (!profile.permissions.canApproveAsCTO) throw new Error("Você não possui permissão para decidir aprovações CTO.");
+  if (request.status !== "PENDING_CTO_APPROVAL") throw new Error("A solicitação não está pendente de aprovação CTO.");
 }
 
 export function getAccessProfileLabel(profile: UserAccessProfile): string {
