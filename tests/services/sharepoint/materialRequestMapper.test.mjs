@@ -153,3 +153,55 @@ test("mapMaterialRequestToSharePointPayload ignora anexos e estados complexos ac
   assert.equal("selectedFiles" in payload, false);
   assert.equal("AttachmentFiles" in payload, false);
 });
+
+test("mapMaterialRequestToSharePointPayload sanitiza campos texto e técnicos antes do SharePoint", () => {
+  const payload = mapMaterialRequestToSharePointPayload({
+    requesterName: "Ana",
+    requesterEmail: null,
+    materialCode: "MAT-004",
+    materialDescription: "Material 4",
+    center: "C300",
+    technicalData: {
+      refrol: 123,
+      site: { value: "objeto inválido" },
+      mill: ["array inválido"],
+      profile: "Perfil\u0000 com nulo",
+    },
+    requestedQuantity: 12,
+    evaluatedStockTotalAtRequest: null,
+    stockRecommendation: "PURCHASE_RECOMMENDED",
+    requestReason: "Linha 1\nLinha 2",
+    requesterJustification: { value: "não deve serializar objeto" },
+    status: "DRAFT",
+  });
+
+  assert.equal(payload.Refrol, "123");
+  assert.equal(payload.Site, "");
+  assert.equal(payload.Mill, "");
+  assert.equal(payload.Profile, "Perfil com nulo");
+  assert.equal(payload.RequestReason, "Linha 1\nLinha 2");
+  assert.equal(payload.RequesterJustification, "");
+  assert.equal(payload.RequesterEmail, "");
+  assert.equal(payload.EvaluatedStockTotal, "");
+  for (const value of Object.values(payload)) {
+    assert.equal(Array.isArray(value), false);
+    assert.notEqual(typeof value, "object");
+    assert.notEqual(typeof value, "function");
+    assert.notEqual(value, undefined);
+    assert.notEqual(value, null);
+  }
+});
+
+test("mapMaterialRequestToUpdatePayload converte campos técnicos numéricos para texto seguro", () => {
+  const payload = mapMaterialRequestToUpdatePayload({
+    technicalData: {
+      diamExt: 10.5,
+      finalWeight: { raw: 99 },
+    },
+    requestReason: ["inválido"],
+  });
+
+  assert.equal(payload.DiamExt, "10.5");
+  assert.equal(payload.FinalWeight, "");
+  assert.equal(payload.RequestReason, "");
+});

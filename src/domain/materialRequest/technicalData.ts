@@ -29,14 +29,21 @@ export const MATERIAL_REQUEST_TECHNICAL_DATA_KEYS = [
   "neededHardness", "technology", "grade", "delivery",
 ] as const satisfies readonly (keyof MaterialRequestTechnicalData)[];
 
+function normalizeTechnicalText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value) || typeof value === "object" || typeof value === "function") return undefined;
+
+  const normalized = String(value).split("\u0000").join("").trim();
+  return normalized || undefined;
+}
+
 export function normalizeMaterialRequestTechnicalData(
   technicalData?: MaterialRequestTechnicalData,
 ): MaterialRequestTechnicalData | undefined {
   if (!technicalData) return undefined;
 
   return MATERIAL_REQUEST_TECHNICAL_DATA_KEYS.reduce<MaterialRequestTechnicalData>((normalized, key) => {
-    const value = technicalData[key]?.trim();
-    normalized[key] = value || undefined;
+    normalized[key] = normalizeTechnicalText(technicalData[key]);
     return normalized;
   }, {});
 }

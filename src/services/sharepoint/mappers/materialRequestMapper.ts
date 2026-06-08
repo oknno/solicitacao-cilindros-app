@@ -5,6 +5,88 @@ import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../s
 
 type SpRecord = Record<string, unknown>;
 
+const COMPLEX_TEXT_VALUE_MESSAGE = "Valor complexo removido do payload de texto da MaterialRequests.";
+
+const FORBIDDEN_ATTACHMENT_FIELD_NAMES = new Set([
+  "attachments",
+  "attachment",
+  "selectedFiles",
+  "files",
+  "file",
+  "File",
+  "File[]",
+  "Blob",
+  "AttachmentFiles",
+  "supportFiles",
+  "anexos",
+  "anexo",
+  "attachmentFiles",
+]);
+
+function isDevEnvironment(): boolean {
+  return Boolean(import.meta.env?.DEV);
+}
+
+function isFileLike(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (typeof File !== "undefined" && value instanceof File) return true;
+  if (typeof Blob !== "undefined" && value instanceof Blob) return true;
+
+  const candidate = value as { name?: unknown; size?: unknown; type?: unknown; arrayBuffer?: unknown };
+  return typeof candidate.name === "string"
+    && typeof candidate.size === "number"
+    && typeof candidate.arrayBuffer === "function";
+}
+
+function diagnoseInvalidTextValue(fieldName: string, value: unknown, reason: string): void {
+  if (!isDevEnvironment()) return;
+  console.warn(`[MaterialRequests payload] ${COMPLEX_TEXT_VALUE_MESSAGE}`, {
+    fieldName,
+    reason,
+    valueType: Array.isArray(value) ? "array" : typeof value,
+  });
+}
+
+function toSharePointText(value: unknown, fieldName: string): string {
+  if (value === undefined || value === null) return "";
+  if (isFileLike(value)) {
+    diagnoseInvalidTextValue(fieldName, value, "File/Blob");
+    return "";
+  }
+  if (Array.isArray(value)) {
+    diagnoseInvalidTextValue(fieldName, value, "array");
+    return "";
+  }
+  if (typeof value === "function") {
+    diagnoseInvalidTextValue(fieldName, value, "function");
+    return "";
+  }
+  if (typeof value === "object") {
+    diagnoseInvalidTextValue(fieldName, value, "object");
+    return "";
+  }
+
+  return String(value).split("\u0000").join("");
+}
+
+function setTextIfDefined(payload: Record<string, unknown>, fieldName: string, value: unknown): void {
+  if (value !== undefined) payload[fieldName] = toSharePointText(value, fieldName);
+}
+
+function stripForbiddenPayloadKeys(payload: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (FORBIDDEN_ATTACHMENT_FIELD_NAMES.has(key)) {
+      diagnoseInvalidTextValue(key, value, "forbidden attachment payload key");
+      continue;
+    }
+    sanitized[key] = value;
+  }
+
+  return sanitized;
+}
+
 function asRecord(value: unknown): SpRecord {
   return value && typeof value === "object" ? (value as SpRecord) : {};
 }
@@ -36,9 +118,11 @@ function parseNumberFromSharePointText(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function stringifyNumberForSharePoint(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "";
-  return String(value);
+function stringifyNumberForSharePoint(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+
+  return toSharePointText(value, "numberText");
 }
 
 function optionalString(value: string): string | undefined {
@@ -102,73 +186,72 @@ export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
 }
 
 export function mapMaterialRequestToSharePointPayload(request: MaterialRequest): Record<string, unknown> {
-  return {
-    [MATERIAL_REQUEST_FIELDS.title]: request.title ?? "",
-    [MATERIAL_REQUEST_FIELDS.requesterName]: request.requesterName ?? "",
-    [MATERIAL_REQUEST_FIELDS.requesterEmail]: request.requesterEmail ?? "",
-    [MATERIAL_REQUEST_FIELDS.materialCode]: request.materialCode ?? "",
-    [MATERIAL_REQUEST_FIELDS.materialDescription]: request.materialDescription ?? "",
-    [MATERIAL_REQUEST_FIELDS.center]: request.center ?? "",
-    ...Object.fromEntries(Object.entries(MATERIAL_REQUEST_TECHNICAL_FIELDS).map(([key, fieldName]) => [
-      fieldName,
-      request.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>] ?? "",
-    ])),
+  const technicalPayload = Object.fromEntries(Object.entries(MATERIAL_REQUEST_TECHNICAL_FIELDS).map(([key, fieldName]) => [
+    fieldName,
+    toSharePointText(request.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>], fieldName),
+  ]));
+
+  return stripForbiddenPayloadKeys({
+    [MATERIAL_REQUEST_FIELDS.title]: toSharePointText(request.title, MATERIAL_REQUEST_FIELDS.title),
+    [MATERIAL_REQUEST_FIELDS.requesterName]: toSharePointText(request.requesterName, MATERIAL_REQUEST_FIELDS.requesterName),
+    [MATERIAL_REQUEST_FIELDS.requesterEmail]: toSharePointText(request.requesterEmail, MATERIAL_REQUEST_FIELDS.requesterEmail),
+    [MATERIAL_REQUEST_FIELDS.materialCode]: toSharePointText(request.materialCode, MATERIAL_REQUEST_FIELDS.materialCode),
+    [MATERIAL_REQUEST_FIELDS.materialDescription]: toSharePointText(request.materialDescription, MATERIAL_REQUEST_FIELDS.materialDescription),
+    [MATERIAL_REQUEST_FIELDS.center]: toSharePointText(request.center, MATERIAL_REQUEST_FIELDS.center),
+    ...technicalPayload,
     [MATERIAL_REQUEST_FIELDS.requestedQuantity]: stringifyNumberForSharePoint(request.requestedQuantity),
     [MATERIAL_REQUEST_FIELDS.evaluatedStockTotal]: stringifyNumberForSharePoint(request.evaluatedStockTotalAtRequest),
-    [MATERIAL_REQUEST_FIELDS.stockRecommendation]: request.stockRecommendation ?? "",
-    [MATERIAL_REQUEST_FIELDS.requestReason]: request.requestReason ?? "",
-    [MATERIAL_REQUEST_FIELDS.requesterJustification]: request.requesterJustification ?? "",
-    [MATERIAL_REQUEST_FIELDS.requestStatus]: request.status ?? "",
-    [MATERIAL_REQUEST_FIELDS.laminationManagerName]: request.laminationManagerName ?? "",
-    [MATERIAL_REQUEST_FIELDS.laminationManagerEmail]: request.laminationManagerEmail ?? "",
-    [MATERIAL_REQUEST_FIELDS.laminationManagerJustification]: request.laminationManagerJustification ?? "",
-    [MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate]: request.laminationManagerDecisionDate ?? "",
-    [MATERIAL_REQUEST_FIELDS.ctoJustification]: request.ctoJustification ?? "",
-    [MATERIAL_REQUEST_FIELDS.ctoApproverName]: request.ctoApproverName ?? "",
-    [MATERIAL_REQUEST_FIELDS.ctoApproverEmail]: request.ctoApproverEmail ?? "",
-    [MATERIAL_REQUEST_FIELDS.ctoDecisionDate]: request.ctoDecisionDate ?? ""
-  };
+    [MATERIAL_REQUEST_FIELDS.stockRecommendation]: toSharePointText(request.stockRecommendation, MATERIAL_REQUEST_FIELDS.stockRecommendation),
+    [MATERIAL_REQUEST_FIELDS.requestReason]: toSharePointText(request.requestReason, MATERIAL_REQUEST_FIELDS.requestReason),
+    [MATERIAL_REQUEST_FIELDS.requesterJustification]: toSharePointText(request.requesterJustification, MATERIAL_REQUEST_FIELDS.requesterJustification),
+    [MATERIAL_REQUEST_FIELDS.requestStatus]: toSharePointText(request.status, MATERIAL_REQUEST_FIELDS.requestStatus),
+    [MATERIAL_REQUEST_FIELDS.laminationManagerName]: toSharePointText(request.laminationManagerName, MATERIAL_REQUEST_FIELDS.laminationManagerName),
+    [MATERIAL_REQUEST_FIELDS.laminationManagerEmail]: toSharePointText(request.laminationManagerEmail, MATERIAL_REQUEST_FIELDS.laminationManagerEmail),
+    [MATERIAL_REQUEST_FIELDS.laminationManagerJustification]: toSharePointText(request.laminationManagerJustification, MATERIAL_REQUEST_FIELDS.laminationManagerJustification),
+    [MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate]: toSharePointText(request.laminationManagerDecisionDate, MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate),
+    [MATERIAL_REQUEST_FIELDS.ctoJustification]: toSharePointText(request.ctoJustification, MATERIAL_REQUEST_FIELDS.ctoJustification),
+    [MATERIAL_REQUEST_FIELDS.ctoApproverName]: toSharePointText(request.ctoApproverName, MATERIAL_REQUEST_FIELDS.ctoApproverName),
+    [MATERIAL_REQUEST_FIELDS.ctoApproverEmail]: toSharePointText(request.ctoApproverEmail, MATERIAL_REQUEST_FIELDS.ctoApproverEmail),
+    [MATERIAL_REQUEST_FIELDS.ctoDecisionDate]: toSharePointText(request.ctoDecisionDate, MATERIAL_REQUEST_FIELDS.ctoDecisionDate)
+  });
 }
+
 
 export function mapMaterialRequestToUpdatePayload(patch: Partial<MaterialRequest>): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
 
-  const setIfDefined = (fieldName: string, value: unknown) => {
-    if (value !== undefined) payload[fieldName] = value;
-  };
-
-  setIfDefined(MATERIAL_REQUEST_FIELDS.title, patch.title);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterName, patch.requesterName);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterEmail, patch.requesterEmail);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.materialCode, patch.materialCode);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.materialDescription, patch.materialDescription);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.center, patch.center);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.title, patch.title);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.requesterName, patch.requesterName);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.requesterEmail, patch.requesterEmail);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.materialCode, patch.materialCode);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.materialDescription, patch.materialDescription);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.center, patch.center);
   if (patch.technicalData !== undefined) {
     Object.entries(MATERIAL_REQUEST_TECHNICAL_FIELDS).forEach(([key, fieldName]) => {
-      setIfDefined(fieldName, patch.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>] ?? "");
+      payload[fieldName] = toSharePointText(
+        patch.technicalData?.[key as keyof NonNullable<MaterialRequest["technicalData"]>],
+        fieldName,
+      );
     });
   }
   if (patch.requestedQuantity !== undefined) {
-    setIfDefined(MATERIAL_REQUEST_FIELDS.requestedQuantity, stringifyNumberForSharePoint(patch.requestedQuantity));
+    payload[MATERIAL_REQUEST_FIELDS.requestedQuantity] = stringifyNumberForSharePoint(patch.requestedQuantity);
   }
   if (patch.evaluatedStockTotalAtRequest !== undefined) {
-    setIfDefined(
-      MATERIAL_REQUEST_FIELDS.evaluatedStockTotal,
-      stringifyNumberForSharePoint(patch.evaluatedStockTotalAtRequest)
-    );
+    payload[MATERIAL_REQUEST_FIELDS.evaluatedStockTotal] = stringifyNumberForSharePoint(patch.evaluatedStockTotalAtRequest);
   }
-  setIfDefined(MATERIAL_REQUEST_FIELDS.stockRecommendation, patch.stockRecommendation);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.requestReason, patch.requestReason);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.requesterJustification, patch.requesterJustification);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.requestStatus, patch.status);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerName, patch.laminationManagerName);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerEmail, patch.laminationManagerEmail);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerJustification, patch.laminationManagerJustification);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate, patch.laminationManagerDecisionDate);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoJustification, patch.ctoJustification);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoApproverName, patch.ctoApproverName);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoApproverEmail, patch.ctoApproverEmail);
-  setIfDefined(MATERIAL_REQUEST_FIELDS.ctoDecisionDate, patch.ctoDecisionDate);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.stockRecommendation, patch.stockRecommendation);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.requestReason, patch.requestReason);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.requesterJustification, patch.requesterJustification);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.requestStatus, patch.status);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.laminationManagerName, patch.laminationManagerName);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.laminationManagerEmail, patch.laminationManagerEmail);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.laminationManagerJustification, patch.laminationManagerJustification);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.laminationManagerDecisionDate, patch.laminationManagerDecisionDate);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.ctoJustification, patch.ctoJustification);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.ctoApproverName, patch.ctoApproverName);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.ctoApproverEmail, patch.ctoApproverEmail);
+  setTextIfDefined(payload, MATERIAL_REQUEST_FIELDS.ctoDecisionDate, patch.ctoDecisionDate);
 
-  return payload;
+  return stripForbiddenPayloadKeys(payload);
 }

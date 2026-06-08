@@ -18,6 +18,63 @@ type ODataListResponse<T> = {
 
 type SpRecord = Record<string, unknown>;
 
+const SHAREPOINT_TEXT_ERROR_MESSAGE = "Não foi possível salvar a solicitação. Verifique os campos preenchidos e tente novamente.";
+
+const FORBIDDEN_MATERIAL_REQUEST_PAYLOAD_KEYS = new Set([
+  "attachments",
+  "attachment",
+  "selectedFiles",
+  "files",
+  "file",
+  "File",
+  "File[]",
+  "Blob",
+  "AttachmentFiles",
+  "supportFiles",
+  "anexos",
+  "anexo",
+  "attachmentFiles",
+]);
+
+function isComplexPayloadValue(value: unknown): boolean {
+  return value !== null && (Array.isArray(value) || typeof value === "object" || typeof value === "function");
+}
+
+function isDevEnvironment(): boolean {
+  return Boolean(import.meta.env?.DEV);
+}
+
+function inspectMaterialRequestPayload(payload: Record<string, unknown>, operation: "create" | "update"): void {
+  const invalidEntries = Object.entries(payload).flatMap(([key, value]) => {
+    if (FORBIDDEN_MATERIAL_REQUEST_PAYLOAD_KEYS.has(key)) return [{ key, reason: "attachment/file key" }];
+    if (value === undefined) return [{ key, reason: "undefined" }];
+    if (isComplexPayloadValue(value)) return [{ key, reason: Array.isArray(value) ? "array" : typeof value }];
+    return [];
+  });
+
+  if (invalidEntries.length === 0) return;
+
+  if (isDevEnvironment()) {
+    console.warn(`[MaterialRequests payload] Campos inválidos encontrados antes do ${operation}.`, invalidEntries);
+  }
+
+  throw new Error(SHAREPOINT_TEXT_ERROR_MESSAGE);
+}
+
+function buildMaterialRequestSaveError(error: unknown): Error {
+  const detail = error instanceof Error ? error.message : String(error);
+  const normalizedDetail = detail.toLowerCase();
+  if (normalizedDetail.includes("post 500")
+    || normalizedDetail.includes("patch(merge) 500")
+    || normalizedDetail.includes("valor inválido para texto")
+    || normalizedDetail.includes("invalid text")) {
+    if (isDevEnvironment()) console.error("[MaterialRequests payload] SharePoint recusou texto do payload.", error);
+    return new Error(SHAREPOINT_TEXT_ERROR_MESSAGE);
+  }
+
+  return error instanceof Error ? error : new Error(detail);
+}
+
 function readItems(data: ODataListResponse<SpRecord>): SpRecord[] {
   if (Array.isArray(data.value)) return data.value;
   if (Array.isArray(data.d?.results)) return data.d.results;
@@ -69,8 +126,15 @@ export async function getMaterialRequestById(id: number): Promise<MaterialReques
 
 export async function createMaterialRequest(request: MaterialRequest): Promise<MaterialRequest> {
   const digest = await getDigest();
-  const created = await spPostJson<SpRecord>(buildListItemsUrl(), mapMaterialRequestToSharePointPayload(request), digest);
-  return mapSharePointMaterialRequest(created);
+  const payload = mapMaterialRequestToSharePointPayload(request);
+  inspectMaterialRequestPayload(payload, "create");
+
+  try {
+    const created = await spPostJson<SpRecord>(buildListItemsUrl(), payload, digest);
+    return mapSharePointMaterialRequest(created);
+  } catch (error) {
+    throw buildMaterialRequestSaveError(error);
+  }
 }
 
 export async function updateMaterialRequest(id: number, patch: Partial<MaterialRequest>): Promise<MaterialRequest> {
@@ -78,7 +142,13 @@ export async function updateMaterialRequest(id: number, patch: Partial<MaterialR
   const itemUrl = `${buildListItemsUrl()}(${id})`;
 
   const payload = mapMaterialRequestToUpdatePayload(patch);
-  await spPatchJson(itemUrl, payload, digest);
+  inspectMaterialRequestPayload(payload, "update");
+
+  try {
+    await spPatchJson(itemUrl, payload, digest);
+  } catch (error) {
+    throw buildMaterialRequestSaveError(error);
+  }
 
   const updated = await spGetJson<SpRecord>(`${itemUrl}?$select=${buildSelectClause()}`);
   return mapSharePointMaterialRequest(updated);
