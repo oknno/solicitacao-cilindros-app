@@ -6,6 +6,10 @@ import type { MaterialRequestAttachment } from "../../../domain/materialRequest/
 import { Button } from "../ui/Button";
 import { StateMessage } from "../ui/StateMessage";
 import { uiTokens } from "../ui/tokens";
+import {
+  MATERIAL_REQUEST_ATTACHMENT_ACCEPT,
+  validateMaterialRequestAttachmentFile,
+} from "../../utils/materialRequestAttachmentValidation";
 import { MaterialRequestViewSection } from "./MaterialRequestViewSections";
 
 type RequestAttachmentsMode = "readonly" | "editable";
@@ -51,6 +55,14 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
   async function handleAddAttachments(fileList: FileList | null) {
     const files = Array.from(fileList ?? []);
     if (files.length === 0 || !requestId || !canEdit) return;
+    const validationError = files
+      .map((file) => validateMaterialRequestAttachmentFile(file))
+      .find((message): message is string => Boolean(message));
+    if (validationError) {
+      setMutationError(validationError);
+      return;
+    }
+
     setMutation("adding");
     setMutationError("");
     try {
@@ -82,7 +94,7 @@ export function RequestAttachmentsSection({ requestId, accessProfile, mode, requ
       {canEdit ? (
         <label style={{ display: "flex", alignItems: "center", gap: uiTokens.spacing.sm }}>
           <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textStrong }}>Adicionar anexo</span>
-          <input type="file" accept=".pdf,.xlsx,.xls" multiple disabled={mutation !== "idle"} onChange={(event) => { void handleAddAttachments(event.target.files); event.target.value = ""; }} />
+          <input type="file" accept={MATERIAL_REQUEST_ATTACHMENT_ACCEPT} multiple disabled={mutation !== "idle"} onChange={(event) => { void handleAddAttachments(event.target.files); event.target.value = ""; }} />
         </label>
       ) : null}
 
