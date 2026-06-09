@@ -20,13 +20,16 @@ import { useToast } from "../../components/notifications/useToast";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { uiTokens } from "../../components/ui/tokens";
+import {
+  MATERIAL_REQUEST_ATTACHMENT_ACCEPT,
+  validateMaterialRequestAttachmentFile,
+} from "../../utils/materialRequestAttachmentValidation";
 import { wizardLayoutStyles } from "../ProjectsPage/components/wizard/wizardLayoutStyles";
 
 const MANUAL_NOT_FOUND_OPTION = "__NOT_FOUND__";
 const MANUAL_NOT_FOUND_LABEL = "Não encontrei material";
 const MAX_REASON_LENGTH = 1000;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".xlsx", ".xls"];
 
 function normalizeMaterialKey(value: string | number | null | undefined): string {
   return String(value ?? "").trim().toUpperCase();
@@ -263,11 +266,7 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
   }
 
   function validateAttachmentFile(file: File): string | null {
-    const lowerName = file.name.toLowerCase();
-    const validExtension = ALLOWED_ATTACHMENT_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
-    if (!validExtension) return `Formato inválido em “${file.name}”. Anexe arquivos PDF ou Excel.`;
-    if (file.size > MAX_FILE_SIZE_BYTES) return `O arquivo “${file.name}” deve ter no máximo 10 MB.`;
-    return null;
+    return validateMaterialRequestAttachmentFile(file, { maxFileSizeBytes: MAX_FILE_SIZE_BYTES });
   }
 
   function handleAttachmentChange(fileList: FileList | null) {
@@ -353,9 +352,9 @@ export function MaterialRequestFormPage({ accessProfile, onBack, onCreated, inMo
     >
       <Field label="Anexo de apoio">
         <label style={{ display: "grid", gap: uiTokens.spacing.xs, justifyItems: "center", textAlign: "center", border: `1px dashed ${uiTokens.colors.borderStrong}`, borderRadius: uiTokens.radius.md, padding: `${uiTokens.spacing.md}px ${uiTokens.spacing.lg}px`, background: uiTokens.colors.surfaceMuted, cursor: "pointer" }}>
-          <input type="file" accept=".pdf,.xlsx,.xls" multiple onChange={(e) => { handleAttachmentChange(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
+          <input type="file" accept={MATERIAL_REQUEST_ATTACHMENT_ACCEPT} multiple onChange={(e) => { handleAttachmentChange(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
           <span style={{ fontSize: uiTokens.typography.md, color: uiTokens.colors.textStrong }}>Arraste aqui o arquivo</span>
-          <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar um ou mais arquivos (PDF ou Excel)</span>
+          <span style={{ fontSize: uiTokens.typography.sm, color: uiTokens.colors.textMuted }}>ou clique para selecionar um ou mais arquivos (PDF, Excel ou TIF/TIFF)</span>
         </label>
       </Field>
       {selectedAttachmentFiles.length > 0 ? (
