@@ -3,6 +3,13 @@ import { normalizeMaterialRequestStatus } from "../../../domain/materialRequest/
 import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 
+export interface MaterialRequestSharePointItem extends Record<string, unknown> {
+  Id?: number | string;
+  Title?: string;
+  Created?: string;
+  Modified?: string;
+}
+
 type SpRecord = Record<string, unknown>;
 
 const COMPLEX_TEXT_VALUE_MESSAGE = "Valor complexo removido do payload de texto da MaterialRequests.";
@@ -130,7 +137,7 @@ function optionalString(value: string): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-export function mapSharePointMaterialRequest(item: unknown): MaterialRequest {
+export function mapSharePointMaterialRequest(item: MaterialRequestSharePointItem | unknown): MaterialRequest {
   const source = asRecord(item);
 
   return {
