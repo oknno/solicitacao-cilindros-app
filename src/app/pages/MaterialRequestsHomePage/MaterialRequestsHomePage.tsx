@@ -28,6 +28,7 @@ import { deleteMaterialRequestUseCase } from "../../../application/materialReque
 const DEFAULT_FILTERS: ProjectsFilters = { searchTitle: "", status: "", unit: "", requesterName: "", sortBy: "Title", sortDir: "asc" };
 const DEFAULT_MATERIAL_FILTERS: MaterialRequestFilters = { center: "", material: "", requester: "", status: "", sort: undefined };
 const MATERIAL_FILTER_BUTTON_ID = "material-requests-filter-button";
+const PAGE_SIZE = 15;
 
 type ApprovalModalState = {
   request: MaterialRequest;
@@ -53,6 +54,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
   const [managerialExporting, setManagerialExporting] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
   const { accessProfile } = props;
@@ -64,6 +66,9 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     selectedCenter: selectedRequest?.center,
   }), [accessProfile, selectedRequest]);
   const filteredItems = useMemo(() => applyMaterialRequestFilters(items, appliedFilters), [items, appliedFilters]);
+  const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
+  const visibleItemsCount = visibleItems.length;
+  const hasMoreItems = visibleItemsCount < filteredItems.length;
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
   const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => normalizeCenter(item.center)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" })), [items]);
   const isInitialLoading = state === "loading" && items.length === 0;
@@ -75,6 +80,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     try {
       const result = await getMaterialRequestsUseCase(accessProfile);
       setItems(result);
+      setVisibleCount(PAGE_SIZE);
       setSelectedId((current) => (result.some((item) => item.id === current) ? current : (result[0]?.id ?? null)));
       setState("idle");
     } catch (caughtError) {
@@ -226,14 +232,21 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
   }
 
   function applyFilters() {
+    setVisibleCount(PAGE_SIZE);
     setAppliedFilters(draftFilters);
     setFilterModalOpen(false);
   }
 
   function clearFilters() {
+    setVisibleCount(PAGE_SIZE);
     setDraftFilters(DEFAULT_MATERIAL_FILTERS);
     setAppliedFilters(DEFAULT_MATERIAL_FILTERS);
     setFilterModalOpen(false);
+  }
+
+  function handleLoadMore() {
+    if (!hasMoreItems) return;
+    setVisibleCount((current) => current + PAGE_SIZE);
   }
 
   function closeFilters() {
@@ -315,11 +328,11 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       <Card style={sharedPageStyles.listCard}>
         {isInitialLoading ? <p>Carregando solicitações...</p> : <>
           {error ? <p>{error}</p> : null}
-          <MaterialRequestsTable items={filteredItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />
+          <MaterialRequestsTable items={visibleItems} selectedId={selectedId} onSelect={(item) => setSelectedId(item.id ?? null)} emptyMessage={hasActiveFilters ? "Nenhuma solicitação encontrada para os filtros aplicados." : undefined} />
         </>}
         <div style={sharedPageStyles.footerRow}>
-          <div style={sharedPageStyles.helperText}>Itens carregados: <b>{filteredItems.length}</b></div>
-          <Button disabled>{state === "loading" ? "Carregando..." : "Fim"}</Button>
+          <div style={sharedPageStyles.helperText}>Exibindo <b>{visibleItemsCount}</b> de <b>{filteredItems.length}</b> itens</div>
+          <Button onClick={handleLoadMore} disabled={state === "loading" || !hasMoreItems}>{state === "loading" ? "Carregando..." : hasMoreItems ? "Carregar mais" : "Fim"}</Button>
         </div>
       </Card>
       <Card style={{ overflow: "hidden", minHeight: 0, padding: uiTokens.spacing.md, display: "flex", flexDirection: "column" }}>
