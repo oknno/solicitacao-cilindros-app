@@ -43,6 +43,40 @@ test("mapSharePointMaterialRequest retorna null para EvaluatedStockTotal vazio",
   assert.equal(mapped.evaluatedStockTotalAtRequest, null);
 });
 
+test("mapSharePointMaterialRequest mapeia Created nativo para createdAt", () => {
+  const mapped = mapSharePointMaterialRequest({
+    Id: 3,
+    Created: "2026-06-11T14:35:00Z",
+    RequestStatus: "DRAFT",
+  });
+
+  assert.equal(mapped.createdAt, "2026-06-11T14:35:00Z");
+});
+
+test("payloads de create e update não enviam Created", () => {
+  const createPayload = mapMaterialRequestToSharePointPayload({
+    requesterName: "Ana",
+    materialCode: "MAT-003",
+    materialDescription: "Material 3",
+    center: "C300",
+    requestedQuantity: 12,
+    evaluatedStockTotalAtRequest: 30.75,
+    stockRecommendation: "PURCHASE_RECOMMENDED",
+    requestReason: "Projeto",
+    status: "DRAFT",
+    createdAt: "2026-06-11T14:35:00Z",
+  });
+  const updatePayload = mapMaterialRequestToUpdatePayload({
+    status: "PENDING_CTO_APPROVAL",
+    createdAt: "2026-06-11T14:35:00Z",
+  });
+
+  assert.equal("Created" in createPayload, false);
+  assert.equal("createdAt" in createPayload, false);
+  assert.equal("Created" in updatePayload, false);
+  assert.equal("createdAt" in updatePayload, false);
+});
+
 test("mapMaterialRequestToSharePointPayload converte números para texto e preserva status técnicos", () => {
   const payload = mapMaterialRequestToSharePointPayload({
     requesterName: "Ana",

@@ -40,8 +40,8 @@ export function formatNumber(value?: number | null): string {
   return Number(value).toLocaleString("pt-BR");
 }
 
-export function formatDateTime(value?: string): string {
-  if (!value) return "-";
+export function formatDateTime(value?: string | null): string {
+  if (typeof value !== "string" || !value.trim()) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("pt-BR", {

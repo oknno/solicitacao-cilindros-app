@@ -2,7 +2,8 @@ import type { MaterialRequest, MaterialRequestAttachment } from "../../../domain
 import {
   mapMaterialRequestToSharePointPayload,
   mapMaterialRequestToUpdatePayload,
-  mapSharePointMaterialRequest
+  mapSharePointMaterialRequest,
+  type MaterialRequestSharePointItem
 } from "../mappers/materialRequestMapper";
 import { MATERIAL_REQUEST_FIELDS, MATERIAL_REQUEST_TECHNICAL_FIELDS } from "../sharepointFields";
 import { SHAREPOINT_LISTS } from "../sharepointLists";
@@ -17,6 +18,8 @@ type ODataListResponse<T> = {
 };
 
 type SpRecord = Record<string, unknown>;
+
+const MATERIAL_REQUEST_SYSTEM_SELECT_FIELDS = ["Id", "Created", "Modified"] as const;
 
 const SHAREPOINT_TEXT_ERROR_MESSAGE = "Não foi possível salvar a solicitação. Verifique os campos preenchidos e tente novamente.";
 
@@ -103,12 +106,16 @@ function buildListItemsUrl(): string {
 }
 
 function buildSelectClause(): string {
-  return ["Id", ...Object.values(MATERIAL_REQUEST_FIELDS), ...Object.values(MATERIAL_REQUEST_TECHNICAL_FIELDS)].join(",");
+  return [
+    ...MATERIAL_REQUEST_SYSTEM_SELECT_FIELDS,
+    ...Object.values(MATERIAL_REQUEST_FIELDS),
+    ...Object.values(MATERIAL_REQUEST_TECHNICAL_FIELDS),
+  ].join(",");
 }
 
 export async function getMaterialRequests(): Promise<MaterialRequest[]> {
   const url = `${buildListItemsUrl()}?$select=${buildSelectClause()}&$orderby=Id desc&$top=5000`;
-  const items = await getAllPagedItems(url);
+  const items = await getAllPagedItems(url) as MaterialRequestSharePointItem[];
   return items.map(mapSharePointMaterialRequest);
 }
 
@@ -116,7 +123,7 @@ export async function getMaterialRequestById(id: number): Promise<MaterialReques
   const url = `${buildListItemsUrl()}(${id})?$select=${buildSelectClause()}`;
 
   try {
-    const data = await spGetJson<SpRecord>(url);
+    const data = await spGetJson<MaterialRequestSharePointItem>(url);
     return mapSharePointMaterialRequest(data);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("GET 404")) return null;
@@ -130,7 +137,7 @@ export async function createMaterialRequest(request: MaterialRequest): Promise<M
   inspectMaterialRequestPayload(payload, "create");
 
   try {
-    const created = await spPostJson<SpRecord>(buildListItemsUrl(), payload, digest);
+    const created = await spPostJson<MaterialRequestSharePointItem>(buildListItemsUrl(), payload, digest);
     return mapSharePointMaterialRequest(created);
   } catch (error) {
     throw buildMaterialRequestSaveError(error);
@@ -150,7 +157,7 @@ export async function updateMaterialRequest(id: number, patch: Partial<MaterialR
     throw buildMaterialRequestSaveError(error);
   }
 
-  const updated = await spGetJson<SpRecord>(`${itemUrl}?$select=${buildSelectClause()}`);
+  const updated = await spGetJson<MaterialRequestSharePointItem>(`${itemUrl}?$select=${buildSelectClause()}`);
   return mapSharePointMaterialRequest(updated);
 }
 
