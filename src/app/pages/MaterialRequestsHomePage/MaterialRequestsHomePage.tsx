@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMaterialRequestForApprovalUseCase } from "../../../application/materialRequest";
+import { canExportManagerialMaterialRequests, exportManagerialMaterialRequestsUseCase, exportMaterialRequestsUseCase, getMaterialRequestsUseCase, submitMaterialRequestForApprovalUseCase } from "../../../application/materialRequest";
 import type { MaterialRequest } from "../../../domain/materialRequest/types";
 import { normalizeCenter } from "../../../domain/materialRequest/normalizeCenter";
 import type { ApproverRole } from "../../../domain/materialRequest/status";
@@ -52,6 +52,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
   const [returnStatusRequest, setReturnStatusRequest] = useState<MaterialRequest | null>(null);
   const [approvalModalState, setApprovalModalState] = useState<ApprovalModalState | null>(null);
   const [stockImportOpen, setStockImportOpen] = useState(false);
+  const [managerialExporting, setManagerialExporting] = useState(false);
 
   const selectedRequest = useMemo(() => items.find((item) => item.id === selectedId) ?? null, [items, selectedId]);
   const { accessProfile } = props;
@@ -66,6 +67,7 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
   const hasActiveFilters = useMemo(() => hasActiveMaterialRequestFilters(appliedFilters), [appliedFilters]);
   const centerOptions = useMemo(() => Array.from(new Set(items.map((item) => normalizeCenter(item.center)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" })), [items]);
   const isInitialLoading = state === "loading" && items.length === 0;
+  const canExportManagerialReport = canExportManagerialMaterialRequests(accessProfile);
 
   const loadRequests = useCallback(async () => {
     setState("loading");
@@ -101,6 +103,32 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
     exportMaterialRequestsUseCase(filteredItems);
     notify(`Exportação gerada com ${filteredItems.length} solicitações.`, "success");
   }, [accessProfile.permissions.canExport, filteredItems, notify]);
+
+  const handleExportManagerialReport = useCallback(async () => {
+    if (!canExportManagerialMaterialRequests(accessProfile)) {
+      notify("Você não possui permissão para exportar o relatório gerencial.", "info");
+      return;
+    }
+
+    if (!filteredItems.length) {
+      notify("Nenhuma solicitação disponível para exportação com os filtros atuais.", "info");
+      return;
+    }
+
+    setManagerialExporting(true);
+    notify("Gerando relatório gerencial...", "info");
+    try {
+      await exportManagerialMaterialRequestsUseCase({ accessProfile, requests: filteredItems });
+      notify(`Relatório gerencial gerado com ${filteredItems.length} solicitações.`, "success");
+    } catch (caughtError) {
+      console.error(caughtError);
+      notify(caughtError instanceof Error && caughtError.message === "Nenhuma solicitação disponível para exportação com os filtros atuais."
+        ? caughtError.message
+        : "Não foi possível gerar o relatório gerencial. Tente novamente.", "error");
+    } finally {
+      setManagerialExporting(false);
+    }
+  }, [accessProfile, filteredItems, notify]);
 
   function getApproverRoleFromStatus(request: MaterialRequest): ApproverRole | null {
     if (request.status === "PENDING_LAMINATION_MANAGER_APPROVAL") return "LAMINATION_MANAGER";
@@ -267,6 +295,9 @@ export function MaterialRequestsHomePage(props: { accessProfile: UserAccessProfi
       showFilterButton={commandPermissions.canShowFilter}
       showExportButton={commandPermissions.canShowExport}
       onExportTable={handleExportRequests}
+      onExportReport={() => { void handleExportManagerialReport(); }}
+      canExportReport={canExportManagerialReport}
+      exportReportLoading={managerialExporting}
       availableUnits={[]}
       navigationAction={{
         label: "Abrir Dashboard",

@@ -1,4 +1,4 @@
-import type { MaterialRequest, StockMaterial } from "../../domain/materialRequest";
+import { calculateMaterialRequestStockImpact, type MaterialRequest, type StockMaterial } from "../../domain/materialRequest";
 import { findStockMaterialByCenterAndCode } from "../../services/sharepoint/repositories/stockMaterialRepository";
 
 export interface MaterialRequestStockAnalysisMetrics {
@@ -16,10 +16,6 @@ export interface MaterialRequestStockAnalysisOutput {
   analysis: MaterialRequestStockAnalysisMetrics | null;
 }
 
-function asNumber(value: number | null | undefined): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
 function normalizeRequestedQuantity(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -29,19 +25,15 @@ function shouldSkipStockLookup(request: MaterialRequest): boolean {
 }
 
 function buildAnalysis(stockMaterial: StockMaterial, requestedQuantity: number | null): MaterialRequestStockAnalysisMetrics {
-  const evaluatedStock = asNumber(stockMaterial.evaluatedStockTotal);
-  const averageAnnualConsumption = asNumber(stockMaterial.averageAnnualConsumption);
-  const projectedStockAfterRequest = requestedQuantity === null ? null : evaluatedStock + requestedQuantity;
-  const requestedPercentOnStock = evaluatedStock > 0 && requestedQuantity !== null ? (requestedQuantity / evaluatedStock) * 100 : null;
-  const coverageYears = averageAnnualConsumption > 0 ? evaluatedStock / averageAnnualConsumption : null;
+  const impact = calculateMaterialRequestStockImpact(stockMaterial, requestedQuantity);
 
   return {
-    evaluatedStock,
+    evaluatedStock: impact.currentStock,
     requestedQuantity,
-    projectedStockAfterRequest,
-    requestedPercentOnStock,
-    averageAnnualConsumption,
-    coverageYears,
+    projectedStockAfterRequest: requestedQuantity === null ? null : impact.projectedStock,
+    requestedPercentOnStock: impact.percentageIncrease === null ? null : impact.percentageIncrease * 100,
+    averageAnnualConsumption: impact.averageAnnualConsumption,
+    coverageYears: impact.currentCoverageYears,
   };
 }
 
