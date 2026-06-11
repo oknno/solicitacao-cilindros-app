@@ -191,6 +191,9 @@ export function CommandBar(props: {
   filterButtonId?: string;
 
   onExportTable: () => void;
+  onExportReport?: () => void;
+  canExportReport?: boolean;
+  exportReportLoading?: boolean;
   availableUnits?: string[];
   title?: string;
   navigationAction?: {
@@ -283,6 +286,9 @@ export function CommandBar(props: {
 
         {showExportButton && <ExportMenu
           onExportTable={props.onExportTable}
+          onExportReport={props.onExportReport}
+          canExportReport={props.canExportReport}
+          exportReportLoading={props.exportReportLoading}
         />}
 
         {props.navigationAction ? (
@@ -302,6 +308,9 @@ export function CommandBar(props: {
 
 function ExportMenu(props: {
   onExportTable: () => void;
+  onExportReport?: () => void;
+  canExportReport?: boolean;
+  exportReportLoading?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -324,6 +333,12 @@ function ExportMenu(props: {
     setOpen(false);
   }
 
+  function onClickReport() {
+    if (!props.onExportReport || !props.canExportReport || props.exportReportLoading) return;
+    props.onExportReport();
+    setOpen(false);
+  }
+
   return (
     <div ref={rootRef} style={styles.filterRoot}>
       <Button onClick={() => setOpen((prev) => !prev)}>Exportar</Button>
@@ -331,6 +346,11 @@ function ExportMenu(props: {
         <div style={{ ...styles.popover, width: 220, padding: uiTokens.spacing.sm }}>
           <div style={{ display: "grid", gap: uiTokens.spacing.xs }}>
             <Button onClick={onClickTable}>Exportar tabela</Button>
+            {props.canExportReport && props.onExportReport ? (
+              <Button onClick={onClickReport} disabled={props.exportReportLoading}>
+                {props.exportReportLoading ? "Gerando relatório..." : "Exportar relatório"}
+              </Button>
+            ) : null}
           </div>
         </div>
       )}
